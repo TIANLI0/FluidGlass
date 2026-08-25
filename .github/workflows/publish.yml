@@ -1,0 +1,57 @@
+name: Publish to pub.dev
+
+# Pushing a tag like v0.1.0 publishes that version. The tag must match the
+# version in pubspec.yaml, and pub.dev must be told to trust this repository
+# (Admin -> Automated publishing, tag pattern v{{version}}).
+on:
+  push:
+    tags:
+      - 'v[0-9]+.[0-9]+.[0-9]+*'
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+
+    # Authentication is an OIDC token minted by GitHub and exchanged by pub for
+    # a short-lived upload credential, so no pub.dev token is stored here.
+    permissions:
+      id-token: write
+
+    # pub.dev can be configured to require this environment, which is where
+    # branch/tag protection rules for publishing would go.
+    environment: pub.dev
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+
+      - name: Check the tag matches pubspec.yaml
+        run: |
+          tag="${GITHUB_REF_NAME#v}"
+          pubspec="$(grep -m1 '^version:' pubspec.yaml | cut -d' ' -f2 | tr -d '\r')"
+          if [ "$tag" != "$pubspec" ]; then
+            echo "tag $GITHUB_REF_NAME does not match pubspec version $pubspec" >&2
+            exit 1
+          fi
+
+      - run: flutter pub get
+
+      - run: dart analyze --fatal-infos lib test
+
+      - run: flutter test
+
+      # The example ships inside the published archive, so it is gated too.
+      - run: flutter pub get
+        working-directory: example
+
+      - run: dart analyze --fatal-infos lib test
+        working-directory: example
+
+      - run: flutter test
+        working-directory: example
+
+      - name: Publish
+        run: flutter pub publish --force
