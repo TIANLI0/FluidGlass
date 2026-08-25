@@ -10,6 +10,21 @@ original AGSL and Kotlin sources unchanged, so a given set of parameters
 produces the same picture on both platforms. See
 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) for the file-by-file mapping.
 
+## The demo
+
+Captured on a 1440x3168 device. `example/` is the Backdrop Catalog, all fourteen
+screens: buttons, toggle, slider, bottom tabs, dialog, lock screen (SDF
+texture), control centre, magnifier, glass playground, adaptive-luminance
+glass, progressive blur and the two scroll containers.
+
+| Buttons | Slider | Bottom tabs |
+| --- | --- | --- |
+| ![Buttons](doc/screenshots/buttons.webp) | ![Slider](doc/screenshots/slider.webp) | ![Bottom tabs](doc/screenshots/bottom_tabs.webp) |
+
+| Lock screen | Control centre | Magnifier |
+| --- | --- | --- |
+| ![Lock screen](doc/screenshots/lock_screen.webp) | ![Control centre](doc/screenshots/control_center.webp) | ![Magnifier](doc/screenshots/magnifier.webp) |
+
 ## Requirements
 
 The refraction and highlight effects run on fragment shaders through
@@ -135,12 +150,7 @@ drawing, so glass nested inside it can refract the glass around it.
 `style: RoundedCornerStyle.circular` for plain circular ones. `GlassShapeClipper`
 and `GlassShapeBorder` adapt them to `ClipPath` and `ShapeDecoration`.
 
-## Demo
-
-`example/` is a port of the Backdrop Catalog, all fourteen screens: buttons,
-toggle, slider, bottom tabs, dialog, lock screen (SDF texture), control centre,
-magnifier, glass playground, adaptive-luminance glass, progressive blur and the
-two scroll containers.
+## Running the demo
 
 ```sh
 cd example
@@ -148,7 +158,8 @@ flutter run
 ```
 
 Setting `FLUID_GLASS_SHOT=<dir>` renders every screen to a PNG and exits, which
-is how the screens were checked against the originals.
+is how the screens were checked against the originals;
+`FLUID_GLASS_SHOT_SCALE` sets the pixel ratio they are rendered at.
 
 ## Implementation notes
 

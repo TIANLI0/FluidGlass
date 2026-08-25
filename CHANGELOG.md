@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.1.1
+
+- Fixed the demo's bottom navigation bar being visibly sliced at either end
+  while dragging. Flutter's `Stack` clips as soon as a positioned child
+  overflows, and the selection pill's position lands on the panel's bounds
+  exactly at both ends, so rounding decided whether the clip engaged -- and
+  when it did it sheared the panel's rounded cap into a straight edge. Every
+  `Stack` that stands in for an unclipped Compose `Box` now sets
+  `clipBehavior: Clip.none`.
+- Added screenshots to the package and the README.
+- The capture harness takes `FLUID_GLASS_SHOT_SCALE` for the pixel ratio it
+  renders at.
+
 ## 0.1.0
 
 First release. A port of
