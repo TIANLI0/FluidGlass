@@ -1,0 +1,30 @@
+name: fluid_glass_example
+description: "Backdrop Catalog - the FluidGlass demo app."
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.9.0
+
+dependencies:
+  flutter:
+    sdk: flutter
+  fluid_glass:
+    path: ../
+  file_selector: ^1.0.3
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+
+flutter:
+  uses-material-design: true
+
+  assets:
+    - assets/
+
+  shaders:
+    - shaders/interactive_highlight.frag
+    - shaders/sdf.frag
+    - shaders/progressive_blur.frag

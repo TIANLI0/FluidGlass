@@ -1,0 +1,24 @@
+FluidGlass
+Copyright 2026 Tianli
+
+This product includes software developed by Kyant
+(https://github.com/Kyant0).
+
+Portions of this software are derived from:
+
+  AndroidLiquidGlass ("backdrop")
+  https://github.com/Kyant0/AndroidLiquidGlass
+  Copyright 2025 Kyant
+  Licensed under the Apache License, Version 2.0
+
+  Shapes
+  https://github.com/Kyant0/Shapes
+  Copyright 2025 Kyant
+  Licensed under the Apache License, Version 2.0
+
+Those sources were translated from Kotlin/Compose to Dart/Flutter and modified
+to suit Flutter's rendering pipeline. THIRD_PARTY_NOTICES.md lists which files
+derive from which originals and what had to change.
+
+The wallpaper and signed-distance-field images under example/assets are taken
+unmodified from AndroidLiquidGlass.
