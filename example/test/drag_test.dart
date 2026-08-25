@@ -4,6 +4,7 @@ import 'package:fluid_glass_example/catalog/components/liquid_button.dart';
 import 'package:fluid_glass_example/catalog/utils/damped_drag_animation.dart';
 import 'package:fluid_glass_example/catalog/utils/spring.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -126,6 +127,84 @@ void main() {
     await tester.pump(const Duration(seconds: 1));
 
     expect(selected, greaterThan(0), reason: 'dragging the pill must change tabs');
+  });
+
+  testWidgets('the bottom-tabs bar is never clipped at either end',
+      (WidgetTester tester) async {
+    // The panel is offset by up to 4dp of give once dragged, and the pill
+    // carries a shadow and grows to 1.39x while pressed, so both paint outside
+    // their boxes. A Stack clips as soon as a positioned child overflows, and
+    // the pill's `left` lands on the panel's bounds exactly at either end, so
+    // rounding alone decided whether the clip engaged and sheared the panel's
+    // rounded cap off. Compose's Box does not clip.
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: Center(
+            child: SizedBox(
+              width: 288,
+              child: StatefulBuilder(
+                builder: (BuildContext context, StateSetter setState) {
+                  int selected = 0;
+                  return LiquidBottomTabs(
+                    selectedTabIndex: selected,
+                    onTabSelected: (int index) => setState(() => selected = index),
+                    backdrop: emptyBackdrop,
+                    tabsCount: 3,
+                    children: <Widget>[
+                      for (int i = 0; i < 3; i++)
+                        LiquidBottomTab(
+                          onPressed: () {},
+                          children: <Widget>[Text('Tab ${i + 1}')],
+                        ),
+                    ],
+                  );
+                },
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    final RenderStack stack = tester.renderObject<RenderStack>(
+      find.descendant(
+        of: find.byType(LiquidBottomTabs),
+        matching: find.byType(Stack),
+      ),
+    );
+
+    void expectNoClip(String state) {
+      expect(stack.clipBehavior, Clip.none, reason: 'the bar must not clip ($state)');
+      RenderBox? child = stack.firstChild;
+      while (child != null) {
+        expect(stack.describeApproximatePaintClip(child), isNull,
+            reason: 'no child may be clipped ($state)');
+        child = (child.parentData! as StackParentData).nextSibling;
+      }
+    }
+
+    expectNoClip('at rest');
+
+    final Offset centre = tester.getCenter(find.byType(LiquidBottomTabs));
+    for (final double direction in <double>[1, -1]) {
+      final TestGesture gesture = await tester.startGesture(
+        centre - Offset(direction * 96, 0),
+      );
+      for (int i = 0; i < 16; i++) {
+        await gesture.moveBy(Offset(direction * 24, 0));
+        await tester.pump(const Duration(milliseconds: 16));
+      }
+      // Held at the end, where the panel's give is fully wound up.
+      for (int i = 0; i < 6; i++) {
+        await gesture.moveBy(Offset.zero);
+        await tester.pump(const Duration(milliseconds: 16));
+      }
+      expectNoClip(direction > 0 ? 'held at the right end' : 'held at the left end');
+      await gesture.up();
+      await tester.pump(const Duration(seconds: 1));
+    }
   });
 
   testWidgets('a LiquidButton still reports taps through its press handling',

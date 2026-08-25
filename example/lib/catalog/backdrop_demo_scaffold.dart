@@ -58,6 +58,9 @@ class _BackdropDemoScaffoldState extends State<BackdropDemoScaffold> {
 
     return Stack(
       alignment: Alignment.center,
+      // Compose's Box does not clip its children; Flutter's Stack does by
+      // default, and the glass elements inside paint outside their boxes.
+      clipBehavior: Clip.none,
       children: <Widget>[
         Positioned.fill(child: BackdropLayer(backdrop: _backdrop, child: wallpaper)),
         ...widget.builder(context, _backdrop),

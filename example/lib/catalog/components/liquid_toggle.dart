@@ -137,6 +137,9 @@ class _LiquidToggleState extends State<LiquidToggle> with TickerProviderStateMix
 
     return Stack(
       alignment: isLtr ? Alignment.centerLeft : Alignment.centerRight,
+      // Compose's Box does not clip: the knob grows past the track while
+      // pressed and carries a shadow.
+      clipBehavior: Clip.none,
       children: <Widget>[
         BackdropLayer(
           backdrop: _trackBackdrop,

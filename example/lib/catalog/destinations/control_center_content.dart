@@ -204,6 +204,7 @@ class _ControlCenterContentState extends State<ControlCenterContent>
             }
             return Stack(
               fit: StackFit.expand,
+              clipBehavior: Clip.none,
               children: <Widget>[
                 content,
                 ColoredBox(color: _dimColor.withValues(alpha: 0.4 * progress)),
@@ -237,6 +238,7 @@ class _ControlCenterContentState extends State<ControlCenterContent>
                         child: Padding(
                           padding: const EdgeInsets.all(_itemSpacing),
                           child: Stack(
+                            clipBehavior: Clip.none,
                             children: <Widget>[
                               Align(
                                 alignment: Alignment.topLeft,

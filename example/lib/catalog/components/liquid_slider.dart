@@ -148,11 +148,15 @@ class _LiquidSliderState extends State<LiquidSlider> with TickerProviderStateMix
           height: _thumbHeight,
           child: Stack(
             alignment: isLtr ? Alignment.centerLeft : Alignment.centerRight,
+            // Compose's Box does not clip: the thumb grows past the track
+            // while pressed and carries a shadow.
+            clipBehavior: Clip.none,
             children: <Widget>[
               BackdropLayer(
                 backdrop: _trackBackdrop,
                 child: Stack(
                   alignment: isLtr ? Alignment.centerLeft : Alignment.centerRight,
+                  clipBehavior: Clip.none,
                   children: <Widget>[
                     GestureDetector(
                       onTapUp: (TapUpDetails details) =>

@@ -16,6 +16,11 @@ import 'catalog/utils/demo_shaders.dart';
 /// `--dart-define` on mobile — to render every screen to a PNG and exit. This is
 /// the harness used to check every screen against reference screenshots.
 const String _shotDefine = String.fromEnvironment('FLUID_GLASS_SHOT');
+
+/// The pixel ratio the screens are rendered at. 1.0 keeps a capture directly
+/// comparable to a reference screenshot; raise it for presentable images.
+final double _shotScale =
+    double.tryParse(const String.fromEnvironment('FLUID_GLASS_SHOT_SCALE')) ?? 1.0;
 final String? _shotDir = _shotDefine.isNotEmpty
     ? _shotDefine
     : Platform.environment['FLUID_GLASS_SHOT'];
@@ -135,7 +140,7 @@ Future<void> _shoot(String name) async {
   final RenderRepaintBoundary? boundary =
       _captureKey.currentContext?.findRenderObject() as RenderRepaintBoundary?;
   if (boundary == null) return;
-  final ui.Image image = await boundary.toImage(pixelRatio: 1.0);
+  final ui.Image image = await boundary.toImage(pixelRatio: _shotScale);
   final ByteData? png = await image.toByteData(format: ui.ImageByteFormat.png);
   image.dispose();
   if (png == null) return;
