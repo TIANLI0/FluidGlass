@@ -243,6 +243,13 @@ class _LiquidBottomTabsState extends State<LiquidBottomTabs>
 
               return Stack(
                 alignment: isLtr ? Alignment.centerLeft : Alignment.centerRight,
+                // The pill paints outside the panel by design: it carries a
+                // drop shadow and grows to 1.39x while pressed. A Stack clips
+                // as soon as a positioned child overflows, and the pill's
+                // `left` lands exactly on 0 at the first tab and exactly on the
+                // panel width at the last, so rounding alone decided whether
+                // the clip engaged and sheared the corners off at either end.
+                clipBehavior: Clip.none,
                 children: <Widget>[
                   // The panel itself.
                   Transform.translate(
@@ -341,10 +348,9 @@ class _LiquidBottomTabsState extends State<LiquidBottomTabs>
                   // The selection pill.
                   //
                   // Positioned rather than painted through a transform:
-                  // Flutter checks every ancestor's bounds before descending
-                  // into it, so a pill drawn outside its parent stops receiving
-                  // touches as soon as it leaves the first tab. Compose does
-                  // bounds-checks every ancestor before descending into it.
+                  // Flutter bounds-checks every ancestor before descending into
+                  // it during hit-testing, so a pill drawn outside its parent
+                  // stops receiving touches as soon as it leaves the first tab.
                   Positioned(
                     left: isLtr
                         ? 4 + _animation.value * _tabWidth + panelOffset
