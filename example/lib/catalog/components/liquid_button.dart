@@ -99,14 +99,15 @@ class _LiquidButtonState extends State<LiquidButton>
     );
 
     if (widget.isInteractive) {
+      // The tap is reported by the same slop-free inspector that drives the
+      // press highlight, so pushing the glass around under a finger and then
+      // releasing still counts as a press, as it does in Compose. A
+      // GestureDetector would enter the arena and self-reject past kTouchSlop.
       content = _interactiveHighlight.wrapOverlay(
-        child: _interactiveHighlight.wrapGestures(child: content),
-      );
-      // The tap target is the whole capsule, not just the text.
-      content = GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onTap: widget.onPressed,
-        child: content,
+        child: _interactiveHighlight.wrapGestures(
+          child: content,
+          onTap: widget.onPressed,
+        ),
       );
     } else {
       content = Material(
@@ -115,13 +116,19 @@ class _LiquidButtonState extends State<LiquidButton>
       );
     }
 
+    // Filtering an empty backdrop produces nothing but still costs the filter
+    // save-layers; the Back button on every catalog screen sits on one.
+    final bool refractsNothing = identical(widget.backdrop, emptyBackdrop);
+
     return DrawBackdrop(
       backdrop: widget.backdrop,
       shape: () => const Capsule(),
-      effects: (BackdropEffectScope scope) => scope
-        ..vibrancy()
-        ..blur(2)
-        ..lens(12, 24),
+      effects: refractsNothing
+          ? (BackdropEffectScope scope) {}
+          : (BackdropEffectScope scope) => scope
+            ..vibrancy()
+            ..blur(2)
+            ..lens(12, 24),
       layerBlock: widget.isInteractive ? _layerBlock : null,
       onDrawSurface: _drawSurface,
       repaint: _interactiveHighlight,

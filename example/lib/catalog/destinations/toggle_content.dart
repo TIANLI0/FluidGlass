@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 
 import '../backdrop_demo_scaffold.dart';
 import '../components/liquid_toggle.dart';
+import '../utils/flat_backdrop.dart';
 
 class ToggleContent extends StatefulWidget {
   const ToggleContent({super.key});
@@ -49,12 +50,7 @@ class _ToggleContentState extends State<ToggleContent> {
                       selected: _selected,
                       onSelect: (bool value) =>
                           setState(() => _selected = value),
-                      backdrop: CanvasBackdrop(
-                        (Canvas canvas, Size size) => canvas.drawRect(
-                          Offset.zero & size,
-                          Paint()..color = backgroundColor,
-                        ),
-                      ),
+                      backdrop: flatBackdrop(backgroundColor),
                     ),
                   ),
                 ),

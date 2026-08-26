@@ -1,6 +1,6 @@
 name: fluid_glass
 description: Liquid Glass backdrop effects for Flutter, with refraction, chromatic dispersion, blur, highlights and continuous-corner shapes.
-version: 0.1.1
+version: 0.1.2
 repository: https://github.com/TIANLI0/FluidGlass
 
 screenshots:
@@ -10,6 +10,10 @@ screenshots:
     path: doc/screenshots/slider.webp
   - description: Bottom tabs with a glass pill that magnifies the tab beneath it.
     path: doc/screenshots/bottom_tabs.webp
+  - description: A pop-up menu whose glass panel blooms out of its anchor.
+    path: doc/screenshots/menu.webp
+  - description: Glass button groups, a segmented control and a bare panel.
+    path: doc/screenshots/toolbar.webp
   - description: A lock screen clock drawn through a signed-distance-field texture.
     path: doc/screenshots/lock_screen.webp
   - description: A control centre of glass tiles over a live backdrop.

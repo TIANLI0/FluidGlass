@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 
 import '../backdrop_demo_scaffold.dart';
 import '../components/liquid_slider.dart';
+import '../utils/flat_backdrop.dart';
 
 class SliderContent extends StatefulWidget {
   const SliderContent({super.key});
@@ -53,12 +54,7 @@ class _SliderContentState extends State<SliderContent> {
                           setState(() => _value = value),
                       valueRange: (start: 0, end: 100),
                       visibilityThreshold: 0.01,
-                      backdrop: CanvasBackdrop(
-                        (Canvas canvas, Size size) => canvas.drawRect(
-                          Offset.zero & size,
-                          Paint()..color = backgroundColor,
-                        ),
-                      ),
+                      backdrop: flatBackdrop(backgroundColor),
                     ),
                   ),
                 ),

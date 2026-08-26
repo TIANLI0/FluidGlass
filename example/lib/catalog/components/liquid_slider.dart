@@ -5,6 +5,43 @@ import 'package:flutter/material.dart';
 
 import '../utils/damped_drag_animation.dart';
 
+/// Fills the played part of the track, matching the capsule the old
+/// width-animated Container produced: a capsule of the current fill width,
+/// rounded at both ends.
+class _TrackFillPainter extends CustomPainter {
+  _TrackFillPainter({
+    required this.animation,
+    required this.color,
+    required this.isLtr,
+  }) : super(repaint: animation);
+
+  final DampedDragAnimation animation;
+  final Color color;
+  final bool isLtr;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final double width =
+        (size.width * animation.progress).roundToDouble().clamp(0.0, size.width);
+    if (width <= 0) return;
+    final Rect rect = isLtr
+        ? Rect.fromLTWH(0, 0, width, size.height)
+        : Rect.fromLTWH(size.width - width, 0, width, size.height);
+    final GlassOutline outline =
+        const Capsule().createOutline(rect.size, TextDirection.ltr);
+    canvas.save();
+    canvas.translate(rect.left, rect.top);
+    outline.draw(canvas, Paint()..color = color);
+    canvas.restore();
+  }
+
+  @override
+  bool shouldRepaint(covariant _TrackFillPainter oldDelegate) =>
+      oldDelegate.animation != animation ||
+      oldDelegate.color != color ||
+      oldDelegate.isLtr != isLtr;
+}
+
 /// A slider whose thumb is a bead of liquid glass, refracting the track it
 /// slides along.
 class LiquidSlider extends StatefulWidget {
@@ -171,22 +208,18 @@ class _LiquidSliderState extends State<LiquidSlider> with TickerProviderStateMix
                       ),
                     ),
                     // Drawn over the track, but taps must reach the track
-                    // beneath it, so the fill takes no pointer input.
+                    // beneath it, so the fill takes no pointer input. Painted
+                    // rather than laid out: a Container whose width changes
+                    // every frame re-runs layout and rebuilds its element,
+                    // when only pixels changed.
                     IgnorePointer(
-                      child: ListenableBuilder(
-                      listenable: _animation,
-                      builder: (BuildContext context, Widget? _) {
-                        final double width =
-                            (_trackWidth * _animation.progress).roundToDouble();
-                        return ClipPath(
-                          clipper: const GlassShapeClipper(Capsule()),
-                          child: Container(
-                            width: width.clamp(0.0, _trackWidth),
-                            height: 6,
-                            color: accentColor,
-                          ),
-                        );
-                      },
+                      child: CustomPaint(
+                        size: Size(_trackWidth, 6),
+                        painter: _TrackFillPainter(
+                          animation: _animation,
+                          color: accentColor,
+                          isLtr: isLtr,
+                        ),
                       ),
                     ),
                   ],
@@ -243,6 +276,9 @@ class _LiquidSliderState extends State<LiquidSlider> with TickerProviderStateMix
                                   .withValues(alpha: 1 - progress),
                           );
                         },
+                        // Src-over only, so the isolating save-layer is pure
+                        // cost.
+                        isolateSurface: false,
                         repaint: _animation,
                         child: const SizedBox(
                           width: _thumbWidth,

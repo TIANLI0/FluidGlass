@@ -21,8 +21,15 @@ class CombinedBackdrop extends Backdrop {
   @override
   final bool isCoordinatesDependent;
 
+  /// Merged once and kept, so that subscribing and unsubscribing act on the
+  /// same object. Returning a fresh `Listenable.merge` per read only balanced
+  /// because Dart canonicalises instance-method tear-offs.
+  late final Listenable? _repaintNotifier = _mergeRepaintNotifiers();
+
   @override
-  Listenable? get repaintNotifier {
+  Listenable? get repaintNotifier => _repaintNotifier;
+
+  Listenable? _mergeRepaintNotifiers() {
     final List<Listenable> listenables = <Listenable>[
       for (final Backdrop backdrop in backdrops)
         if (backdrop.repaintNotifier != null) backdrop.repaintNotifier!,

@@ -12,8 +12,8 @@ produces the same picture on both platforms. See
 
 ## The demo
 
-Captured on a 1440x3168 device. `example/` is the Backdrop Catalog, all fourteen
-screens: buttons, toggle, slider, bottom tabs, dialog, lock screen (SDF
+Captured on a 1440x3168 device. `example/` is the Backdrop Catalog, all fifteen
+screens: buttons, toggle, slider, bottom tabs, menu, dialog, lock screen (SDF
 texture), control centre, magnifier, glass playground, adaptive-luminance
 glass, progressive blur and the two scroll containers.
 
@@ -21,9 +21,13 @@ glass, progressive blur and the two scroll containers.
 | --- | --- | --- |
 | ![Buttons](doc/screenshots/buttons.webp) | ![Slider](doc/screenshots/slider.webp) | ![Bottom tabs](doc/screenshots/bottom_tabs.webp) |
 
-| Lock screen | Control centre | Magnifier |
+| Menu | Toolbar & controls | Lock screen |
 | --- | --- | --- |
-| ![Lock screen](doc/screenshots/lock_screen.webp) | ![Control centre](doc/screenshots/control_center.webp) | ![Magnifier](doc/screenshots/magnifier.webp) |
+| ![Menu](doc/screenshots/menu.webp) | ![Toolbar and controls](doc/screenshots/toolbar.webp) | ![Lock screen](doc/screenshots/lock_screen.webp) |
+
+| Control centre | Magnifier |
+| --- | --- |
+| ![Control centre](doc/screenshots/control_center.webp) | ![Magnifier](doc/screenshots/magnifier.webp) |
 
 ## Requirements
 
@@ -109,6 +113,17 @@ inner shadow. Everything from `onDrawBehind` to `onDrawFront` is clipped to
 
 Pass `null` for any of them, or use `DrawBackdrop.plain` to drop all three.
 
+The two shadows are baked into cached textures and re-baked only when their
+*geometry* changes, so animating their `alpha` costs nothing per frame —
+animating a `radius` still re-bakes, and the cache detects that and steps back
+to drawing directly. The highlight rim is never baked: it is a hairline, and
+resampling a cached copy of it is visible.
+
+`isolateSurface` (default true) gives `onDrawSurface` its own save-layer, so
+blend modes it uses composite against the refracted backdrop alone. A surface
+that only paints src-over produces identical pixels without it — pass false to
+save an offscreen pass per frame.
+
 ### Animating
 
 `shape`, `effects`, `highlight`, `shadow`, `innerShadow` and `layerBlock` are
@@ -172,7 +187,13 @@ engine:
   save-layer. The effect output is therefore clipped to the element's bounds.
 - `LayerBackdrop` captures its source once per frame with
   `OffsetLayer.toImageSync`, and every glass element that reads it samples that
-  one image.
+  one image. The capture clips hard at the source's bounds — Compose records
+  the source's draw commands unclipped — so a transform that shifts content
+  past those bounds must sit *outside* the `BackdropLayer`, or the shifted
+  edge is sheared off in every glass element that samples it.
+- Skia caches blurred masks by path and sigma; Impeller does not, so the
+  highlight, shadow and inner shadow are baked into cached textures instead of
+  being re-blurred every frame.
 
 ## Licence
 

@@ -71,6 +71,7 @@ class DrawBackdrop extends StatelessWidget {
     this.onDrawBackdrop,
     this.onDrawSurface,
     this.onDrawFront,
+    this.isolateSurface = true,
     this.repaint,
     this.child,
   });
@@ -89,6 +90,7 @@ class DrawBackdrop extends StatelessWidget {
     this.onDrawBackdrop,
     this.onDrawSurface,
     this.onDrawFront,
+    this.isolateSurface = true,
     this.repaint,
     this.child,
   })  : highlight = null,
@@ -120,6 +122,13 @@ class DrawBackdrop extends StatelessWidget {
   final GlassDrawCallback? onDrawSurface;
   final GlassDrawCallback? onDrawFront;
 
+  /// Whether [onDrawSurface] gets an isolating save-layer, so blend modes it
+  /// uses composite against the refracted backdrop alone.
+  ///
+  /// A surface that only paints with [BlendMode.srcOver] produces identical
+  /// pixels without the layer; pass false to skip an offscreen pass per paint.
+  final bool isolateSurface;
+
   /// Repaints the element whenever it notifies.
   final Listenable? repaint;
 
@@ -140,6 +149,7 @@ class DrawBackdrop extends StatelessWidget {
       onDrawBackdrop: onDrawBackdrop,
       onDrawSurface: onDrawSurface,
       onDrawFront: onDrawFront,
+      isolateSurface: isolateSurface,
       repaint: repaint,
       textDirection: Directionality.maybeOf(context) ?? TextDirection.ltr,
       child: child,
@@ -305,6 +315,7 @@ class _DrawBackdropCore extends SingleChildRenderObjectWidget {
     required this.onDrawBackdrop,
     required this.onDrawSurface,
     required this.onDrawFront,
+    required this.isolateSurface,
     required this.repaint,
     required this.textDirection,
     super.child,
@@ -322,6 +333,7 @@ class _DrawBackdropCore extends SingleChildRenderObjectWidget {
   final OnDrawBackdropCallback? onDrawBackdrop;
   final GlassDrawCallback? onDrawSurface;
   final GlassDrawCallback? onDrawFront;
+  final bool isolateSurface;
   final Listenable? repaint;
   final TextDirection textDirection;
 
@@ -340,6 +352,7 @@ class _DrawBackdropCore extends SingleChildRenderObjectWidget {
       onDrawBackdrop: onDrawBackdrop,
       onDrawSurface: onDrawSurface,
       onDrawFront: onDrawFront,
+      isolateSurface: isolateSurface,
       repaint: repaint,
       textDirection: textDirection,
       devicePixelRatio: MediaQuery.devicePixelRatioOf(context),
@@ -361,6 +374,7 @@ class _DrawBackdropCore extends SingleChildRenderObjectWidget {
       ..onDrawBackdrop = onDrawBackdrop
       ..onDrawSurface = onDrawSurface
       ..onDrawFront = onDrawFront
+      ..isolateSurface = isolateSurface
       ..repaint = repaint
       ..textDirection = textDirection
       ..devicePixelRatio = MediaQuery.devicePixelRatioOf(context);
@@ -386,6 +400,7 @@ class RenderDrawBackdrop extends RenderProxyBox {
     required OnDrawBackdropCallback? onDrawBackdrop,
     required GlassDrawCallback? onDrawSurface,
     required GlassDrawCallback? onDrawFront,
+    required bool isolateSurface,
     required Listenable? repaint,
     required TextDirection textDirection,
     required double devicePixelRatio,
@@ -401,6 +416,7 @@ class RenderDrawBackdrop extends RenderProxyBox {
         _onDrawBackdrop = onDrawBackdrop,
         _onDrawSurface = onDrawSurface,
         _onDrawFront = onDrawFront,
+        _isolateSurface = isolateSurface,
         _repaint = repaint,
         _textDirection = textDirection,
         _devicePixelRatio = devicePixelRatio;
@@ -409,9 +425,12 @@ class RenderDrawBackdrop extends RenderProxyBox {
   Backdrop _backdrop;
   set backdrop(Backdrop value) {
     if (_backdrop == value) return;
-    _unsubscribeBackdrop();
+    // Guarded like `repaint`: subscribing while detached would leave a second
+    // listener behind once `attach` subscribes again, and `detach` removes
+    // only one of them.
+    if (attached) _unsubscribeBackdrop();
     _backdrop = value;
-    _subscribeBackdrop();
+    if (attached) _subscribeBackdrop();
     markNeedsPaint();
   }
 
@@ -504,6 +523,15 @@ class RenderDrawBackdrop extends RenderProxyBox {
     markNeedsPaint();
   }
 
+  /// See [DrawBackdrop.isolateSurface].
+  bool get isolateSurface => _isolateSurface;
+  bool _isolateSurface;
+  set isolateSurface(bool value) {
+    if (_isolateSurface == value) return;
+    _isolateSurface = value;
+    markNeedsPaint();
+  }
+
   Listenable? get repaint => _repaint;
   Listenable? _repaint;
   set repaint(Listenable? value) {
@@ -534,10 +562,56 @@ class RenderDrawBackdrop extends RenderProxyBox {
   final FragmentShaderCache _highlightShaders = FragmentShaderCache();
   final PictureBackdropSource _pictureSource = PictureBackdropSource();
 
+  // The decorations, baked to textures and reused while their inputs hold
+  // still, so an animating element does not re-blur its shadows every frame.
+  // The shadows are baked; the highlight rim is not. Both shadows need a
+  // save-layer anyway, because each punches its own shape back out with
+  // BlendMode.clear, and both are soft enough that resampling a cached copy is
+  // invisible. The rim is a hairline, where it would not be.
+  final BakedDecoration _shadowBake = BakedDecoration();
+  final BakedDecoration _innerShadowBake = BakedDecoration();
+
   /// Where this element sat the last time it painted, so a move relative to the
   /// backdrop can be noticed.
   Offset? _paintedGlobalOffset;
   bool _positionWatchPending = false;
+
+  // The resolved shape, memoised across paints.
+  //
+  // A continuous-curvature outline is 12 cubics solved from scratch, and a
+  // fresh Path every frame also misses Impeller's tessellation cache, so an
+  // element that merely animates its opacity used to re-solve and re-tessellate
+  // its squircle on every frame. RoundedRectangularShape is immutable and both
+  // getters are pure, so a hit is bit-identical.
+  RoundedRectangularShape? _outlineShape;
+  Size? _outlineSize;
+  TextDirection? _outlineDirection;
+  GlassOutline? _outline;
+  RectangleCorners? _corners;
+
+  bool _outlineCacheHolds(RoundedRectangularShape shape, Size size) =>
+      _outlineSize == size &&
+      _outlineDirection == _textDirection &&
+      _outlineShape == shape;
+
+  void _rememberOutlineKey(RoundedRectangularShape shape, Size size) {
+    if (_outlineCacheHolds(shape, size)) return;
+    _outlineShape = shape;
+    _outlineSize = size;
+    _outlineDirection = _textDirection;
+    _outline = null;
+    _corners = null;
+  }
+
+  GlassOutline _outlineFor(RoundedRectangularShape shape, Size size) {
+    _rememberOutlineKey(shape, size);
+    return _outline ??= shape.createOutline(size, _textDirection);
+  }
+
+  RectangleCorners _cornersFor(RoundedRectangularShape shape, Size size) {
+    _rememberOutlineKey(shape, size);
+    return _corners ??= shape.corners(size, _textDirection);
+  }
 
   final LayerHandle<ClipRectLayer> _clipRectLayer = LayerHandle<ClipRectLayer>();
   final LayerHandle<ClipRRectLayer> _clipRRectLayer = LayerHandle<ClipRRectLayer>();
@@ -608,8 +682,8 @@ class RenderDrawBackdrop extends RenderProxyBox {
     }
 
     final RoundedRectangularShape shape = _shape();
-    final GlassOutline outline = shape.createOutline(size, _textDirection);
-    final RectangleCorners corners = shape.corners(size, _textDirection);
+    final GlassOutline outline = _outlineFor(shape, size);
+    final RectangleCorners corners = _cornersFor(shape, size);
 
     _effectScope.beginUpdate(
       size: size,
@@ -631,6 +705,16 @@ class RenderDrawBackdrop extends RenderProxyBox {
         outline,
         shadow,
         _devicePixelRatio,
+        cache: _shadowBake,
+        cacheKey: (
+          size,
+          shape,
+          _textDirection,
+          shadow.radius,
+          shadow.offset,
+          shadow.color,
+          _devicePixelRatio,
+        ),
       );
     }
 
@@ -642,8 +726,10 @@ class RenderDrawBackdrop extends RenderProxyBox {
       // modes composite against the refracted backdrop. With nothing drawn
       // over the backdrop there is nothing to isolate, and the layer is
       // skipped.
-      final bool needsIsolation =
-          _onDrawBehind != null || _onDrawSurface != null;
+      // Only a surface drawn *over* the backdrop needs isolating. `onDrawBehind`
+      // paints under it, and src-over is associative, so wrapping the two in a
+      // layer provably changes nothing.
+      final bool needsIsolation = _isolateSurface && _onDrawSurface != null;
       canvas.save();
       canvas.translate(offset.dx, offset.dy);
       if (needsIsolation) {
@@ -692,6 +778,16 @@ class RenderDrawBackdrop extends RenderProxyBox {
         outline,
         innerShadow,
         _devicePixelRatio,
+        cache: _innerShadowBake,
+        cacheKey: (
+          size,
+          shape,
+          _textDirection,
+          innerShadow.radius,
+          innerShadow.offset,
+          innerShadow.color,
+          _devicePixelRatio,
+        ),
       );
     }
 
@@ -705,14 +801,51 @@ class RenderDrawBackdrop extends RenderProxyBox {
     PaintingContextCallback painter,
   ) {
     final Rect bounds = Offset.zero & size;
+
+    // With no compositing descendant the clip can go straight onto the canvas.
+    // `PaintingContext.pushClipPath` shifts the path by `offset` first, which
+    // copies the whole path engine-side every frame and hands Impeller a new
+    // object each time, so its tessellation of the squircle can never be
+    // reused. Translating the canvas instead keeps one stable Path.
+    if (!needsCompositing) {
+      _releaseClipLayers();
+      final Canvas canvas = context.canvas;
+      switch (outline) {
+        case RectOutline(:final Rect rect):
+          if (rect.contains(bounds.bottomRight - const Offset(0.01, 0.01)) &&
+              rect.topLeft == Offset.zero) {
+            // A plain rectangle covering the element clips nothing away.
+            painter(context, offset);
+            return;
+          }
+          canvas.save();
+          canvas.translate(offset.dx, offset.dy);
+          canvas.clipRect(rect);
+        case RRectOutline(:final RRect rrect):
+          canvas.save();
+          canvas.translate(offset.dx, offset.dy);
+          canvas.clipRRect(rrect);
+        case PathOutline(:final Path path):
+          canvas.save();
+          canvas.translate(offset.dx, offset.dy);
+          canvas.clipPath(path);
+      }
+      canvas.translate(-offset.dx, -offset.dy);
+      painter(context, offset);
+      canvas.restore();
+      return;
+    }
+
     switch (outline) {
       case RectOutline(:final Rect rect):
         if (rect.contains(bounds.bottomRight - const Offset(0.01, 0.01)) &&
             rect.topLeft == Offset.zero) {
-          // A plain rectangle covering the element clips nothing away.
+          _releaseClipLayers();
           painter(context, offset);
           return;
         }
+        _clipRRectLayer.layer = null;
+        _clipPathLayer.layer = null;
         _clipRectLayer.layer = context.pushClipRect(
           needsCompositing,
           offset,
@@ -721,6 +854,8 @@ class RenderDrawBackdrop extends RenderProxyBox {
           oldLayer: _clipRectLayer.layer,
         );
       case RRectOutline(:final RRect rrect):
+        _clipRectLayer.layer = null;
+        _clipPathLayer.layer = null;
         _clipRRectLayer.layer = context.pushClipRRect(
           needsCompositing,
           offset,
@@ -730,6 +865,8 @@ class RenderDrawBackdrop extends RenderProxyBox {
           oldLayer: _clipRRectLayer.layer,
         );
       case PathOutline(:final Path path):
+        _clipRectLayer.layer = null;
+        _clipRRectLayer.layer = null;
         _clipPathLayer.layer = context.pushClipPath(
           needsCompositing,
           offset,
@@ -739,6 +876,17 @@ class RenderDrawBackdrop extends RenderProxyBox {
           oldLayer: _clipPathLayer.layer,
         );
     }
+  }
+
+  /// Drops every retained clip layer.
+  ///
+  /// The outline's own type changes when a radius animates through zero, and
+  /// the layer for the shape it used to be would otherwise be retained for the
+  /// element's lifetime.
+  void _releaseClipLayers() {
+    _clipRectLayer.layer = null;
+    _clipRRectLayer.layer = null;
+    _clipPathLayer.layer = null;
   }
 
   /// Draws the backdrop through the effect chain.
@@ -791,6 +939,9 @@ class RenderDrawBackdrop extends RenderProxyBox {
   void _exportBackdrop(Size size, List<ui.ImageFilter> filters, double padding) {
     final LayerBackdrop? exported = _exportedBackdrop;
     if (exported == null) return;
+    // Re-recording the whole backdrop stack is only worth it if something is
+    // going to sample it.
+    if (!exported.hasConsumers) return;
 
     final ui.PictureRecorder recorder = ui.PictureRecorder();
     final Canvas canvas = Canvas(recorder);
@@ -821,6 +972,8 @@ class RenderDrawBackdrop extends RenderProxyBox {
     _pictureSource.dispose();
     _effectScope.dispose();
     _highlightShaders.clear();
+    _shadowBake.dispose();
+    _innerShadowBake.dispose();
     super.dispose();
   }
 }

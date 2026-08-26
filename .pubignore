@@ -1,0 +1,7 @@
+# Throwaway harnesses used to drive gestures and capture frames while
+# investigating rendering and performance. They are committed so the
+# measurements can be reproduced, but they are not part of the demo and have no
+# business in the published archive.
+example/lib/probe.dart
+example/lib/probe_perf.dart
+example/lib/probe_menu.dart

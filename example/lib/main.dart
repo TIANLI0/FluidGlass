@@ -49,7 +49,10 @@ Future<void> main() async {
 
 /// Set `--dart-define=FLUID_GLASS_PERF=<destination name>` to open that screen,
 /// sample frame timings for a few seconds and print them.
-const String _perfScreen = String.fromEnvironment('FLUID_GLASS_PERF');
+const String _perfDefine = String.fromEnvironment('FLUID_GLASS_PERF');
+final String _perfScreen = _perfDefine.isNotEmpty
+    ? _perfDefine
+    : (Platform.environment['FLUID_GLASS_PERF'] ?? '');
 
 Future<void> _measureFrames() async {
   await Future<void>.delayed(const Duration(milliseconds: 1500));

@@ -124,7 +124,12 @@ class _AdaptiveLuminanceGlassContentState
       average > 0.5 ? const Color(0xFF000000) : const Color(0xFFFFFFFF),
       const Duration(milliseconds: 1000),
     );
-    _luminanceAnimation.tweenTo(average, const Duration(milliseconds: 1000));
+    // Retargeting unconditionally restarts a one-second tween every second, so
+    // the ticker never stops and the whole glass chain re-runs at 60 fps on a
+    // screen nobody is touching. TweenColor above already guards itself.
+    if ((average - _luminanceAnimation.targetValue).abs() > 0.002) {
+      _luminanceAnimation.tweenTo(average, const Duration(milliseconds: 1000));
+    }
     _wantsThumbnail = true;
   }
 

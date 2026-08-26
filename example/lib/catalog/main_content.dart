@@ -13,10 +13,12 @@ import 'destinations/home_content.dart';
 import 'destinations/lazy_scroll_container_content.dart';
 import 'destinations/lock_screen_content.dart';
 import 'destinations/magnifier_content.dart';
+import 'destinations/menu_content.dart';
 import 'destinations/progressive_blur_content.dart';
 import 'destinations/scroll_container_content.dart';
 import 'destinations/slider_content.dart';
 import 'destinations/toggle_content.dart';
+import 'destinations/toolbar_content.dart';
 
 /// The catalog's navigation host.
 ///
@@ -67,6 +69,10 @@ class _MainContentState extends State<MainContent> {
         return const SliderContent();
       case CatalogDestination.bottomTabs:
         return const BottomTabsContent();
+      case CatalogDestination.menu:
+        return const MenuContent();
+      case CatalogDestination.toolbar:
+        return const ToolbarContent();
       case CatalogDestination.dialog:
         return const DialogContent();
       case CatalogDestination.lockScreen:

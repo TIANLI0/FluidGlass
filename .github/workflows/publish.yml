@@ -12,6 +12,13 @@ jobs:
   publish:
     runs-on: ubuntu-latest
 
+    # Without this the job's only limit is GitHub's 6-hour ceiling. When
+    # automated publishing is not enabled on pub.dev, `pub publish` falls back
+    # to an interactive Google sign-in and waits for a browser that a runner
+    # does not have — which is exactly how the v0.1.1 run burned six hours
+    # before being cancelled.
+    timeout-minutes: 20
+
     # Authentication is an OIDC token minted by GitHub and exchanged by pub for
     # a short-lived upload credential, so no pub.dev token is stored here.
     permissions:
@@ -53,5 +60,21 @@ jobs:
       - run: flutter test
         working-directory: example
 
+      # Fail with a readable message rather than hanging on an OAuth prompt.
+      # pub sets this itself when it can exchange the OIDC token, so an empty
+      # value means pub.dev has not been told to trust this repository:
+      # https://pub.dev/packages/fluid_glass/admin -> Automated publishing.
+      - name: Check pub.dev automated publishing is enabled
+        env:
+          ACTIONS_ID_TOKEN_REQUEST_URL: ${{ env.ACTIONS_ID_TOKEN_REQUEST_URL }}
+        run: |
+          if [ -z "${ACTIONS_ID_TOKEN_REQUEST_URL:-}" ]; then
+            echo "No OIDC token available: the job needs 'permissions: id-token: write'." >&2
+            exit 1
+          fi
+
       - name: Publish
-        run: flutter pub publish --force
+        # stdin is closed so an unexpected interactive prompt aborts instead of
+        # blocking, and the step cannot outlive its own budget.
+        timeout-minutes: 10
+        run: flutter pub publish --force < /dev/null

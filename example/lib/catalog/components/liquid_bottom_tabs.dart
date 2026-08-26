@@ -50,7 +50,9 @@ class LiquidBottomTab extends StatelessWidget {
     return Expanded(
       child: ClipPath(
         clipper: const GlassShapeClipper(Capsule()),
-        child: GestureDetector(
+        // Slop-free, like Compose's `clickable`: nudging a tab label sideways
+        // must not silently swallow the tap.
+        child: DragInspector(
           onTap: onPressed,
           behavior: HitTestBehavior.opaque,
           child: ListenableBuilder(
@@ -198,9 +200,16 @@ class _LiquidBottomTabsState extends State<LiquidBottomTabs>
       0,
       widget.tabsCount - 1,
     );
-    _currentIndex = targetIndex;
+    // Compose reports the selection through a `snapshotFlow` on the index,
+    // which only emits when it actually changes; reporting on every release
+    // would fire a spurious selection each time the pill is merely touched.
+    if (_currentIndex != targetIndex) {
+      _currentIndex = targetIndex;
+      widget.onTabSelected(targetIndex);
+    }
+    // Unconditional, as in Compose: this is what re-presses the pill while it
+    // settles back onto the tab.
     _animation.animateToValue(targetIndex.toDouble());
-    widget.onTabSelected(targetIndex);
     _offsetAnimation.animateTo(0, springOf(1.0, 300.0));
   }
 
@@ -271,6 +280,9 @@ class _LiquidBottomTabsState extends State<LiquidBottomTabs>
                         layer.scaleY = scale;
                       },
                       onDrawSurface: drawContainer,
+                      // The surface only paints src-over, so the isolating
+                      // save-layer would change nothing but cost a pass.
+                      isolateSurface: false,
                       repaint: _repaint,
                       child: _interactiveHighlight.wrapOverlay(
                         child: SizedBox(
@@ -290,16 +302,22 @@ class _LiquidBottomTabsState extends State<LiquidBottomTabs>
 
                   // An accent-tinted copy of the tabs, invisible on screen but
                   // captured as the backdrop the selection pill magnifies.
+                  // The panel-offset translate sits outside the BackdropLayer:
+                  // the capture box then moves with the panel, so the give the
+                  // panel takes on when over-dragged cannot push the copy's end
+                  // caps outside the captured region. (Compose records the
+                  // copy's draw commands unclipped; toImageSync clips hard at
+                  // the layer's bounds, which sheared the rim at either end.)
                   ExcludeSemantics(
                     child: _Invisible(
-                      child: BackdropLayer(
-                        backdrop: _tabsBackdrop,
-                        child: LiquidBottomTabScale(
-                          notifier: _repaint,
-                          scale: () =>
-                              lerpDouble(1.0, 1.2, _animation.pressProgress)!,
-                          child: Transform.translate(
-                            offset: Offset(panelOffset, 0),
+                      child: Transform.translate(
+                        offset: Offset(panelOffset, 0),
+                        child: BackdropLayer(
+                          backdrop: _tabsBackdrop,
+                          child: LiquidBottomTabScale(
+                            notifier: _repaint,
+                            scale: () =>
+                                lerpDouble(1.0, 1.2, _animation.pressProgress)!,
                             child: DrawBackdrop(
                               backdrop: widget.backdrop,
                               shape: () => const Capsule(),
@@ -315,6 +333,7 @@ class _LiquidBottomTabsState extends State<LiquidBottomTabs>
                                 alpha: _animation.pressProgress,
                               ),
                               onDrawSurface: drawContainer,
+                              isolateSurface: false,
                               repaint: _repaint,
                               child: _interactiveHighlight.wrapOverlay(
                                 child: SizedBox(
@@ -420,6 +439,7 @@ class _LiquidBottomTabsState extends State<LiquidBottomTabs>
                               ).withValues(alpha: 0.03 * progress),
                           );
                         },
+                        isolateSurface: false,
                         repaint: _repaint,
                         child: SizedBox(height: 56, width: _tabWidth),
                       ),
@@ -440,6 +460,13 @@ class _LiquidBottomTabsState extends State<LiquidBottomTabs>
 ///
 /// [Opacity] with `0` skips painting the child entirely, which would leave the
 /// captured layer empty.
+///
+/// Clipping to nothing rather than filtering to nothing: the [BackdropLayer]
+/// inside is a repaint boundary, so its own layer is still recorded in full
+/// and the clip only removes it from the screen. A transparent `dstIn` colour
+/// filter costs an offscreen pass instead, and — because `ColorFiltered` sets
+/// `alwaysNeedsCompositing` — it also forced the glass element beneath it to
+/// promote its shape clip to a compositing layer.
 class _Invisible extends StatelessWidget {
   const _Invisible({required this.child});
 
@@ -447,9 +474,16 @@ class _Invisible extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ColorFiltered(
-      colorFilter: const ColorFilter.mode(Color(0x00000000), BlendMode.dstIn),
-      child: child,
-    );
+    return ClipRect(clipper: const _ClipToNothing(), child: child);
   }
+}
+
+class _ClipToNothing extends CustomClipper<Rect> {
+  const _ClipToNothing();
+
+  @override
+  Rect getClip(Size size) => Rect.zero;
+
+  @override
+  bool shouldReclip(covariant CustomClipper<Rect> oldClipper) => false;
 }

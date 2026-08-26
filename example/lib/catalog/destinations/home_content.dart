@@ -52,6 +52,14 @@ class HomeContent extends StatelessWidget {
                   onTap: () => onNavigate(CatalogDestination.bottomTabs),
                 ),
                 _ListItem(
+                  label: 'Menu',
+                  onTap: () => onNavigate(CatalogDestination.menu),
+                ),
+                _ListItem(
+                  label: 'Toolbar & controls',
+                  onTap: () => onNavigate(CatalogDestination.toolbar),
+                ),
+                _ListItem(
                   label: 'Dialog',
                   onTap: () => onNavigate(CatalogDestination.dialog),
                 ),

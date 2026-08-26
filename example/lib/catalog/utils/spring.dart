@@ -17,8 +17,16 @@ SpringDescription springOf(double dampingRatio, double stiffness) {
   );
 }
 
-/// Compose stops a spring once the value is within `visibilityThreshold` and
-/// the velocity within `visibilityThreshold * 62.5` (1000 / 16).
+/// The velocity tolerance, as a multiple of the displacement one.
+///
+/// Modern Compose does not gate on velocity at all: `FloatSpringSpec` asks
+/// `estimateAnimationDurationMillis` for the last time the displacement is
+/// `visibilityThreshold`, runs exactly that long, and then snaps to the target.
+/// (The `1000 / 16` multiplier is inherited from the retired
+/// `androidx.dynamicanimation.SpringForce` that `SpringSimulation` was forked
+/// from.) Flutter's [SpringSimulation.isDone] requires both bounds, and the
+/// velocity one only becomes the binding constraint above a stiffness of about
+/// 3900 — far above every spec used here — so the two agree to within a frame.
 const double kVelocityThresholdMultiplier = 1000.0 / 16.0;
 
 /// A spring-driven scalar that can be retargeted mid-flight without losing

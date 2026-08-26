@@ -69,13 +69,17 @@ class InteractiveHighlight extends ChangeNotifier {
   }
 
   /// Attaches the pointer handling that drives the highlight.
-  Widget wrapGestures({required Widget child}) {
+  ///
+  /// [onTap] fires on release however far the pointer travelled, matching
+  /// Compose's slop-free `clickable`.
+  Widget wrapGestures({required Widget child, VoidCallback? onTap}) {
     return DragInspector(
       behavior: HitTestBehavior.translucent,
       onDragStart: (Offset position, Size size) => _down(position),
       onDrag: (Offset position, Offset delta, Size size) => _move(position),
       onDragEnd: _up,
       onDragCancel: _up,
+      onTap: onTap,
       child: child,
     );
   }
@@ -109,6 +113,11 @@ class _InteractiveHighlightPainter extends CustomPainter {
 
   final InteractiveHighlight highlight;
 
+  /// One shader per program, reused across frames: uniforms are cheap to
+  /// re-set, creating and compiling a fresh instance every paint is not.
+  static final Expando<ui.FragmentShader> _shaders =
+      Expando<ui.FragmentShader>();
+
   @override
   void paint(Canvas canvas, Size size) {
     final double progress = highlight.pressProgress;
@@ -140,7 +149,9 @@ class _InteractiveHighlightPainter extends CustomPainter {
     // premultiplied colour. Passing it un-premultiplied would add a full-white
     // disc under the finger instead of a soft glow.
     final double alpha = 0.15 * progress;
-    final ui.FragmentShader shader = program.fragmentShader()
+    final ui.FragmentShader shader =
+        _shaders[program] ??= program.fragmentShader();
+    shader
       ..setFloat(0, alpha)
       ..setFloat(1, alpha)
       ..setFloat(2, alpha)
@@ -155,7 +166,6 @@ class _InteractiveHighlightPainter extends CustomPainter {
         ..shader = shader
         ..blendMode = BlendMode.plus,
     );
-    shader.dispose();
   }
 
   @override

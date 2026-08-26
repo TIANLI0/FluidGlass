@@ -202,6 +202,8 @@ class _LiquidToggleState extends State<LiquidToggle> with TickerProviderStateMix
                               .withValues(alpha: 1 - progress),
                       );
                     },
+                    // Src-over only, so the isolating save-layer is pure cost.
+                    isolateSurface: false,
                     repaint: _animation,
                     child: const SizedBox(width: 40, height: 24),
                   ),

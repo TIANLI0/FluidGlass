@@ -22,7 +22,17 @@ class DampedDragAnimation extends ChangeNotifier {
     this.onDrag,
   })  : _valueAnimation =
             SpringValue(vsync: vsync, value: initialValue, visibilityThreshold: visibilityThreshold),
-        _velocityAnimation = SpringValue(vsync: vsync, value: 0.0, visibilityThreshold: 5.0),
+        // Compose's `Animatable(0f, 5f)` threshold is dead: it only supplies
+        // the default spec for `animateTo`, and this animation always passes
+        // one explicitly. The live threshold is the spec's, which Kotlin sets
+        // to `visibilityThreshold * 10f`. At 5.0 the spring settled on its
+        // first tick, so the value tracked the raw tracker output and the
+        // squash-and-stretch lost its lag and its ring-down.
+        _velocityAnimation = SpringValue(
+          vsync: vsync,
+          value: 0.0,
+          visibilityThreshold: visibilityThreshold * 10.0,
+        ),
         _pressProgressAnimation =
             SpringValue(vsync: vsync, value: 0.0, visibilityThreshold: 0.001),
         _scaleXAnimation =

@@ -47,6 +47,12 @@ class LayerBackdrop extends Backdrop with ChangeNotifier {
   /// Whether a source is currently attached.
   bool get hasSource => _source != null;
 
+  /// Whether any glass element is currently sampling this backdrop.
+  ///
+  /// A consumer subscribes to [repaintNotifier], which is this object, so its
+  /// listeners are exactly its consumers.
+  bool get hasConsumers => hasListeners;
+
   /// Attaches [source] as the content of this backdrop.
   ///
   /// Called by [BackdropLayer] and by glass elements that export themselves.
