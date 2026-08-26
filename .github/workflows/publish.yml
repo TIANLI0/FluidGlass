@@ -35,6 +35,15 @@ jobs:
         with:
           channel: stable
 
+      # This is what actually authenticates the publish. pub does not exchange
+      # the OIDC token itself — `dart-lang/setup-dart` mints it and writes the
+      # credential pub then finds. Without this step pub finds nothing, decides
+      # it needs a human, and prints a Google sign-in URL that no runner can
+      # answer; that is how both the v0.1.1 and the first v0.1.2 runs hung.
+      # It must come after flutter-action, so it configures the Dart SDK that
+      # ships inside the Flutter one.
+      - uses: dart-lang/setup-dart@v1
+
       - name: Check the tag matches pubspec.yaml
         run: |
           tag="${GITHUB_REF_NAME#v}"
@@ -61,20 +70,19 @@ jobs:
         working-directory: example
 
       # Fail with a readable message rather than hanging on an OAuth prompt.
-      # pub sets this itself when it can exchange the OIDC token, so an empty
-      # value means pub.dev has not been told to trust this repository:
-      # https://pub.dev/packages/fluid_glass/admin -> Automated publishing.
-      - name: Check pub.dev automated publishing is enabled
-        env:
-          ACTIONS_ID_TOKEN_REQUEST_URL: ${{ env.ACTIONS_ID_TOKEN_REQUEST_URL }}
+      # Both variables are injected only when `permissions: id-token: write` is
+      # granted, and setup-dart needs both to mint the credential.
+      - name: Check an OIDC token is available
         run: |
-          if [ -z "${ACTIONS_ID_TOKEN_REQUEST_URL:-}" ]; then
-            echo "No OIDC token available: the job needs 'permissions: id-token: write'." >&2
+          if [ -z "${ACTIONS_ID_TOKEN_REQUEST_URL:-}" ] ||
+             [ -z "${ACTIONS_ID_TOKEN_REQUEST_TOKEN:-}" ]; then
+            echo "No OIDC token: the job needs 'permissions: id-token: write'." >&2
             exit 1
           fi
 
       - name: Publish
         # stdin is closed so an unexpected interactive prompt aborts instead of
-        # blocking, and the step cannot outlive its own budget.
+        # blocking, and the step cannot outlive its own budget. `dart pub`
+        # rather than `flutter pub`, to match what setup-dart configured.
         timeout-minutes: 10
-        run: flutter pub publish --force < /dev/null
+        run: dart pub publish --force < /dev/null
