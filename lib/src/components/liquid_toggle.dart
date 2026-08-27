@@ -126,12 +126,9 @@ class _LiquidToggleState extends State<LiquidToggle> with TickerProviderStateMix
 
   @override
   Widget build(BuildContext context) {
-    final bool isLight = Theme.of(context).brightness == Brightness.light;
-    final Color accentColor =
-        isLight ? const Color(0xFF34C759) : const Color(0xFF30D158);
-    final Color trackColor = isLight
-        ? const Color(0xFF787878).withValues(alpha: 0.2)
-        : const Color(0xFF787880).withValues(alpha: 0.36);
+    final LiquidGlassColors colors = LiquidGlassTheme.of(context);
+    final Color accentColor = colors.toggleAccent;
+    final Color trackColor = colors.track;
     final bool isLtr = Directionality.of(context) == TextDirection.ltr;
 
     return Stack(

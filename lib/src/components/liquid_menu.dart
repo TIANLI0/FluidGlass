@@ -315,11 +315,9 @@ class _MenuPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bool isLight = Theme.of(context).brightness == Brightness.light;
-    final Color contentColor =
-        isLight ? const Color(0xFF000000) : const Color(0xFFFFFFFF);
-    final Color destructiveColor =
-        isLight ? const Color(0xFFE5484D) : const Color(0xFFFF6369);
+    final LiquidGlassColors colors = LiquidGlassTheme.of(context);
+    final Color contentColor = colors.content;
+    final Color destructiveColor = colors.destructive;
     final Color separatorColor = contentColor.withValues(alpha: 0.08);
 
     return ListenableBuilder(

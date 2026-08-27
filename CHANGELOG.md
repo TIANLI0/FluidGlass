@@ -1,5 +1,33 @@
 # Changelog
 
+## 0.1.4
+
+### Added
+
+- `LiquidGlassTheme` and `LiquidGlassColors`, so the components can be drawn in
+  an app's own palette. Every component used to inline iOS's values — the blue
+  accent, the near-white container tint, the green of a switch — which made them
+  unusable in an app whose brand colour is fixed: there was no parameter, and
+  re-colouring from outside is not possible, since a `ColorFiltered` over a
+  glass element tints the refracted backdrop along with it. The defaults are
+  bit-identical to what was inlined and are resolved off the enclosing `Theme`'s
+  brightness, so an app that supplies nothing sees no change. Override a field
+  or two off `LiquidGlassColors.forBrightness(...)` with `copyWith`; a
+  per-element `surfaceColor` still wins over the theme.
+- `LiquidButton.height`, `.padding` and `.spacing`. The box was hard-coded to 48
+  tall with 16 either side, so the component could not be the 40px circular
+  action button that sits on a photo — a size `LiquidSegmentedControl` and
+  `LiquidButtonGroup` already exposed. A square button is a circle, since the
+  shape is a capsule.
+
+### Changed
+
+- `LiquidButton.onPressed` is nullable, and null disables the button: no
+  gestures, no press deformation, no highlight, and no press animation left
+  running. The *appearance* stays the caller's — dim the children — and the
+  element is inert rather than absorbing, so a tap over a disabled button
+  reaches what is behind it, as a disabled control does elsewhere in Flutter.
+
 ## 0.1.3
 
 ### Added

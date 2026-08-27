@@ -220,12 +220,9 @@ class _LiquidBottomTabsState extends State<LiquidBottomTabs>
   @override
   Widget build(BuildContext context) {
     final bool isLight = Theme.of(context).brightness == Brightness.light;
-    final Color accentColor = isLight
-        ? const Color(0xFF0088FF)
-        : const Color(0xFF0091FF);
-    final Color containerColor = isLight
-        ? const Color(0xFFFAFAFA).withValues(alpha: 0.4)
-        : const Color(0xFF121212).withValues(alpha: 0.4);
+    final LiquidGlassColors colors = LiquidGlassTheme.of(context);
+    final Color accentColor = colors.accent;
+    final Color containerColor = colors.container;
     final bool isLtr = Directionality.of(context) == TextDirection.ltr;
 
     void drawContainer(Canvas canvas, Size size) {

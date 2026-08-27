@@ -66,12 +66,9 @@ class _LiquidButtonGroupState extends State<LiquidButtonGroup>
 
   @override
   Widget build(BuildContext context) {
-    final bool isLight = Theme.of(context).brightness == Brightness.light;
-    final Color contentColor =
-        isLight ? const Color(0xFF000000) : const Color(0xFFFFFFFF);
-    final Color containerColor = isLight
-        ? const Color(0xFFFAFAFA).withValues(alpha: 0.4)
-        : const Color(0xFF121212).withValues(alpha: 0.4);
+    final LiquidGlassColors colors = LiquidGlassTheme.of(context);
+    final Color contentColor = colors.content;
+    final Color containerColor = colors.container;
     final Color separatorColor = contentColor.withValues(alpha: 0.12);
 
     return DrawBackdrop(

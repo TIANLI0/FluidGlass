@@ -168,12 +168,9 @@ class _LiquidSliderState extends State<LiquidSlider> with TickerProviderStateMix
 
   @override
   Widget build(BuildContext context) {
-    final bool isLight = Theme.of(context).brightness == Brightness.light;
-    final Color accentColor =
-        isLight ? const Color(0xFF0088FF) : const Color(0xFF0091FF);
-    final Color trackColor = isLight
-        ? const Color(0xFF787878).withValues(alpha: 0.2)
-        : const Color(0xFF787880).withValues(alpha: 0.36);
+    final LiquidGlassColors colors = LiquidGlassTheme.of(context);
+    final Color accentColor = colors.accent;
+    final Color trackColor = colors.track;
     final bool isLtr = Directionality.of(context) == TextDirection.ltr;
 
     return LayoutBuilder(

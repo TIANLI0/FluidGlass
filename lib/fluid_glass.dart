@@ -81,6 +81,8 @@ export 'src/shapes/rounded_corner_style.dart';
 export 'src/shapes/rounded_rectangle_outline.dart';
 export 'src/shapes/rounded_rectangular_shape.dart';
 export 'src/shapes/shape_interop.dart';
+export 'src/theme/liquid_glass_colors.dart';
+export 'src/theme/liquid_glass_theme.dart';
 
 /// Entry points for setting the library up.
 abstract final class FluidGlass {

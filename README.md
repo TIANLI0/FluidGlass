@@ -104,7 +104,7 @@ Column(
 | Widget | |
 | --- | --- |
 | `LiquidPanel` | The plain glass surface. Host anything — a card, a popover, a sheet. |
-| `LiquidButton` | A capsule that squashes and slides under the finger. |
+| `LiquidButton` | A capsule that squashes and slides under the finger. A square one (`height` with `padding: EdgeInsets.zero`) is a circle; `onPressed: null` disables it. |
 | `LiquidButtonGroup` | A row of actions sharing one pane of glass. |
 | `LiquidMenu` | A pop-up menu that blooms out of its anchor. |
 | `LiquidBottomTabs` | A tab bar whose selection pill can be dragged. |
@@ -119,6 +119,35 @@ Two things they need that an ordinary widget does not:
   put the `LayerBackdrop` in an `InheritedWidget` of your own.
 - **`clipBehavior: Clip.none`** on any enclosing `Stack`. Glass paints its rim
   and shadow outside its own box, and Flutter's `Stack` clips by default.
+
+#### Colours
+
+The glass is colourless — it refracts what is behind it. What needs a colour is
+what is drawn *on* it: the tint that keeps a surface legible over busy content,
+the accent a selection is marked in, the text of a row. `LiquidGlassTheme`
+supplies all of it; without one, every component falls back to the iOS-like
+palette it used to inline, resolved off the enclosing `Theme`'s brightness.
+
+```dart
+LiquidGlassTheme(
+  colors: LiquidGlassColors.forBrightness(Theme.of(context).brightness)
+      .copyWith(accent: brandCoral),
+  child: child,
+)
+```
+
+| Field | Drawn by |
+| --- | --- |
+| `accent` | `LiquidBottomTabs`' selection pill, `LiquidSlider`'s filled track |
+| `toggleAccent` | `LiquidToggle` when on — separate because a switch reads as on/off, not as selected |
+| `container` | The tint over the refracted backdrop; carries its own alpha |
+| `content` | Text and icons on the glass |
+| `track` | The unfilled part of a slider's and a toggle's track |
+| `destructive` | A `LiquidMenuItem` marked `isDestructive` |
+
+Per-element overrides still win where a component has one — `LiquidPanel`'s
+`surfaceColor`, for instance — so one odd-coloured surface does not need a theme
+of its own.
 
 The machinery they are built from is exported too, for building your own in the
 same idiom: `SpringValue` and `springOf` (the Flutter counterpart of Compose's

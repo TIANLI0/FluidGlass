@@ -129,8 +129,7 @@ class _LiquidSegmentedControlState extends State<LiquidSegmentedControl>
   @override
   Widget build(BuildContext context) {
     final bool isLight = Theme.of(context).brightness == Brightness.light;
-    final Color contentColor =
-        isLight ? const Color(0xFF000000) : const Color(0xFFFFFFFF);
+    final Color contentColor = LiquidGlassTheme.of(context).content;
     final bool isLtr = Directionality.of(context) == TextDirection.ltr;
 
     return LayoutBuilder(

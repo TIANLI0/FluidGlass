@@ -66,11 +66,8 @@ class LiquidPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bool isLight = Theme.of(context).brightness == Brightness.light;
-    final Color container = surfaceColor ??
-        (isLight
-            ? const Color(0xFFFAFAFA).withValues(alpha: 0.4)
-            : const Color(0xFF121212).withValues(alpha: 0.4));
+    final Color container =
+        surfaceColor ?? LiquidGlassTheme.of(context).container;
 
     return DrawBackdrop(
       backdrop: backdrop,
