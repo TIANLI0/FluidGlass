@@ -34,29 +34,29 @@ Future<List<double>> _meanRgb(WidgetTester tester, Rect box) async {
 }
 
 Widget _bare(Widget child) => MaterialApp(
-      home: Align(
-        alignment: Alignment.topLeft,
-        child: RepaintBoundary(
-          key: _boundary,
-          child: SizedBox(
-            width: _w.toDouble(),
-            height: _h.toDouble(),
-            child: child,
-          ),
-        ),
+  home: Align(
+    alignment: Alignment.topLeft,
+    child: RepaintBoundary(
+      key: _boundary,
+      child: SizedBox(
+        width: _w.toDouble(),
+        height: _h.toDouble(),
+        child: child,
       ),
-    );
+    ),
+  ),
+);
 
 List<LiquidSheetItem> _threeOptions(List<String> picked) => <LiquidSheetItem>[
-      LiquidSheetItem(
-        label: 'Follow system',
-        detail: 'English',
-        isSelected: true,
-        onSelected: () => picked.add('system'),
-      ),
-      LiquidSheetItem(label: 'Light', onSelected: () => picked.add('light')),
-      LiquidSheetItem(label: 'Dark', onSelected: () => picked.add('dark')),
-    ];
+  LiquidSheetItem(
+    label: 'Follow system',
+    detail: 'English',
+    isSelected: true,
+    onSelected: () => picked.add('system'),
+  ),
+  LiquidSheetItem(label: 'Light', onSelected: () => picked.add('light')),
+  LiquidSheetItem(label: 'Dark', onSelected: () => picked.add('dark')),
+];
 
 void main() {
   testWidgets('the title, the rows and one check', (WidgetTester tester) async {
@@ -107,6 +107,40 @@ void main() {
 
     expect(picked, <String>['dark']);
     expect(reported, <String>['Dark']);
+  });
+
+  testWidgets('a child that scrolls is not wrapped in a second scroll view', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(
+      _bare(
+        Align(
+          alignment: Alignment.bottomCenter,
+          child: LiquidSheet(
+            backdrop: emptyBackdrop,
+            child: SingleChildScrollView(
+              child: Column(
+                children: <Widget>[
+                  for (int i = 0; i < 20; i++)
+                    SizedBox(height: 40, child: Text('row $i')),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    // Exactly the caller's own: nesting a second one leaves the inner list
+    // unable to move.
+    expect(find.byType(SingleChildScrollView), findsOneWidget);
+
+    // `SingleChildScrollView` builds its whole child, so a scrolled-away row is
+    // still findable — the position is what moves.
+    final double before = tester.getTopLeft(find.text('row 0')).dy;
+    await tester.drag(find.text('row 1'), const Offset(0, -200));
+    await tester.pump();
+    expect(tester.getTopLeft(find.text('row 0')).dy, lessThan(before - 100));
   });
 
   testWidgets('child replaces the rows', (WidgetTester tester) async {
@@ -180,40 +214,41 @@ void main() {
     expect(rgb[2], lessThan(30));
   });
 
-  testWidgets('a row is a mutually exclusive selectable, labelled with detail', (
-    WidgetTester tester,
-  ) async {
-    await tester.pumpWidget(
-      _bare(
-        Align(
-          alignment: Alignment.bottomCenter,
-          child: LiquidSheet(
-            backdrop: emptyBackdrop,
-            items: const <LiquidSheetItem>[
-              LiquidSheetItem(
-                label: 'Follow system',
-                detail: 'English',
-                isSelected: true,
-              ),
-            ],
+  testWidgets(
+    'a row is a mutually exclusive selectable, labelled with detail',
+    (WidgetTester tester) async {
+      await tester.pumpWidget(
+        _bare(
+          Align(
+            alignment: Alignment.bottomCenter,
+            child: LiquidSheet(
+              backdrop: emptyBackdrop,
+              items: const <LiquidSheetItem>[
+                LiquidSheetItem(
+                  label: 'Follow system',
+                  detail: 'English',
+                  isSelected: true,
+                ),
+              ],
+            ),
           ),
         ),
-      ),
-    );
+      );
 
-    final SemanticsHandle handle = tester.ensureSemantics();
-    expect(
-      tester.getSemantics(find.text('Follow system')),
-      matchesSemantics(
-        isButton: true,
-        isSelected: true,
-        hasSelectedState: true,
-        isInMutuallyExclusiveGroup: true,
-        label: 'Follow system, English',
-      ),
-    );
-    handle.dispose();
-  });
+      final SemanticsHandle handle = tester.ensureSemantics();
+      expect(
+        tester.getSemantics(find.text('Follow system')),
+        matchesSemantics(
+          isButton: true,
+          isSelected: true,
+          hasSelectedState: true,
+          isInMutuallyExclusiveGroup: true,
+          label: 'Follow system, English',
+        ),
+      );
+      handle.dispose();
+    },
+  );
 
   testWidgets('showLiquidSheet dismisses on a selection', (
     WidgetTester tester,

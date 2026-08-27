@@ -73,6 +73,11 @@ class LiquidSheet extends StatelessWidget {
   final List<LiquidSheetItem> items;
 
   /// Free-form content instead of [items].
+  ///
+  /// Not wrapped in a scroll view — [items] are, because rows of a known height
+  /// have an obvious overflow, but free-form content usually brings its own
+  /// scrolling and nesting two scrollables inside a sheet gets you a list that
+  /// refuses to move. Wrap it yourself if it needs to scroll.
   final Widget? child;
 
   /// Called after a row's own [LiquidSheetItem.onSelected].
@@ -138,10 +143,10 @@ class LiquidSheet extends StatelessWidget {
                 ),
               ),
             Flexible(
-              child: SingleChildScrollView(
-                child:
-                    child ??
-                    Column(
+              child:
+                  child ??
+                  SingleChildScrollView(
+                    child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: <Widget>[
                         for (final LiquidSheetItem item in items)
@@ -160,7 +165,7 @@ class LiquidSheet extends StatelessWidget {
                           ),
                       ],
                     ),
-              ),
+                  ),
             ),
             const SizedBox(height: 8),
           ],

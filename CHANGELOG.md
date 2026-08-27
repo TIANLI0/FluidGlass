@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.1.8
+
+### Changed
+
+- `LiquidSheet.child` is no longer wrapped in a scroll view. `items` still are —
+  rows of a known height have an obvious overflow — but free-form content
+  usually brings its own scrolling, and nesting two scrollables inside a sheet
+  gets you a list that refuses to move. Wrap it yourself if it needs to scroll.
+
 ## 0.1.7
 
 ### Added
