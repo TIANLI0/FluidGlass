@@ -749,13 +749,44 @@ class RenderDrawBackdrop extends RenderProxyBox {
   /// Every condition here is something the compositor cannot do: transform the
   /// backdrop before filtering it ([onDrawBackdrop]), hand the drawing back as
   /// a picture ([exportedBackdrop]), or filter content that is not behind the
-  /// element in the first place.
+  /// element in the first place — including the case where the element's own
+  /// paint is being harvested as somebody else's backdrop ([_isCaptured]).
   bool get _usesNativeFilter {
     if (_resolvedQuality.hasShaders) return false;
     if (!_backdrop.isPaintedBehindConsumer) return false;
     if (_onDrawBackdrop != null) return false;
     if (_exportedBackdrop != null) return false;
+    if (_isCaptured) return false;
     return true;
+  }
+
+  /// Whether a [BackdropLayer] above this element captures its paint.
+  ///
+  /// Inside a capture the native path is not merely cheaper, it is **wrong**. A
+  /// [BackdropFilterLayer] filters whatever is already beneath it in the layer
+  /// tree, and `OffsetLayer.toImageSync` rasterises the captured subtree *on
+  /// its own* — nothing is beneath it there. The element then contributes only
+  /// its plain draws to the picture the capture hands out, and every glass
+  /// element sampling that capture shows the source straight through, unfiltered.
+  ///
+  /// `LiquidBottomTabs` is where this surfaced: the accent-tinted copy of the
+  /// tabs it captures for the selection pill to magnify drew correctly on
+  /// screen, so the pill was the only thing that looked wrong — a crisp hole in
+  /// an otherwise frosted bar, and only on the tier that uses the native path.
+  ///
+  /// Read from the ancestor chain when the element attaches rather than during
+  /// paint: [alwaysNeedsCompositing] and [_syncBackdropSubscription] both read
+  /// [_usesNativeFilter] outside paint, so a value that flipped mid-paint would
+  /// leave the compositing bits and the subscription disagreeing with what was
+  /// actually drawn. Re-parenting a render object detaches and re-attaches it,
+  /// so inserting or removing a [BackdropLayer] above one is covered.
+  bool _isCaptured = false;
+
+  bool _computeIsCaptured() {
+    for (RenderObject? node = parent; node != null; node = node.parent) {
+      if (node is RenderBackdropLayer) return true;
+    }
+    return false;
   }
 
   /// The tier pinned for this element, or null to follow the governor.
@@ -794,6 +825,9 @@ class RenderDrawBackdrop extends RenderProxyBox {
   @override
   void attach(PipelineOwner owner) {
     super.attach(owner);
+    // Before _subscribeBackdrop: whether this element samples its backdrop at
+    // all depends on it (see _syncBackdropSubscription).
+    _isCaptured = _computeIsCaptured();
     _repaint?.addListener(markNeedsPaint);
     _subscribeBackdrop();
     FluidGlassPrograms.instance.addListener(markNeedsPaint);

@@ -1,5 +1,36 @@
 # Changelog
 
+## 0.1.5
+
+### Fixed
+
+- A glass element whose paint is harvested as somebody else's backdrop no longer
+  takes the native `BackdropFilterLayer` path. That layer filters whatever is
+  already beneath it, and `OffsetLayer.toImageSync` rasterises the captured
+  subtree on its own — nothing is beneath it there — so the element contributed
+  only its plain draws to the picture the capture handed out, and every glass
+  element sampling that capture showed the source straight through, unfiltered.
+
+  `LiquidBottomTabs` is where this surfaced. The accent-tinted copy of the tabs
+  it captures for the selection pill to magnify drew correctly on screen, so the
+  pill was the only thing wrong: a crisp, unfiltered hole in an otherwise
+  frosted bar. Only on the cheap tier, which is the one that uses the native
+  path — and `GlassDeviceTier` puts every device with fewer than six processors
+  there, including the stock Android emulator, so it was easy to hit and easy to
+  misread as an integration mistake.
+
+  The condition is read off the ancestor chain when the element attaches, not
+  during paint: `alwaysNeedsCompositing` and the backdrop subscription both
+  consult the same decision outside paint, and a value that flipped mid-paint
+  would leave them disagreeing with what was drawn. Re-parenting detaches and
+  re-attaches a render object, so inserting or removing a `BackdropLayer` above
+  one is covered.
+
+  `test/bottom_tabs_pill_test.dart` pins each tier in turn and measures the
+  luminance spread over black-and-white stripes inside the pill against the same
+  band under the panel; before the fix the pill's spread was ~4700 against the
+  panel's 0.25.
+
 ## 0.1.4
 
 ### Added
