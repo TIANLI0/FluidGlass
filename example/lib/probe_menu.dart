@@ -13,8 +13,6 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 
-import 'catalog/components/liquid_button.dart';
-import 'catalog/components/liquid_menu.dart';
 
 final String _dir = Platform.environment['PROBE_DIR'] ?? 'probe_menu_out';
 

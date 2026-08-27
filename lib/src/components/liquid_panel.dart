@@ -1,5 +1,6 @@
-import 'package:fluid_glass/fluid_glass.dart';
 import 'package:flutter/material.dart';
+
+import '../../fluid_glass.dart';
 
 /// The standard liquid-glass surface, usable on its own: vibrancy, blur and
 /// refraction over a backdrop, a container tint, a highlight rim and a drop

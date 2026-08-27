@@ -20,6 +20,11 @@ class WrappedBackdrop extends Backdrop {
   @override
   Listenable? get repaintNotifier => backdrop.repaintNotifier;
 
+  // Never: [onDraw] sets up the canvas around the wrapped backdrop, and a
+  // compositor filtering the scene in place cannot be told to do that.
+  @override
+  bool get isPaintedBehindConsumer => false;
+
   @override
   void drawBackdrop(BackdropDrawContext context) {
     onDraw(context, () => backdrop.drawBackdrop(context));

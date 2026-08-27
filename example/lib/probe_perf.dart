@@ -13,7 +13,6 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 
-import 'catalog/components/liquid_bottom_tabs.dart';
 import 'catalog/flight_icon.dart';
 
 final GlobalKey _tabsKey = GlobalKey();

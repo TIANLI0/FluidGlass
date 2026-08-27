@@ -3,7 +3,6 @@ import 'dart:typed_data';
 import 'package:fluid_glass/fluid_glass.dart';
 import 'package:flutter/material.dart';
 
-import 'components/liquid_button.dart';
 import 'wallpaper_picker.dart';
 
 /// The wallpaper every demo sits on, exported as a [LayerBackdrop], plus the

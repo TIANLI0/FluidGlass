@@ -7,7 +7,6 @@ import 'package:flutter/material.dart';
 import '../backdrop_demo_scaffold.dart';
 import '../flight_icon.dart';
 import '../utils/progress_converter.dart';
-import '../utils/spring.dart';
 import '../utils/ui_sensor.dart';
 
 /// An iOS-style control centre you drag down into place, every tile a piece of

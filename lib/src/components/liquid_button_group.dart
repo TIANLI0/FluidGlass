@@ -1,11 +1,7 @@
-import 'dart:math' as math;
-import 'dart:ui' show lerpDouble;
-
-import 'package:fluid_glass/fluid_glass.dart';
 import 'package:flutter/material.dart';
 
-import '../utils/drag_gesture_inspector.dart';
-import '../utils/interactive_highlight.dart';
+import '../../fluid_glass.dart';
+import '../internal/drag_deformation.dart';
 
 /// One tappable segment of a [LiquidButtonGroup].
 @immutable
@@ -62,34 +58,11 @@ class _LiquidButtonGroupState extends State<LiquidButtonGroup>
 
   /// The same displacement law as `LiquidButton`: `tanh` keeps the travel
   /// bounded, and the stretch grows along whichever axis is being pulled.
-  void _layerBlock(GlassLayer layer) {
-    final double width = layer.size.width;
-    final double height = layer.size.height;
-    if (width == 0 || height == 0) return;
-
-    final double progress = _highlight.pressProgress;
-    final double scale = lerpDouble(1.0, 1.0 + 4.0 / height, progress)!;
-
-    final double maxOffset = layer.size.shortestSide;
-    const double initialDerivative = 0.05;
-    final Offset offset = _highlight.offset;
-    layer.translationX =
-        maxOffset * _tanh(initialDerivative * offset.dx / maxOffset);
-    layer.translationY =
-        maxOffset * _tanh(initialDerivative * offset.dy / maxOffset);
-
-    final double maxDragScale = 4.0 / height;
-    final double offsetAngle = math.atan2(offset.dy, offset.dx);
-    final double maxDimension = layer.size.longestSide;
-    layer.scaleX = scale +
-        maxDragScale *
-            (math.cos(offsetAngle) * offset.dx / maxDimension).abs() *
-            math.min(width / height, 1.0);
-    layer.scaleY = scale +
-        maxDragScale *
-            (math.sin(offsetAngle) * offset.dy / maxDimension).abs() *
-            math.min(height / width, 1.0);
-  }
+  void _layerBlock(GlassLayer layer) => applyDragDeformation(
+        layer,
+        offset: _highlight.offset,
+        pressProgress: _highlight.pressProgress,
+      );
 
   @override
   Widget build(BuildContext context) {
@@ -189,9 +162,3 @@ class _GroupSegment extends StatelessWidget {
   }
 }
 
-double _tanh(double x) {
-  if (x > 20) return 1.0;
-  if (x < -20) return -1.0;
-  final double e2x = math.exp(2 * x);
-  return (e2x - 1) / (e2x + 1);
-}

@@ -9,3 +9,6 @@
 probe.dart
 probe_perf.dart
 probe_menu.dart
+probe_device_signals.dart
+probe_live_perf.dart
+probe_sampling_device.dart

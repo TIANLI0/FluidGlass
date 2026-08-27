@@ -1,8 +1,4 @@
 import 'package:fluid_glass/fluid_glass.dart';
-import 'package:fluid_glass_example/catalog/components/liquid_button.dart';
-import 'package:fluid_glass_example/catalog/components/liquid_button_group.dart';
-import 'package:fluid_glass_example/catalog/components/liquid_panel.dart';
-import 'package:fluid_glass_example/catalog/components/liquid_segmented_control.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';

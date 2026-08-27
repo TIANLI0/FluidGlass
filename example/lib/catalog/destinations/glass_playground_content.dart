@@ -4,9 +4,6 @@ import 'package:fluid_glass/fluid_glass.dart';
 import 'package:flutter/material.dart';
 
 import '../backdrop_demo_scaffold.dart';
-import '../components/liquid_button.dart';
-import '../components/liquid_slider.dart';
-import '../utils/spring.dart';
 
 /// A slab of glass you can pan, pinch and rotate, over a sheet of sliders that
 /// refracts itself.

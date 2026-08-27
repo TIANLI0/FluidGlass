@@ -78,6 +78,196 @@ Stack(
 `main` avoids one unrefracted first frame. It is optional — they load on first
 use either way.
 
+### Components
+
+Ready-made liquid-glass widgets, if you would rather not assemble one from
+`DrawBackdrop` yourself. They take the same `Backdrop` handle and otherwise
+drop into ordinary layout:
+
+```dart
+Column(
+  children: <Widget>[
+    LiquidButton(
+      backdrop: backdrop,
+      onPressed: () {},
+      children: const <Widget>[Text('Press me')],
+    ),
+    LiquidToggle(
+      backdrop: backdrop,
+      value: isOn,
+      onChanged: (bool value) => setState(() => isOn = value),
+    ),
+  ],
+)
+```
+
+| Widget | |
+| --- | --- |
+| `LiquidPanel` | The plain glass surface. Host anything — a card, a popover, a sheet. |
+| `LiquidButton` | A capsule that squashes and slides under the finger. |
+| `LiquidButtonGroup` | A row of actions sharing one pane of glass. |
+| `LiquidMenu` | A pop-up menu that blooms out of its anchor. |
+| `LiquidBottomTabs` | A tab bar whose selection pill can be dragged. |
+| `LiquidSegmentedControl` | A segmented control with a draggable thumb. |
+| `LiquidSlider` | A slider that stretches as it is pulled. |
+| `LiquidToggle` | A switch whose knob squashes into the track. |
+
+Two things they need that an ordinary widget does not:
+
+- **A `Backdrop`**, passed explicitly. There is no inherited lookup; a glass
+  widget cannot invent what it refracts. If threading it through gets tedious,
+  put the `LayerBackdrop` in an `InheritedWidget` of your own.
+- **`clipBehavior: Clip.none`** on any enclosing `Stack`. Glass paints its rim
+  and shadow outside its own box, and Flutter's `Stack` clips by default.
+
+The machinery they are built from is exported too, for building your own in the
+same idiom: `SpringValue` and `springOf` (the Flutter counterpart of Compose's
+`Animatable<Float>` and `spring()`), `DampedDragAnimation`, `DragInspector` (a
+slop-free press that never swallows a tap) and `InteractiveHighlight` (the glow
+that follows a finger).
+
+### Quality tiers
+
+The refraction is the expensive part: a fragment shader over the element's
+whole padded texture, every frame it changes. `GlassQuality` has two settings,
+and that is the whole ladder — the refraction is either on or off:
+
+| Tier | Draws |
+| --- | --- |
+| `GlassQuality.liquid` | Liquid glass: refraction, shaded rim, blur, tint, shadow. |
+| `GlassQuality.plain` | A plain Gaussian blur behind the tint, with a flat rim. No fragment shaders, and no capture either: the chain becomes Flutter's own `BackdropFilter`. |
+
+`GlassDeviceTier.instance` picks one **from the device, once, before the first
+frame**. It is not a running measurement: the classification is synchronous, so
+there is no warm-up during which the app draws at the wrong tier, and nothing
+changes appearance while somebody is using it.
+
+What the built-in classifier reads, in order:
+
+1. **Runtime shader support.** Without `ImageFilter.shader` neither the
+   refraction nor the shaded rim can run, so the tier is `plain` whatever else
+   is true. Capability, not a guess.
+2. **A 32-bit process.** A 32-bit mobile device is entry-level or old.
+3. **Fewer than 6 processors**, when the count is known at all. Crude — core
+   count is a poor proxy for GPU class — but it is the only CPU-class signal
+   Dart exposes without a plugin.
+
+That is genuinely all a Flutter app can know about a device with no
+dependencies. `Platform.operatingSystemVersion` returns a build string
+(`PKJ110_16.0.10.501(CN01)` on one phone) that no library should try to parse,
+and judging by pixels × refresh rate moves the wrong way — a flagship has more
+of both *and* fills them better, so demand alone would downgrade exactly the
+devices that can afford the effect. `GlassDeviceInfo` exposes it anyway, for a
+classifier that wants it.
+
+So if your app knows better — `device_info_plus`, remote config, a user
+setting — tell it, and it takes effect immediately:
+
+```dart
+// Replace the decision wholesale.
+GlassDeviceTier.instance.classifier = (GlassDeviceInfo info) =>
+    myDeviceIsCheap ? GlassQuality.plain : GlassQuality.liquid;
+
+// Or just pin one.
+GlassDeviceTier.instance.pinnedQuality = GlassQuality.plain;
+
+// A subtree — a "reduce visual effects" setting, say.
+GlassQualityScope(quality: GlassQuality.plain, child: child)
+
+// One element, whatever the rest of the app is doing.
+DrawBackdrop(quality: GlassQuality.liquid, ...)
+```
+
+`GlassDeviceTier.instance.describe()` says why it decided what it did.
+Everything is clamped by the backend: a Skia build or the web is pinned to
+`plain` however fast the device is.
+
+**`plain` does not sample the backdrop at all.** Dropping the refraction is only
+half a fallback: the lens is a fragment pass over the element's own texture,
+while the capture is an `OffsetLayer.toImageSync` of the whole source that
+flushes the pipeline mid-frame — and for a backdrop that changes every frame the
+capture *is* the cost. So the cheap tier hands the effect chain to Flutter's own
+`BackdropFilter` and lets the engine filter what is behind in place: no capture,
+no stall, no texture held alive, and nothing that can go stale. The blur is the
+engine's separable, downsampled Gaussian, which is the fastest one reachable
+from Dart — a hand-written blur would have to go through `ImageFilter.shader`, a
+per-pixel fragment program with neither separability nor downsampling.
+
+It cannot replace the liquid tier: a fragment shader inside a backdrop filter is
+handed the whole screen rather than the element's texture, so the lens would
+have no geometry to anchor to. The tier that gave up the shaders is exactly the
+tier that can use it. It also steps aside for anything the compositor cannot do
+— a `CanvasBackdrop` or `WrappedBackdrop` the element has to draw itself, an
+`onDrawBackdrop` that transforms the drawing, an `exportedBackdrop` handed back
+as a picture — and those keep sampling on every tier. Wrap a screen in Flutter's
+`BackdropGroup` and sibling glass shares one read of the backdrop instead of
+each taking its own.
+
+A source that changes needs nothing special, whichever way it changes:
+
+- **It repaints.** Ordinary widgets: the repaint reaches the `BackdropLayer`.
+- **It scrolls.** `RenderViewport` is a repaint boundary, so a scrolling list
+  repaints without its ancestors repainting at all; `BackdropLayer` picks up the
+  scroll notifications coming out of its own subtree instead, before the frame
+  is built.
+- **It repaints behind a repaint boundary of its own** — a
+  `RepaintBoundary`-wrapped animation, a custom painter on its own ticker. That
+  reaches nobody, so the captured *layers* are watched: a repaint replaces the
+  `ui.Picture` of every layer it touches, which makes walking them an exact
+  answer to "did anything in here change".
+- **It only moves.** A page sliding in, an `InteractiveViewer` being panned or
+  pinched. Nothing repaints, so the capture is still good; where the glass has
+  to read it is what changed, and that is the whole matrix between the two —
+  which is why glass over a zoomed photo magnifies by exactly as much as the
+  photo does.
+
+Pass `liveness` when something already knows the content is about to change —
+an `AnimationController`, a `ValueNotifier`. It is not required, but it drops
+the capture *before* the frame is built rather than after it has been drawn,
+which is one frame earlier than any after-the-fact watch can manage:
+
+```dart
+BackdropLayer(backdrop: backdrop, liveness: myController, child: source)
+```
+
+What Flutter does not draw itself it also cannot capture. A video texture, a
+camera preview or a native map inside the source comes out as a hole in the
+glass; those have to sit outside the `BackdropLayer`.
+
+Wrap **only what the glass should refract**, and put the glass over it as a
+sibling. Glass placed inside the subtree would be part of what it is trying to
+refract — the capture would be taken while the source was halfway through
+painting, and the two would mark each other dirty every frame — so that is
+reported as an error rather than drawn wrong.
+
+A live source is not free, and it is worth knowing what the cost actually is.
+Flinging a feed under pinned glass chrome on a 120 Hz phone, mean ms per frame:
+
+|                  | raster | build | total |
+| ---------------- | ------ | ----- | ----- |
+| no glass at all  | 0.73   | 0.20  | 1.49  |
+| glass, capture 1 | 1.46   | 0.68  | 14.17 |
+| glass, capture ½ | 2.05   | 1.20  | 5.37  |
+
+Raster and build are both tiny, and `totalSpan` is twelve milliseconds larger
+than the two together — the cost is the stall from `toImageSync`, a synchronous
+capture in the middle of a frame, and it scales with the pixels captured rather
+than with how much glass is drawn. So `BackdropLayer.pixelRatio` is the lever
+that matters for a source that changes every frame: halving it was worth 2.5×
+here and is close to invisible, since the glass blurs what it samples anyway.
+Turning off `addRepaintBoundaries` on the list made no difference, in case that
+was the next guess.
+
+The catalog's **Live background** screen is the two cases that are not a
+scroll — an aurora repainting inside a `RepaintBoundary`, and a photo you pan
+and pinch — with pinned glass over both. **Quality tiers & device** shows both
+tiers side by side with the classification and its evidence, and **App chrome
+over a live feed** is the expensive case — pinned chrome over content that repaints every frame,
+where the backdrop snapshot is invalidated and re-captured on every frame of
+the scroll. That screen is also where `BackdropLayer(pixelRatio:)` earns its
+keep: halving it quarters the pixels the capture costs, and glass that blurs
+what it samples hides the difference well.
+
 ### Effects
 
 Effects are applied in the order you call them.

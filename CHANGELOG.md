@@ -1,5 +1,198 @@
 # Changelog
 
+## 0.1.3
+
+### Added
+
+- The eight liquid-glass widgets that used to live only in the example app are
+  now part of the package: `LiquidPanel`, `LiquidButton`, `LiquidButtonGroup`,
+  `LiquidMenu`, `LiquidBottomTabs`, `LiquidSegmentedControl`, `LiquidSlider`
+  and `LiquidToggle`. They were demo code with no importable path; now they are
+  API, with their tests moved into the package's own suite.
+- The machinery behind them is exported as well, so a component of your own can
+  be built in the same idiom: `SpringValue`, `SpringOffset`, `springOf` and
+  `TweenColor` (the Flutter counterparts of Compose's `Animatable` and
+  `spring()`), `DampedDragAnimation`, `DragInspector` and
+  `InteractiveHighlight`.
+- The press-highlight fragment program moved from the example into the package,
+  so `FluidGlass.ensureInitialized()` now preloads it with the rest.
+- `GlassQuality`, two settings for how much of the liquid-glass look an element
+  draws: `liquid` (refraction and a shaded rim) and `plain` (a plain Gaussian
+  blur behind the tint, with a flat rim, and no fragment shaders at all).
+  Effects read the tier off `BackdropEffectScope` and step aside themselves, so
+  no component branches on it.
+- `GlassDeviceTier`, which picks the tier from the device once, synchronously,
+  before the first frame — so there is no warm-up at the wrong tier and the
+  glass never changes appearance mid-session. It reads runtime shader support
+  (decisive), whether the process is 32-bit, and the processor count; an unknown
+  count or architecture is not held against the device. `describe()` says why.
+- `GlassDeviceTier.classifier` replaces that decision with the app's own, for a
+  project that has real device information, and `pinnedQuality` bypasses it.
+  Both take effect immediately. `GlassQualityScope` pins a tier for a subtree
+  and `DrawBackdrop.quality` for one element. All of it is clamped by what the
+  backend can draw: without runtime shaders nothing above `plain` is reachable.
+- Catalog: a **Quality tiers & device** screen showing both tiers side by side
+  with the classification and its evidence, and an **App chrome over a live
+  feed** screen — a header and tab bar pinned over a scrolling feed, which is
+  the expensive case the rest of the catalog does not cover: the backdrop
+  snapshot is invalidated and re-captured every frame of the scroll. It carries
+  a `BackdropLayer.pixelRatio` control to show what that lever buys. Plus a
+  **Live background** screen for the two live cases that are not a scroll: an
+  aurora repainting inside a `RepaintBoundary`, and a photo you pan and pinch,
+  with pinned glass over both.
+
+### Changed
+
+- **`GlassQuality.plain` no longer samples the backdrop at all — it hands the
+  effect chain to Flutter's own `BackdropFilter`.** Dropping the refraction
+  was only ever half a fallback: the lens is a fragment pass over the element's
+  own texture, while the capture is an `OffsetLayer.toImageSync` of the whole
+  source that flushes the pipeline mid-frame, and for a backdrop that changes
+  every frame the capture *is* the cost. So the cheap tier stops sampling: when
+  the backdrop is content already painted behind the element, the chain becomes
+  one `BackdropFilterLayer` and the engine filters what is behind in place.
+
+  No capture, no pipeline stall, no texture held alive, and nothing to
+  invalidate — the frozen-backdrop class of bug cannot occur on this path at
+  all. The blur is the engine's own separable, downsampled Gaussian, which is
+  the fastest one reachable from Dart; a hand-written blur would have to go
+  through `ImageFilter.shader`, a per-pixel fragment program with neither
+  separability nor downsampling, and is exactly what this tier exists to avoid.
+  Elements on this path also drop their subscription to the `LayerBackdrop`, so
+  a source with no other consumer stops capturing itself entirely.
+
+  It cannot replace the liquid tier: a fragment shader inside a backdrop filter
+  is handed the whole screen rather than the element's texture, so the lens
+  would have no geometry to anchor to. The tier that has given up the shaders
+  is exactly the tier that can use it. It also steps aside for anything the
+  compositor cannot do — a `CanvasBackdrop` or `WrappedBackdrop`, which the
+  element has to draw itself, an `onDrawBackdrop` that transforms the drawing,
+  or an `exportedBackdrop` that has to be handed back as a picture — and those
+  keep sampling on every tier. Sibling glass inside a `BackdropGroup` shares one
+  read of the backdrop rather than each taking its own.
+
+### Fixed
+
+- **A rectangular glass element bled its blur outside itself.** The clip was
+  skipped whenever the outline was a rectangle covering the element — true of
+  the element, false of what gets drawn, since the backdrop goes into a layer
+  inflated by the blur radius so the blur has pixels to reach for. Without the
+  clip that layer smeared whatever was behind it for `radius` logical pixels on
+  every side.
+- **Blur was starved where its source ended.** The capture covers the source
+  and no more, so a blur reading past it mixed in transparent black — a dark
+  fringe along every edge where glass met the end of its source, which for app
+  chrome is the edge of the screen. The capture's outermost row and column are
+  now extended outwards, as `TileMode.clamp` would.
+- **A `LayerBackdrop` whose source scrolled showed a frozen capture.**
+  `RenderBackdropLayer` invalidated its snapshot, and told its consumers to
+  repaint, only from inside its own `paint` — which assumes that a source
+  repainting means an ancestor repaints. It does not:
+  `RenderViewport.isRepaintBoundary` is true, so a list scrolling inside a
+  `BackdropLayer` repaints without its ancestors repainting at all. Nothing
+  marked the glass over it dirty either, so pinned chrome over a scrolling feed
+  kept drawing a stale capture — the backdrop stood still while the content
+  moved. Every other case in the catalog puts glass over a still wallpaper,
+  where a stale capture is the correct answer, which is why it survived this
+  long.
+
+  `BackdropLayer` now watches for scroll notifications bubbling out of its own
+  subtree and invalidates on them, and takes an optional `liveness` listenable
+  for a source that changes behind some other repaint boundary — a video, a
+  `RepaintBoundary`-wrapped animation. Invalidation is deliberately driven by
+  those signals rather than by the frame counter: re-capturing every frame
+  would be correct and would also undo the point of caching, so glass animating
+  over a still source still costs no re-capture. Both halves are covered by
+  tests.
+
+- **A background that repainted behind a repaint boundary of its own still
+  froze.** Scroll notifications cover a scrolling list; nothing covered a
+  `RepaintBoundary`-wrapped animation, a custom painter on its own ticker, a
+  Rive or Lottie scene. `markNeedsPaint` stops at the nearest repaint boundary,
+  so those repaint while `RenderBackdropLayer` sleeps through it, and the only
+  way out was for the app to know about `liveness` and pass it. The captured
+  *layers* are now watched instead: a repaint replaces the `ui.Picture` of
+  every layer it touches and a retained subtree keeps the same ones, which
+  makes a walk of the layer tree an exact answer to "did anything in here
+  repaint" — for the price of visiting a few dozen layers on frames that were
+  happening anyway. It costs one frame of latency, so `liveness` is still worth
+  passing when something already knows; it is no longer required.
+
+  The watch is careful not to duplicate the mechanisms that already work: a
+  frame a scroll notification, a `liveness` tick or the source's own repaint
+  already accounted for is not re-reported. Pinned glass over a scrolling feed
+  still costs exactly one capture per glass strip per frame, which is pinned by
+  a test that counts them.
+
+- **Glass over a source that was scaled, rotated or zoomed sampled the wrong
+  pixels.** The capture is taken in the source's own coordinates and was placed
+  with the offset between the two origins, which is only the whole story while
+  both sit under plain translations. Under an `InteractiveViewer`, a
+  `FittedBox` or a page mid-transition it is not: the glass refracted a
+  wrongly-scaled copy of what it covered. The full transform between consumer
+  and source is used now, so glass over a pinched photo magnifies by exactly as
+  much as the photo does. That also subsumes the element's own `layerBlock`,
+  which used to need a second, separate correction — and it lets an element
+  with a `layerBlock` ask for the region it actually reads instead of forcing a
+  whole-source capture.
+
+- **A source that only moved left the glass on stale coordinates.** A page
+  sliding in or a viewer being panned changes nothing inside the source, so its
+  capture stays valid and nothing repaints; what changes is where each consumer
+  has to read it. Glass insulated by a repaint boundary of its own never found
+  out. The source's own placement is watched now, and consumers are told to
+  re-place what they sample *without* the capture being thrown away.
+
+- **Glass inside its own `BackdropLayer` produced a black or garbled backdrop
+  and pinned the frame rate.** `BackdropLayer(child: everything)` with the glass
+  somewhere in `everything` is the natural thing to write and cannot work: the
+  capture is taken while the source is halfway through painting, so its layer
+  holds no finished picture yet, and the glass marking itself dirty marks the
+  source dirty too — the two then repaint each other every frame, forever. It
+  is now detected exactly (the source knows when it is inside its own `paint`),
+  reported once with the composition that does work, and stopped rather than
+  left spinning.
+
+- A `BackdropLayer` holding a texture or platform view — a video, a camera
+  preview, a native map — now says so in debug. Capturing a layer tree does not
+  include content the platform draws, so glass over one refracts a hole; that
+  was silent before.
+
+- Glass nested inside an element that exports its own backdrop and scales itself
+  refracted a wrongly-sized copy of it. `PictureBackdropSource` records where it
+  sits as a full transform now rather than as an offset.
+
+- **The cheap tier still ran a fragment program on every press.**
+  `GlassQuality.plain` is defined as running none, and the lens and the rim's
+  directional shading both honour that; the press glow under a finger did not.
+  It was gated only on whether its program had loaded, so a device that gave up
+  the refraction to keep its frame budget still paid a shader pass whenever a
+  `LiquidButton`, `LiquidBottomTabs` or `LiquidSegmentedControl` was touched. It
+  now resolves the tier the same way `DrawBackdrop` does — element pin, then
+  `GlassQualityScope`, then `GlassDeviceTier`, clamped by the backend — and
+  falls back to the flat brighten it already had for backends without shaders.
+  `GlassQuality.hasShaders` names the contract, and a test asserts that no paint
+  a plain-tier component makes carries a shader, pressed or not.
+
+- A glass element that scaled and faded at the same time painted its child at
+  full size for as long as its `alpha` was below 1. `RenderGlassTransform`
+  applied the `GlassLayer` matrix straight to the canvas whenever the subtree
+  did not otherwise need compositing, but the fade went through
+  `PaintingContext.pushOpacity`, which appends a layer to the enclosing
+  *container* layer — and a layer never sees a canvas matrix. The child
+  therefore snapped to full size the instant the fade began and snapped back
+  when it ended. A `LiquidMenu` blooming out of its anchor flashed twice per
+  open/close because of it, at the two moments its alpha crossed 1.0. The
+  transform is now promoted to a real layer whenever the fade needs one.
+- Catalog: a `LiquidMenu` row stayed live to taps while the panel was animating
+  away. The panel stays mounted for the whole closing spring and the dismiss
+  barrier steps aside as soon as the close starts, so a tap aimed at whatever
+  the menu had been covering selected a row instead.
+- Catalog: switching between two `LiquidMenu`s cost two taps — the first was
+  spent on the dismiss barrier and the second anchor never saw it. The barrier
+  still absorbs the press, so dismissing never doubles as pressing, but it now
+  resolves a press on a sibling menu's anchor itself and opens that menu.
+
 ## 0.1.2
 
 Roughly 40% off the raster time of an animating glass element, with the

@@ -2,10 +2,6 @@ import 'package:fluid_glass/fluid_glass.dart';
 import 'package:flutter/material.dart';
 
 import '../backdrop_demo_scaffold.dart';
-import '../components/liquid_button_group.dart';
-import '../components/liquid_panel.dart';
-import '../components/liquid_segmented_control.dart';
-import '../utils/spring.dart';
 
 /// Button groups, a segmented control, and the standalone [LiquidPanel] they
 /// are all built from.

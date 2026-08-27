@@ -13,6 +13,9 @@ enum CatalogDestination {
   controlCenter,
   magnifier,
 
+  appChrome,
+  liveBackground,
+  quality,
   glassPlayground,
   adaptiveLuminanceGlass,
   progressiveBlur,

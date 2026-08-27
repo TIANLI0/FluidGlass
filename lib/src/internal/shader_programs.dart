@@ -14,6 +14,13 @@ class FluidGlassPrograms extends ChangeNotifier {
 
   static final FluidGlassPrograms instance = FluidGlassPrograms._();
 
+  /// How a dependent app addresses this package's assets.
+  ///
+  /// Inside this package's own test and tooling context the asset bundle is
+  /// rooted here instead, and the same file is simply `shaders/…`, so both
+  /// spellings are tried — see [_programFromAsset].
+  static const String _packagePrefix = 'packages/fluid_glass/';
+
   static const String _refractionAsset = 'packages/fluid_glass/shaders/refraction.frag';
   static const String _dispersionAsset =
       'packages/fluid_glass/shaders/refraction_dispersion.frag';
@@ -21,11 +28,14 @@ class FluidGlassPrograms extends ChangeNotifier {
       'packages/fluid_glass/shaders/highlight_default.frag';
   static const String _highlightAmbientAsset =
       'packages/fluid_glass/shaders/highlight_ambient.frag';
+  static const String _interactiveHighlightAsset =
+      'packages/fluid_glass/shaders/interactive_highlight.frag';
 
   ui.FragmentProgram? _refraction;
   ui.FragmentProgram? _dispersion;
   ui.FragmentProgram? _highlightDefault;
   ui.FragmentProgram? _highlightAmbient;
+  ui.FragmentProgram? _interactiveHighlight;
 
   Future<void>? _loading;
   Object? _error;
@@ -35,7 +45,8 @@ class FluidGlassPrograms extends ChangeNotifier {
       _refraction != null &&
       _dispersion != null &&
       _highlightDefault != null &&
-      _highlightAmbient != null;
+      _highlightAmbient != null &&
+      _interactiveHighlight != null;
 
   /// The error thrown while loading the programs, if any.
   Object? get error => _error;
@@ -60,6 +71,12 @@ class FluidGlassPrograms extends ChangeNotifier {
     return _highlightAmbient;
   }
 
+  /// The glow a pressed component paints under the finger.
+  ui.FragmentProgram? get interactiveHighlight {
+    _kick();
+    return _interactiveHighlight;
+  }
+
   void _kick() {
     if (_loading == null && !isReady) {
       // ignore: discarded_futures
@@ -72,18 +89,40 @@ class FluidGlassPrograms extends ChangeNotifier {
     return _loading ??= _load();
   }
 
+  /// Loads [asset], retrying without the `packages/fluid_glass/` prefix.
+  ///
+  /// The prefixed spelling is the one a dependent app resolves; the bare one is
+  /// what resolves when the bundle is rooted at this package, as it is in its
+  /// own tests. The prefixed error is the one reported if neither works, since
+  /// that is the spelling a consumer is failing on.
+  static Future<ui.FragmentProgram> _programFromAsset(String asset) async {
+    try {
+      return await ui.FragmentProgram.fromAsset(asset);
+    } catch (error) {
+      try {
+        return await ui.FragmentProgram.fromAsset(
+          asset.replaceFirst(_packagePrefix, ''),
+        );
+      } catch (_) {
+        rethrow;
+      }
+    }
+  }
+
   Future<void> _load() async {
     try {
       final List<ui.FragmentProgram> programs = await Future.wait(<Future<ui.FragmentProgram>>[
-        ui.FragmentProgram.fromAsset(_refractionAsset),
-        ui.FragmentProgram.fromAsset(_dispersionAsset),
-        ui.FragmentProgram.fromAsset(_highlightDefaultAsset),
-        ui.FragmentProgram.fromAsset(_highlightAmbientAsset),
+        _programFromAsset(_refractionAsset),
+        _programFromAsset(_dispersionAsset),
+        _programFromAsset(_highlightDefaultAsset),
+        _programFromAsset(_highlightAmbientAsset),
+        _programFromAsset(_interactiveHighlightAsset),
       ]);
       _refraction = programs[0];
       _dispersion = programs[1];
       _highlightDefault = programs[2];
       _highlightAmbient = programs[3];
+      _interactiveHighlight = programs[4];
     } catch (e, stack) {
       _error = e;
       FlutterError.reportError(

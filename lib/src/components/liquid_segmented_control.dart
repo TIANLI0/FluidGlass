@@ -1,10 +1,6 @@
-import 'package:fluid_glass/fluid_glass.dart';
 import 'package:flutter/material.dart';
 
-import '../utils/damped_drag_animation.dart';
-import '../utils/drag_gesture_inspector.dart';
-import '../utils/spring.dart';
-import 'liquid_panel.dart';
+import '../../fluid_glass.dart';
 
 /// A compact segmented picker whose selection thumb is a bead of liquid glass
 /// that slides — or is dragged — between the segments.

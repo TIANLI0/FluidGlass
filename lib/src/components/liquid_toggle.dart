@@ -1,9 +1,8 @@
 import 'dart:ui' show lerpDouble;
 
-import 'package:fluid_glass/fluid_glass.dart';
 import 'package:flutter/material.dart';
 
-import '../utils/damped_drag_animation.dart';
+import '../../fluid_glass.dart';
 
 /// A switch whose knob is a bead of liquid glass: it squashes as you press,
 /// stretches with its velocity, and refracts the track underneath.

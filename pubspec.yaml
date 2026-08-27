@@ -1,6 +1,6 @@
 name: fluid_glass
 description: Liquid Glass backdrop effects for Flutter, with refraction, chromatic dispersion, blur, highlights and continuous-corner shapes.
-version: 0.1.2
+version: 0.1.3
 repository: https://github.com/TIANLI0/FluidGlass
 
 screenshots:
@@ -40,3 +40,4 @@ flutter:
     - shaders/refraction_dispersion.frag
     - shaders/highlight_default.frag
     - shaders/highlight_ambient.frag
+    - shaders/interactive_highlight.frag

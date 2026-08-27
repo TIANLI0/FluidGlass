@@ -25,6 +25,5 @@ flutter:
     - assets/
 
   shaders:
-    - shaders/interactive_highlight.frag
     - shaders/sdf.frag
     - shaders/progressive_blur.frag

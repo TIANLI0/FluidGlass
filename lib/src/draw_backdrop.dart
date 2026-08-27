@@ -11,6 +11,8 @@ import 'glass_layer.dart';
 import 'highlight/highlight.dart';
 import 'internal/glass_painters.dart';
 import 'internal/shader_programs.dart';
+import 'quality/glass_device_tier.dart';
+import 'quality/glass_quality.dart';
 import 'shadow/shadow.dart';
 import 'shapes/glass_outline.dart';
 import 'shapes/rectangle_corner_radii.dart';
@@ -72,6 +74,7 @@ class DrawBackdrop extends StatelessWidget {
     this.onDrawSurface,
     this.onDrawFront,
     this.isolateSurface = true,
+    this.quality,
     this.repaint,
     this.child,
   });
@@ -91,6 +94,7 @@ class DrawBackdrop extends StatelessWidget {
     this.onDrawSurface,
     this.onDrawFront,
     this.isolateSurface = true,
+    this.quality,
     this.repaint,
     this.child,
   })  : highlight = null,
@@ -129,6 +133,14 @@ class DrawBackdrop extends StatelessWidget {
   /// pixels without the layer; pass false to skip an offscreen pass per paint.
   final bool isolateSurface;
 
+  /// How much of the liquid-glass look to draw, pinned for this element alone.
+  ///
+  /// Null — the default — means the nearest [GlassQualityScope] decides, and
+  /// failing that [GlassDeviceTier.instance], which classifies the device. Pin
+  /// a tier here for an element that should keep its refraction whatever the
+  /// rest of the app does, or give one up unconditionally.
+  final GlassQuality? quality;
+
   /// Repaints the element whenever it notifies.
   final Listenable? repaint;
 
@@ -150,8 +162,13 @@ class DrawBackdrop extends StatelessWidget {
       onDrawSurface: onDrawSurface,
       onDrawFront: onDrawFront,
       isolateSurface: isolateSurface,
+      quality: quality ?? GlassQualityScope.maybeOf(context),
       repaint: repaint,
       textDirection: Directionality.maybeOf(context) ?? TextDirection.ltr,
+      // Sibling glass in the same `BackdropGroup` shares one read of the
+      // backdrop instead of each taking its own. Only the native path can use
+      // it; looking it up costs an inherited-widget dependency either way.
+      backdropGroupKey: BackdropGroup.of(context)?.backdropKey,
       child: child,
     );
     if (layerBlock == null) return core;
@@ -251,8 +268,15 @@ class RenderGlassTransform extends RenderProxyBox {
       paintChild(context, offset);
       return;
     }
+    // The transform has to become a real layer whenever the fade does.
+    // `pushOpacity` appends a layer to the enclosing *container* layer, which
+    // never sees a matrix that `pushTransform` applied straight to the canvas
+    // — so an element that scaled and faded at the same time snapped to full
+    // size the instant its alpha left 1.0, and snapped back when it returned.
+    // A menu blooming out of its anchor flashed twice per open/close because
+    // of it.
     _transformLayer.layer = context.pushTransform(
-      needsCompositing,
+      needsCompositing || alpha < 1.0,
       offset,
       layer.toMatrix(),
       paintChild,
@@ -316,8 +340,10 @@ class _DrawBackdropCore extends SingleChildRenderObjectWidget {
     required this.onDrawSurface,
     required this.onDrawFront,
     required this.isolateSurface,
+    required this.quality,
     required this.repaint,
     required this.textDirection,
+    required this.backdropGroupKey,
     super.child,
   });
 
@@ -334,8 +360,10 @@ class _DrawBackdropCore extends SingleChildRenderObjectWidget {
   final GlassDrawCallback? onDrawSurface;
   final GlassDrawCallback? onDrawFront;
   final bool isolateSurface;
+  final GlassQuality? quality;
   final Listenable? repaint;
   final TextDirection textDirection;
+  final BackdropKey? backdropGroupKey;
 
   @override
   RenderDrawBackdrop createRenderObject(BuildContext context) {
@@ -353,8 +381,10 @@ class _DrawBackdropCore extends SingleChildRenderObjectWidget {
       onDrawSurface: onDrawSurface,
       onDrawFront: onDrawFront,
       isolateSurface: isolateSurface,
+      quality: quality,
       repaint: repaint,
       textDirection: textDirection,
+      backdropGroupKey: backdropGroupKey,
       devicePixelRatio: MediaQuery.devicePixelRatioOf(context),
     );
   }
@@ -375,8 +405,10 @@ class _DrawBackdropCore extends SingleChildRenderObjectWidget {
       ..onDrawSurface = onDrawSurface
       ..onDrawFront = onDrawFront
       ..isolateSurface = isolateSurface
+      ..quality = quality
       ..repaint = repaint
       ..textDirection = textDirection
+      ..backdropGroupKey = backdropGroupKey
       ..devicePixelRatio = MediaQuery.devicePixelRatioOf(context);
   }
 }
@@ -401,8 +433,10 @@ class RenderDrawBackdrop extends RenderProxyBox {
     required GlassDrawCallback? onDrawSurface,
     required GlassDrawCallback? onDrawFront,
     required bool isolateSurface,
+    required GlassQuality? quality,
     required Listenable? repaint,
     required TextDirection textDirection,
+    required BackdropKey? backdropGroupKey,
     required double devicePixelRatio,
   })  : _backdrop = backdrop,
         _shape = shape,
@@ -417,8 +451,10 @@ class RenderDrawBackdrop extends RenderProxyBox {
         _onDrawSurface = onDrawSurface,
         _onDrawFront = onDrawFront,
         _isolateSurface = isolateSurface,
+        _quality = quality,
         _repaint = repaint,
         _textDirection = textDirection,
+        _backdropGroupKey = backdropGroupKey,
         _devicePixelRatio = devicePixelRatio;
 
   Backdrop get backdrop => _backdrop;
@@ -431,6 +467,7 @@ class RenderDrawBackdrop extends RenderProxyBox {
     if (attached) _unsubscribeBackdrop();
     _backdrop = value;
     if (attached) _subscribeBackdrop();
+    markNeedsCompositingBitsUpdate();
     markNeedsPaint();
   }
 
@@ -488,7 +525,7 @@ class RenderDrawBackdrop extends RenderProxyBox {
     if (_exportedBackdrop == value) return;
     _exportedBackdrop?.detachSource(_pictureSource);
     _exportedBackdrop = value;
-    markNeedsPaint();
+    _onModeMayHaveChanged();
   }
 
   GlassDrawCallback? get onDrawBehind => _onDrawBehind;
@@ -504,7 +541,7 @@ class RenderDrawBackdrop extends RenderProxyBox {
   set onDrawBackdrop(OnDrawBackdropCallback? value) {
     if (_onDrawBackdrop == value) return;
     _onDrawBackdrop = value;
-    markNeedsPaint();
+    _onModeMayHaveChanged();
   }
 
   GlassDrawCallback? get onDrawSurface => _onDrawSurface;
@@ -550,6 +587,15 @@ class RenderDrawBackdrop extends RenderProxyBox {
     markNeedsPaint();
   }
 
+  /// The [BackdropGroup] this element's native filter joins, if any.
+  BackdropKey? get backdropGroupKey => _backdropGroupKey;
+  BackdropKey? _backdropGroupKey;
+  set backdropGroupKey(BackdropKey? value) {
+    if (_backdropGroupKey == value) return;
+    _backdropGroupKey = value;
+    markNeedsPaint();
+  }
+
   double get devicePixelRatio => _devicePixelRatio;
   double _devicePixelRatio;
   set devicePixelRatio(double value) {
@@ -571,9 +617,13 @@ class RenderDrawBackdrop extends RenderProxyBox {
   final BakedDecoration _shadowBake = BakedDecoration();
   final BakedDecoration _innerShadowBake = BakedDecoration();
 
-  /// Where this element sat the last time it painted, so a move relative to the
+  /// How this element sat the last time it painted, so a move relative to the
   /// backdrop can be noticed.
-  Offset? _paintedGlobalOffset;
+  ///
+  /// The whole transform rather than the origin: an element an ancestor scales
+  /// or rotates samples different pixels without its top-left corner moving at
+  /// all.
+  Matrix4? _paintedTransform;
   bool _positionWatchPending = false;
 
   // The resolved shape, memoised across paints.
@@ -633,9 +683,8 @@ class RenderDrawBackdrop extends RenderProxyBox {
     SchedulerBinding.instance.addPostFrameCallback((Duration _) {
       _positionWatchPending = false;
       if (!attached || !_backdrop.isCoordinatesDependent) return;
-      if (hasSize && _paintedGlobalOffset != null) {
-        final Offset now = localToGlobal(Offset.zero);
-        if (now != _paintedGlobalOffset) {
+      if (hasSize && _paintedTransform != null) {
+        if (getTransformTo(null) != _paintedTransform) {
           markNeedsPaint();
         }
       }
@@ -643,13 +692,104 @@ class RenderDrawBackdrop extends RenderProxyBox {
     });
   }
 
+  /// Whether this element is currently subscribed to its backdrop.
+  ///
+  /// Not a constant: an element on the native path does not sample the capture
+  /// at all, and staying subscribed would keep `LayerBackdrop.hasConsumers`
+  /// true — which is what tells the source to go on capturing itself every
+  /// frame. Dropping the subscription is what makes the fallback actually free.
+  bool _subscribedToBackdrop = false;
+
+  void _syncBackdropSubscription() {
+    final bool wanted = attached && !_usesNativeFilter;
+    if (wanted == _subscribedToBackdrop) return;
+    _subscribedToBackdrop = wanted;
+    if (wanted) {
+      _backdrop.repaintNotifier?.addListener(markNeedsPaint);
+    } else {
+      _backdrop.repaintNotifier?.removeListener(markNeedsPaint);
+    }
+  }
+
   void _subscribeBackdrop() {
-    _backdrop.repaintNotifier?.addListener(markNeedsPaint);
+    _subscribedToBackdrop = false;
+    _syncBackdropSubscription();
   }
 
   void _unsubscribeBackdrop() {
+    if (!_subscribedToBackdrop) return;
+    _subscribedToBackdrop = false;
     _backdrop.repaintNotifier?.removeListener(markNeedsPaint);
   }
+
+  // ---------------------------------------------------------------------------
+  // The cheap tier's second way of drawing a backdrop.
+  //
+  // Sampling costs a capture of the source — an `OffsetLayer.toImageSync` that
+  // flushes the pipeline mid-frame, and for a backdrop that changes every frame
+  // it is by a wide margin the most expensive thing here. Dropping the
+  // refraction does nothing about it: the lens is a fragment pass over the
+  // element's own texture, while the capture is the whole source.
+  //
+  // So the cheap tier does not sample at all. When the backdrop is content
+  // already painted behind the element, the effect chain is handed to the
+  // compositor as a `BackdropFilterLayer` — Flutter's own `BackdropFilter` —
+  // and the engine filters what is behind in place. No capture, no stall, no
+  // invalidation to get right, and the blur is the engine's own separable,
+  // downsampled Gaussian.
+  //
+  // It cannot replace the liquid tier: a fragment shader in a backdrop filter
+  // is handed the whole screen rather than the element's texture, so the lens
+  // would have nothing to anchor its geometry to. Hence exactly the tier that
+  // has given up the shaders is the tier that can use it.
+  // ---------------------------------------------------------------------------
+
+  /// Whether this element draws its backdrop with a [BackdropFilterLayer].
+  ///
+  /// Every condition here is something the compositor cannot do: transform the
+  /// backdrop before filtering it ([onDrawBackdrop]), hand the drawing back as
+  /// a picture ([exportedBackdrop]), or filter content that is not behind the
+  /// element in the first place.
+  bool get _usesNativeFilter {
+    if (_resolvedQuality.hasShaders) return false;
+    if (!_backdrop.isPaintedBehindConsumer) return false;
+    if (_onDrawBackdrop != null) return false;
+    if (_exportedBackdrop != null) return false;
+    return true;
+  }
+
+  /// The tier pinned for this element, or null to follow the governor.
+  GlassQuality? get quality => _quality;
+  GlassQuality? _quality;
+  set quality(GlassQuality? value) {
+    if (_quality == value) return;
+    _quality = value;
+    _onModeMayHaveChanged();
+  }
+
+  /// The tier to draw at this frame.
+  ///
+  /// Resolved at paint time rather than at build time so an app installing a
+  /// classifier, or pinning a tier, takes effect without rebuilding anything —
+  /// the element is already listening for repaints.
+  GlassQuality get _resolvedQuality {
+    final GlassDeviceTier tier = GlassDeviceTier.instance;
+    final GlassQuality? pinned = _quality;
+    // The tier's own value is already clamped; an explicitly pinned tier still
+    // has to be, since pinning cannot conjure a shader the backend has not got.
+    return pinned == null ? tier.quality : pinned.atMost(tier.ceiling);
+  }
+
+  /// Moving between sampling and filtering in place changes what this element
+  /// subscribes to and whether it needs a compositing layer.
+  void _onModeMayHaveChanged() {
+    _syncBackdropSubscription();
+    markNeedsCompositingBitsUpdate();
+    markNeedsPaint();
+  }
+
+  @override
+  bool get alwaysNeedsCompositing => _usesNativeFilter;
 
   @override
   void attach(PipelineOwner owner) {
@@ -657,11 +797,14 @@ class RenderDrawBackdrop extends RenderProxyBox {
     _repaint?.addListener(markNeedsPaint);
     _subscribeBackdrop();
     FluidGlassPrograms.instance.addListener(markNeedsPaint);
+    // A tier change has to reach the paint that reads it.
+    GlassDeviceTier.instance.addListener(_onModeMayHaveChanged);
     _watchPosition();
   }
 
   @override
   void detach() {
+    GlassDeviceTier.instance.removeListener(_onModeMayHaveChanged);
     FluidGlassPrograms.instance.removeListener(markNeedsPaint);
     _unsubscribeBackdrop();
     _repaint?.removeListener(markNeedsPaint);
@@ -676,8 +819,11 @@ class RenderDrawBackdrop extends RenderProxyBox {
       return;
     }
 
-    if (_backdrop.isCoordinatesDependent) {
-      _paintedGlobalOffset = localToGlobal(Offset.zero);
+    final bool native = _usesNativeFilter;
+    // Only a sampled backdrop cares where the element sits: the compositor
+    // filters what is behind wherever the layer lands.
+    if (_backdrop.isCoordinatesDependent && !native) {
+      _paintedTransform = getTransformTo(null);
       _watchPosition();
     }
 
@@ -685,11 +831,13 @@ class RenderDrawBackdrop extends RenderProxyBox {
     final GlassOutline outline = _outlineFor(shape, size);
     final RectangleCorners corners = _cornersFor(shape, size);
 
+    final GlassQuality quality = _resolvedQuality;
     _effectScope.beginUpdate(
       size: size,
       textDirection: _textDirection,
       shape: shape,
       devicePixelRatio: _devicePixelRatio,
+      quality: quality,
     );
     _effects(_effectScope);
     final List<ui.ImageFilter> filters = _effectScope.resolve();
@@ -719,8 +867,26 @@ class RenderDrawBackdrop extends RenderProxyBox {
     }
 
     // 2. Everything the element is made of, clipped to its shape.
-    _paintClipped(context, offset, outline, (PaintingContext context, Offset offset) {
+    //
+    // The clip is not optional on the native path: a `BackdropFilterLayer` with
+    // nothing clipping it filters the whole enclosing layer, so a rectangular
+    // element that "clips nothing" would blur the entire screen.
+    _paintClipped(context, offset, outline, padding, forceClip: native,
+        (PaintingContext context, Offset offset) {
       final Canvas canvas = context.canvas;
+
+      if (native) {
+        _paintNativeBackdrop(context, offset, size, filters);
+        super.paint(context, offset);
+        final GlassDrawCallback? onDrawFrontNative = _onDrawFront;
+        if (onDrawFrontNative != null) {
+          canvas.save();
+          canvas.translate(offset.dx, offset.dy);
+          onDrawFrontNative(canvas, size);
+          canvas.restore();
+        }
+        return;
+      }
 
       // The backdrop and surface share an isolating layer so surface blend
       // modes composite against the refracted backdrop. With nothing drawn
@@ -766,6 +932,7 @@ class RenderDrawBackdrop extends RenderProxyBox {
         corners,
         _highlightShaders,
         _devicePixelRatio,
+        shadeRim: quality.hasShadedRim,
       );
     }
 
@@ -798,9 +965,18 @@ class RenderDrawBackdrop extends RenderProxyBox {
     PaintingContext context,
     Offset offset,
     GlassOutline outline,
-    PaintingContextCallback painter,
-  ) {
+    double padding,
+    PaintingContextCallback painter, {
+    bool forceClip = false,
+  }) {
     final Rect bounds = Offset.zero & size;
+
+    // A rectangular outline the size of the element clips nothing *of the
+    // element* away — but the backdrop is drawn into a layer inflated by
+    // [padding] so a blur has pixels to reach for, and without the clip that
+    // layer bleeds `padding` logical pixels out on every side. The shortcut is
+    // only sound when nothing is drawn outside the element at all.
+    final bool rectangleClipsNothing = padding <= 0.0 && !forceClip;
 
     // With no compositing descendant the clip can go straight onto the canvas.
     // `PaintingContext.pushClipPath` shifts the path by `offset` first, which
@@ -812,9 +988,9 @@ class RenderDrawBackdrop extends RenderProxyBox {
       final Canvas canvas = context.canvas;
       switch (outline) {
         case RectOutline(:final Rect rect):
-          if (rect.contains(bounds.bottomRight - const Offset(0.01, 0.01)) &&
+          if (rectangleClipsNothing &&
+              rect.contains(bounds.bottomRight - const Offset(0.01, 0.01)) &&
               rect.topLeft == Offset.zero) {
-            // A plain rectangle covering the element clips nothing away.
             painter(context, offset);
             return;
           }
@@ -838,7 +1014,8 @@ class RenderDrawBackdrop extends RenderProxyBox {
 
     switch (outline) {
       case RectOutline(:final Rect rect):
-        if (rect.contains(bounds.bottomRight - const Offset(0.01, 0.01)) &&
+        if (rectangleClipsNothing &&
+            rect.contains(bounds.bottomRight - const Offset(0.01, 0.01)) &&
             rect.topLeft == Offset.zero) {
           _releaseClipLayers();
           painter(context, offset);
@@ -889,6 +1066,71 @@ class RenderDrawBackdrop extends RenderProxyBox {
     _clipPathLayer.layer = null;
   }
 
+  /// Hands the effect chain to the compositor instead of drawing the backdrop.
+  ///
+  /// The whole chain becomes one [BackdropFilterLayer]: on the cheap tier there
+  /// are no fragment-shader stages, so what is left composes into a single
+  /// [ui.ImageFilter] — in practice a colour matrix and the engine's own
+  /// Gaussian blur, which downsamples and runs two separable passes rather than
+  /// the per-pixel program a hand-written blur would need.
+  ///
+  /// An empty chain draws nothing at all, and is right: with no filter to
+  /// apply, the backdrop already showing through the element *is* the answer.
+  ///
+  /// [_onDrawSurface] is painted as the layer's child so a tint using a blend
+  /// mode still composites against the filtered backdrop and nothing else,
+  /// which is what the isolating save-layer buys on the sampled path.
+  void _paintNativeBackdrop(
+    PaintingContext context,
+    Offset offset,
+    Size size,
+    List<ui.ImageFilter> filters,
+  ) {
+    final GlassDrawCallback? onDrawSurface = _onDrawSurface;
+    if (filters.isEmpty) {
+      _backdropFilterLayer.layer = null;
+      if (onDrawSurface != null) {
+        final Canvas canvas = context.canvas;
+        canvas.save();
+        canvas.translate(offset.dx, offset.dy);
+        onDrawSurface(canvas, size);
+        canvas.restore();
+      }
+      return;
+    }
+
+    // `resolve` returns the stages in the order they were declared, and the
+    // sampled path nests them innermost-first; composing them the same way
+    // keeps one chain that behaves identically.
+    ui.ImageFilter filter = filters.first;
+    for (int i = 1; i < filters.length; i++) {
+      filter = ui.ImageFilter.compose(outer: filters[i], inner: filter);
+    }
+
+    final BackdropFilterLayer layer =
+        _backdropFilterLayer.layer ?? BackdropFilterLayer();
+    layer
+      ..filter = filter
+      ..backdropKey = _backdropGroupKey;
+    _backdropFilterLayer.layer = layer;
+
+    context.pushLayer(
+      layer,
+      (PaintingContext context, Offset offset) {
+        if (onDrawSurface == null) return;
+        final Canvas canvas = context.canvas;
+        canvas.save();
+        canvas.translate(offset.dx, offset.dy);
+        onDrawSurface(canvas, size);
+        canvas.restore();
+      },
+      offset,
+    );
+  }
+
+  final LayerHandle<BackdropFilterLayer> _backdropFilterLayer =
+      LayerHandle<BackdropFilterLayer>();
+
   /// Draws the backdrop through the effect chain.
   ///
   /// Each filter gets its own save-layer, innermost first, so a fragment shader
@@ -918,6 +1160,7 @@ class RenderDrawBackdrop extends RenderProxyBox {
       consumer: _backdrop.isCoordinatesDependent ? this : null,
       layerBlock: _layerBlock,
       backdrop: _backdrop,
+      sampleMargin: padding,
     );
     void drawBackdrop() => _backdrop.drawBackdrop(drawContext);
     final OnDrawBackdropCallback? onDrawBackdrop = _onDrawBackdrop;
@@ -955,7 +1198,7 @@ class RenderDrawBackdrop extends RenderProxyBox {
     _pictureSource.update(
       picture: recorder.endRecording(),
       size: size,
-      globalOffset: localToGlobal(Offset.zero),
+      globalTransform: getTransformTo(null),
     );
     // attachSource notifies only when the source actually changes; notifying
     // on every paint would loop, because consumers of an exported backdrop
@@ -965,6 +1208,7 @@ class RenderDrawBackdrop extends RenderProxyBox {
 
   @override
   void dispose() {
+    _backdropFilterLayer.layer = null;
     _clipRectLayer.layer = null;
     _clipRRectLayer.layer = null;
     _clipPathLayer.layer = null;

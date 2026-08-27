@@ -1,10 +1,7 @@
-import 'dart:math' as math;
-import 'dart:ui' show lerpDouble;
-
-import 'package:fluid_glass/fluid_glass.dart';
 import 'package:flutter/material.dart';
 
-import '../utils/interactive_highlight.dart';
+import '../../fluid_glass.dart';
+import '../internal/drag_deformation.dart';
 
 /// A capsule of liquid glass that squashes and slides under the finger.
 class LiquidButton extends StatefulWidget {
@@ -40,34 +37,11 @@ class _LiquidButtonState extends State<LiquidButton>
     super.dispose();
   }
 
-  void _layerBlock(GlassLayer layer) {
-    final double width = layer.size.width;
-    final double height = layer.size.height;
-    if (width == 0 || height == 0) return;
-
-    final double progress = _interactiveHighlight.pressProgress;
-    final double scale = lerpDouble(1.0, 1.0 + 4.0 / height, progress)!;
-
-    final double maxOffset = layer.size.shortestSide;
-    const double initialDerivative = 0.05;
-    final Offset offset = _interactiveHighlight.offset;
-    layer.translationX =
-        maxOffset * _tanh(initialDerivative * offset.dx / maxOffset);
-    layer.translationY =
-        maxOffset * _tanh(initialDerivative * offset.dy / maxOffset);
-
-    final double maxDragScale = 4.0 / height;
-    final double offsetAngle = math.atan2(offset.dy, offset.dx);
-    final double maxDimension = layer.size.longestSide;
-    layer.scaleX = scale +
-        maxDragScale *
-            (math.cos(offsetAngle) * offset.dx / maxDimension).abs() *
-            math.min(width / height, 1.0);
-    layer.scaleY = scale +
-        maxDragScale *
-            (math.sin(offsetAngle) * offset.dy / maxDimension).abs() *
-            math.min(height / width, 1.0);
-  }
+  void _layerBlock(GlassLayer layer) => applyDragDeformation(
+        layer,
+        offset: _interactiveHighlight.offset,
+        pressProgress: _interactiveHighlight.pressProgress,
+      );
 
   void _drawSurface(Canvas canvas, Size size) {
     final Rect rect = Offset.zero & size;
@@ -137,9 +111,3 @@ class _LiquidButtonState extends State<LiquidButton>
   }
 }
 
-double _tanh(double x) {
-  if (x > 20) return 1.0;
-  if (x < -20) return -1.0;
-  final double e2x = math.exp(2 * x);
-  return (e2x - 1) / (e2x + 1);
-}

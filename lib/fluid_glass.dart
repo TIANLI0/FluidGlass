@@ -29,6 +29,8 @@ library;
 
 import 'src/internal/shader_programs.dart';
 
+export 'src/animation/damped_drag_animation.dart';
+export 'src/animation/spring.dart';
 export 'src/backdrop.dart';
 export 'src/backdrop_effect_scope.dart'
     show BackdropEffectGeometry, BackdropEffectScope, ShaderEffectConfigurator;
@@ -38,6 +40,15 @@ export 'src/backdrops/empty_backdrop.dart';
 export 'src/backdrops/layer_backdrop.dart'
     show BackdropLayer, LayerBackdrop, LayerBackdropSource, RenderBackdropLayer;
 export 'src/backdrops/wrapped_backdrop.dart';
+export 'src/components/interactive_highlight.dart';
+export 'src/components/liquid_bottom_tabs.dart';
+export 'src/components/liquid_button.dart';
+export 'src/components/liquid_button_group.dart';
+export 'src/components/liquid_menu.dart';
+export 'src/components/liquid_panel.dart';
+export 'src/components/liquid_segmented_control.dart';
+export 'src/components/liquid_slider.dart';
+export 'src/components/liquid_toggle.dart';
 export 'src/draw_backdrop.dart'
     show
         BackdropEffectsBuilder,
@@ -54,12 +65,15 @@ export 'src/effects/blur.dart';
 export 'src/effects/color_filter.dart';
 export 'src/effects/custom_effect.dart';
 export 'src/effects/lens.dart';
+export 'src/gestures/drag_gesture_inspector.dart';
 export 'src/glass_layer.dart';
 export 'src/highlight/highlight.dart';
 export 'src/highlight/highlight_style.dart';
 export 'src/internal/blur_sigma.dart' show blurRadiusToSigma;
 export 'src/internal/shader_programs.dart'
     show FragmentShaderCache, isRenderEffectSupported, isRuntimeShaderSupported;
+export 'src/quality/glass_device_tier.dart';
+export 'src/quality/glass_quality.dart';
 export 'src/shadow/shadow.dart';
 export 'src/shapes/glass_outline.dart';
 export 'src/shapes/rectangle_corner_radii.dart';

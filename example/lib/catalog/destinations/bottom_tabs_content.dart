@@ -2,7 +2,6 @@ import 'package:fluid_glass/fluid_glass.dart';
 import 'package:flutter/material.dart';
 
 import '../backdrop_demo_scaffold.dart';
-import '../components/liquid_bottom_tabs.dart';
 import '../flight_icon.dart';
 
 class BottomTabsContent extends StatefulWidget {

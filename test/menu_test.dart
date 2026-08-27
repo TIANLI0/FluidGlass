@@ -1,5 +1,4 @@
 import 'package:fluid_glass/fluid_glass.dart';
-import 'package:fluid_glass_example/catalog/components/liquid_menu.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -72,9 +71,11 @@ void main() {
 
   testWidgets('a row cannot be hit while the panel is still flying open',
       (WidgetTester tester) async {
-    // The panel is scaled up by its layerBlock as it opens, so a row sits
-    // somewhere other than where it is laid out until the spring has mostly
-    // run. Accepting a tap before then would select the wrong row.
+    // Not a geometry guard — `RenderGlassTransform` inverts its own matrix
+    // when hit-testing, so a row is always live exactly where it is drawn.
+    // It is an intent guard: a panel that has been on screen for one frame,
+    // barely visible and still flying into place, is not something the finger
+    // can have been aiming at.
     final List<String> picked = <String>[];
     await tester.pumpWidget(
       _host(
@@ -203,6 +204,101 @@ void main() {
     expect(find.text('One'), findsOneWidget);
   });
 
+
+  testWidgets('a row on a closing panel is dead to taps',
+      (WidgetTester tester) async {
+    // The panel keeps its full-size hit box for as long as the closing spring
+    // runs, and the barrier stops intercepting the moment the close starts —
+    // so a tap aimed at whatever the menu was covering used to land on a row
+    // and select it, from a menu that was visibly going away.
+    final List<String> picked = <String>[];
+    await tester.pumpWidget(
+      _host(
+        items: <LiquidMenuItem>[
+          LiquidMenuItem(label: 'One', onSelected: () => picked.add('One')),
+          LiquidMenuItem(label: 'Two', onSelected: () => picked.add('Two')),
+        ],
+      ),
+    );
+    await tester.pump();
+
+    await tester.tap(find.text('Closed'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+
+    // Dismiss, then tap a row while it is still on screen animating away.
+    await tester.tapAt(const Offset(20, 20));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 40));
+    expect(find.text('One'), findsOneWidget,
+        reason: 'the panel should still be mounted, animating out');
+
+    await tester.tap(find.text('One'), warnIfMissed: false);
+    await tester.pump();
+    expect(picked, isEmpty);
+
+    await tester.pump(const Duration(seconds: 1));
+  });
+
+  testWidgets('one tap switches from one menu to another',
+      (WidgetTester tester) async {
+    // The dismiss barrier is opaque, so the tap that closes menu A never
+    // reached menu B's anchor and switching cost two taps. The barrier now
+    // resolves a press on a sibling anchor itself.
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            // Far enough apart that A's open panel does not cover B's anchor —
+            // otherwise the tap lands on a row, not on the barrier.
+            spacing: 140,
+            children: <Widget>[
+              for (final String tag in <String>['A', 'B'])
+                LiquidMenu(
+                  backdrop: emptyBackdrop,
+                  items: <LiquidMenuItem>[LiquidMenuItem(label: 'row $tag')],
+                  anchorBuilder: (
+                    BuildContext context,
+                    bool isOpen,
+                    VoidCallback toggle,
+                  ) {
+                    return GestureDetector(
+                      onTap: toggle,
+                      child: SizedBox(
+                        width: 120,
+                        height: 48,
+                        child: Center(
+                          child: Text('$tag ${isOpen ? "open" : "shut"}'),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    await tester.tap(find.text('A shut'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(find.text('A open'), findsOneWidget);
+
+    // One tap on B's anchor, while A is open.
+    await tester.tap(find.text('B shut'), warnIfMissed: false);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(find.text('B open'), findsOneWidget,
+        reason: 'the tap that dismissed A must also open B');
+    expect(find.text('A shut'), findsOneWidget);
+    expect(find.text('row B'), findsOneWidget);
+    expect(find.text('row A'), findsNothing);
+
+    await tester.pump(const Duration(seconds: 1));
+  });
   testWidgets('an upward menu lays out above its anchor',
       (WidgetTester tester) async {
     await tester.pumpWidget(

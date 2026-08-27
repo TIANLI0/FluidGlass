@@ -237,8 +237,9 @@ void paintGlassHighlight(
   Highlight highlight,
   RectangleCorners corners,
   FragmentShaderCache shaderCache,
-  double devicePixelRatio,
-) {
+  double devicePixelRatio, {
+  bool shadeRim = true,
+}) {
   if (highlight.width <= 0.0 || highlight.alpha <= 0.0) return;
 
   // The stroke is rounded up to a whole device pixel before being doubled.
@@ -258,14 +259,19 @@ void paintGlassHighlight(
     paint.maskFilter = MaskFilter.blur(BlurStyle.normal, sigma);
   }
 
-  final ui.FragmentShader? shader = highlight.style.createShader(
-    size: size,
-    corners: corners,
-    // The canvas is translated to the element below, so fragment coordinates
-    // already arrive in element space.
-    origin: Offset.zero,
-    cache: shaderCache,
-  );
+  // [shadeRim] false is the cheap tier: the rim keeps its width, blur and
+  // blend mode and only loses its directional shading, which is one fragment
+  // program's worth of work per frame.
+  final ui.FragmentShader? shader = shadeRim
+      ? highlight.style.createShader(
+          size: size,
+          corners: corners,
+          // The canvas is translated to the element below, so fragment
+          // coordinates already arrive in element space.
+          origin: Offset.zero,
+          cache: shaderCache,
+        )
+      : null;
   if (shader != null) {
     paint.shader = shader;
   } else {

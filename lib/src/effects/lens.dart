@@ -21,6 +21,9 @@ extension LensBackdropEffect on BackdropEffectScope {
     bool chromaticAberration = false,
   }) {
     if (!isRuntimeShaderSupported()) return;
+    // The refraction is the expensive pass, so it is the first thing a cheaper
+    // tier gives up. Everything else about the element is unchanged.
+    if (!quality.hasRefraction) return;
     if (refractionHeight <= 0.0 || refractionAmount <= 0.0) return;
 
     // The refraction samples inwards, so it hands back the room a preceding

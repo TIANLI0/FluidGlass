@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/rendering.dart';
 
 import 'internal/shader_programs.dart';
+import 'quality/glass_quality.dart';
 import 'shapes/rounded_rectangular_shape.dart';
 
 /// The geometry a shader-based effect needs in order to place itself.
@@ -89,6 +90,14 @@ class BackdropEffectScope {
   double get devicePixelRatio => _devicePixelRatio;
   double _devicePixelRatio = 1.0;
 
+  /// How much of the liquid-glass look this element may draw.
+  ///
+  /// Effects read it and step aside rather than each component branching on it,
+  /// so a tier change costs nothing at the call site: `lens` simply does
+  /// nothing below [GlassQuality.liquid].
+  GlassQuality get quality => _quality;
+  GlassQuality _quality = GlassQuality.liquid;
+
   /// How far the sampled backdrop extends beyond the element on every side.
   ///
   /// Effects grow this so they have pixels to reach for, and `lens` shrinks it
@@ -148,11 +157,13 @@ class BackdropEffectScope {
     required TextDirection textDirection,
     required RoundedRectangularShape shape,
     double devicePixelRatio = 1.0,
+    GlassQuality quality = GlassQuality.liquid,
   }) {
     _size = size;
     _textDirection = textDirection;
     _shape = shape;
     _devicePixelRatio = devicePixelRatio;
+    _quality = quality;
     padding = 0.0;
     _stages.clear();
   }

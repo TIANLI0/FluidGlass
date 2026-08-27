@@ -1,13 +1,9 @@
 import 'dart:math' as math;
 import 'dart:ui' show lerpDouble;
 
-import 'package:fluid_glass/fluid_glass.dart';
 import 'package:flutter/material.dart';
 
-import '../utils/damped_drag_animation.dart';
-import '../utils/drag_gesture_inspector.dart';
-import '../utils/interactive_highlight.dart';
-import '../utils/spring.dart';
+import '../../fluid_glass.dart';
 
 /// Provides the press-driven scale to the tabs inside a [LiquidBottomTabs].
 ///

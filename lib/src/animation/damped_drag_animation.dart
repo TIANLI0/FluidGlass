@@ -4,7 +4,7 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter/widgets.dart';
 
-import 'drag_gesture_inspector.dart';
+import '../gestures/drag_gesture_inspector.dart';
 import 'spring.dart';
 
 /// Drives the "liquid" feel of the interactive components: a spring-tracked

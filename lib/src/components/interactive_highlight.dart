@@ -2,9 +2,11 @@ import 'dart:ui' as ui;
 
 import 'package:flutter/widgets.dart';
 
-import 'demo_shaders.dart';
-import 'drag_gesture_inspector.dart';
-import 'spring.dart';
+import '../animation/spring.dart';
+import '../gestures/drag_gesture_inspector.dart';
+import '../internal/shader_programs.dart';
+import '../quality/glass_device_tier.dart';
+import '../quality/glass_quality.dart';
 
 /// The press highlight that follows a finger across a liquid component: a soft
 /// radial glow plus a flat brighten, both added over the glass surface.
@@ -18,7 +20,7 @@ class InteractiveHighlight extends ChangeNotifier {
             SpringOffset(vsync: vsync, value: Offset.zero, visibilityThreshold: 0.5) {
     _pressProgressAnimation.addListener(notifyListeners);
     _positionAnimation.addListener(notifyListeners);
-    DemoShaders.instance.addListener(notifyListeners);
+    FluidGlassPrograms.instance.addListener(notifyListeners);
   }
 
   static Offset _defaultPosition(Size size, Offset offset) => offset;
@@ -86,7 +88,7 @@ class InteractiveHighlight extends ChangeNotifier {
 
   @override
   void dispose() {
-    DemoShaders.instance.removeListener(notifyListeners);
+    FluidGlassPrograms.instance.removeListener(notifyListeners);
     _pressProgressAnimation.dispose();
     _positionAnimation.dispose();
     super.dispose();
@@ -102,16 +104,41 @@ class _InteractiveHighlightOverlay extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return CustomPaint(
-      painter: _InteractiveHighlightPainter(highlight),
+      painter: _InteractiveHighlightPainter(
+        highlight,
+        GlassQualityScope.maybeOf(context),
+      ),
       child: child,
     );
   }
 }
 
 class _InteractiveHighlightPainter extends CustomPainter {
-  _InteractiveHighlightPainter(this.highlight) : super(repaint: highlight);
+  _InteractiveHighlightPainter(this.highlight, this.pinnedQuality)
+      : super(
+          // The tier is read at paint time, so a change to it has to reach the
+          // paint that reads it — the same subscription every glass element
+          // makes.
+          repaint: Listenable.merge(<Listenable>[
+            highlight,
+            GlassDeviceTier.instance,
+          ]),
+        );
 
   final InteractiveHighlight highlight;
+
+  /// The tier pinned by an enclosing [GlassQualityScope], or null to follow the
+  /// device.
+  final GlassQuality? pinnedQuality;
+
+  /// Resolved the same way [DrawBackdrop] resolves it, so a component's glow
+  /// and its glass never disagree about which tier they are drawing at.
+  GlassQuality get _quality {
+    final GlassDeviceTier tier = GlassDeviceTier.instance;
+    return pinnedQuality == null
+        ? tier.quality
+        : pinnedQuality!.atMost(tier.ceiling);
+  }
 
   /// One shader per program, reused across frames: uniforms are cheap to
   /// re-set, creating and compiling a fresh instance every paint is not.
@@ -123,9 +150,13 @@ class _InteractiveHighlightPainter extends CustomPainter {
     final double progress = highlight.pressProgress;
     if (progress <= 0.0) return;
 
-    final ui.FragmentProgram? program = DemoShaders.instance.interactiveHighlight;
+    final ui.FragmentProgram? program =
+        _quality.hasShaders ? FluidGlassPrograms.instance.interactiveHighlight : null;
     if (program == null) {
-      // Unshaded fallback for backends without runtime shaders.
+      // The flat fallback: for a backend with no runtime shaders, and equally
+      // for the cheap tier, which is defined as running no fragment programs at
+      // all. A glow under the finger is not worth a shader pass on a device
+      // that gave up the refraction to keep its frame budget.
       canvas.drawRect(
         Offset.zero & size,
         Paint()

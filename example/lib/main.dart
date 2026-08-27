@@ -45,6 +45,39 @@ Future<void> main() async {
   if (_perfScreen.isNotEmpty) {
     unawaited(_measureFrames());
   }
+  if (_openScreen.isNotEmpty) {
+    unawaited(_openDestination());
+  }
+  if (_pinnedQuality.isNotEmpty) {
+    GlassDeviceTier.instance.pinnedQuality = GlassQuality.values
+        .firstWhere((GlassQuality q) => q.name == _pinnedQuality);
+  }
+}
+
+/// Set `FLUID_GLASS_QUALITY=plain` to see the cheap tier on a device that would
+/// otherwise be classified as `liquid` — the fallback path, where the chain
+/// becomes Flutter's own `BackdropFilter` and nothing is captured.
+const String _qualityDefine = String.fromEnvironment('FLUID_GLASS_QUALITY');
+final String _pinnedQuality = _qualityDefine.isNotEmpty
+    ? _qualityDefine
+    : (Platform.environment['FLUID_GLASS_QUALITY'] ?? '');
+
+/// Set `--dart-define=FLUID_GLASS_SCREEN=<destination name>` to launch straight
+/// into that screen and stay there.
+///
+/// Distinct from `FLUID_GLASS_PERF` on purpose: that one measures and then calls
+/// `exit(0)`, which is a trap if you only wanted to look at the screen — the app
+/// dies a few seconds after launch and it looks like the app is broken.
+const String _openDefine = String.fromEnvironment('FLUID_GLASS_SCREEN');
+final String _openScreen = _openDefine.isNotEmpty
+    ? _openDefine
+    : (Platform.environment['FLUID_GLASS_SCREEN'] ?? '');
+
+Future<void> _openDestination() async {
+  await Future<void>.delayed(const Duration(milliseconds: 900));
+  final CatalogDestination target = CatalogDestination.values
+      .firstWhere((CatalogDestination d) => d.name == _openScreen);
+  catalogDebugNavigate?.call(target);
 }
 
 /// Set `--dart-define=FLUID_GLASS_PERF=<destination name>` to open that screen,

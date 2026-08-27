@@ -2,8 +2,8 @@ import 'package:fluid_glass/fluid_glass.dart';
 import 'package:flutter/material.dart';
 
 import 'catalog_destination.dart';
-import 'components/liquid_button.dart';
 import 'destinations/adaptive_luminance_glass_content.dart';
+import 'destinations/app_chrome_content.dart';
 import 'destinations/bottom_tabs_content.dart';
 import 'destinations/buttons_content.dart';
 import 'destinations/control_center_content.dart';
@@ -11,11 +11,13 @@ import 'destinations/dialog_content.dart';
 import 'destinations/glass_playground_content.dart';
 import 'destinations/home_content.dart';
 import 'destinations/lazy_scroll_container_content.dart';
+import 'destinations/live_background_content.dart';
 import 'destinations/lock_screen_content.dart';
 import 'destinations/magnifier_content.dart';
 import 'destinations/menu_content.dart';
 import 'destinations/progressive_blur_content.dart';
 import 'destinations/scroll_container_content.dart';
+import 'destinations/quality_content.dart';
 import 'destinations/slider_content.dart';
 import 'destinations/toggle_content.dart';
 import 'destinations/toolbar_content.dart';
@@ -81,6 +83,12 @@ class _MainContentState extends State<MainContent> {
         return const ControlCenterContent();
       case CatalogDestination.magnifier:
         return const MagnifierContent();
+      case CatalogDestination.appChrome:
+        return const AppChromeContent();
+      case CatalogDestination.liveBackground:
+        return const LiveBackgroundContent();
+      case CatalogDestination.quality:
+        return const QualityContent();
       case CatalogDestination.glassPlayground:
         return const GlassPlaygroundContent();
       case CatalogDestination.adaptiveLuminanceGlass:

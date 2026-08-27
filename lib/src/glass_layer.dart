@@ -63,10 +63,15 @@ class GlassLayer {
   /// The inverse of the layer's linear part, taken about the element's
   /// top-left corner.
   ///
-  /// Applied to the canvas before the backdrop is drawn so that scaling or
-  /// rotating a glass element does not scale or rotate what it refracts.
-  /// Only [scaleX], [scaleY] and [rotationZ] are inverted: translation is
-  /// already accounted for by the element's new position.
+  /// Undoes a scale or rotation applied to a glass element, so that what it
+  /// refracts does not scale or rotate with it. Only [scaleX], [scaleY] and
+  /// [rotationZ] are inverted: translation is already accounted for by the
+  /// element's new position.
+  ///
+  /// [LayerBackdrop] no longer needs this — it maps a consumer straight into
+  /// its source's coordinates with the whole transform between them, which
+  /// already includes this one. Kept for a [Backdrop] of your own that places
+  /// itself from [BackdropDrawContext.layerBlock].
   Matrix4? inverseLinearTransformAtTopLeft() {
     if (rotationZ == 0.0) {
       if (scaleX == 1.0 && scaleY == 1.0) return null;

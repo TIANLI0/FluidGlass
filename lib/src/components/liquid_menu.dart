@@ -1,10 +1,6 @@
-import 'package:fluid_glass/fluid_glass.dart';
 import 'package:flutter/material.dart';
 
-import '../utils/drag_gesture_inspector.dart';
-import '../utils/spring.dart';
-import 'liquid_panel.dart';
-
+import '../../fluid_glass.dart';
 
 /// One row of a [LiquidMenu].
 @immutable
@@ -89,6 +85,16 @@ class _LiquidMenuState extends State<LiquidMenu> with TickerProviderStateMixin {
   static const double _rowHeight = 44.0;
   static const double _panelPadding = 6.0;
 
+  /// Every live menu, so a menu being dismissed can hand the gesture to the
+  /// sibling whose anchor was actually pressed.
+  ///
+  /// The dismiss barrier is opaque on purpose — a tap that closes a menu must
+  /// not also press whatever it landed on — but that made switching between
+  /// two menus cost two taps: the first was spent dismissing, and the second
+  /// anchor never saw it. A menu bar behaves as one tracking surface, so the
+  /// barrier resolves the press itself rather than forwarding the event.
+  static final Set<_LiquidMenuState> _live = <_LiquidMenuState>{};
+
   final OverlayPortalController _portal = OverlayPortalController();
   final LayerLink _link = LayerLink();
 
@@ -110,9 +116,33 @@ class _LiquidMenuState extends State<LiquidMenu> with TickerProviderStateMixin {
   Rect _anchorRect = Rect.zero;
 
   @override
+  void initState() {
+    super.initState();
+    _live.add(this);
+  }
+
+  @override
   void dispose() {
+    _live.remove(this);
     _open.dispose();
     super.dispose();
+  }
+
+  /// This menu's anchor, in global coordinates, right now.
+  Rect? get _anchorRectNow {
+    final RenderBox? box = context.findRenderObject() as RenderBox?;
+    if (box == null || !box.attached || !box.hasSize) return null;
+    return box.localToGlobal(Offset.zero) & box.size;
+  }
+
+  /// The other menu whose anchor sits under [globalPosition], if any.
+  _LiquidMenuState? _siblingAnchoredAt(Offset globalPosition) {
+    for (final _LiquidMenuState menu in _live) {
+      if (menu == this || !menu.mounted || menu._isOpen) continue;
+      final Rect? rect = menu._anchorRectNow;
+      if (rect != null && rect.contains(globalPosition)) return menu;
+    }
+    return null;
   }
 
   void _show() {
@@ -179,12 +209,22 @@ class _LiquidMenuState extends State<LiquidMenu> with TickerProviderStateMixin {
             // A barrier that lingered for the whole closing spring ate the
             // taps that followed, so quickly toggling the anchor made the
             // menu pop open and shut out of step with the finger.
+            //
+            // The press is absorbed rather than passed through, so dismissing
+            // never doubles as pressing something. The one thing it resolves
+            // itself is a press on a sibling menu's anchor, which opens that
+            // menu — otherwise switching between two menus cost two taps.
             Positioned.fill(
               child: IgnorePointer(
                 ignoring: !_isOpen,
                 child: Listener(
                   behavior: HitTestBehavior.opaque,
-                  onPointerDown: (PointerDownEvent event) => _close(),
+                  onPointerDown: (PointerDownEvent event) {
+                    final _LiquidMenuState? sibling =
+                        _siblingAnchoredAt(event.position);
+                    _close();
+                    sibling?._show();
+                  },
                 ),
               ),
             ),
@@ -200,6 +240,7 @@ class _LiquidMenuState extends State<LiquidMenu> with TickerProviderStateMixin {
               offset: Offset(dx, below ? widget.gap : -widget.gap),
               child: _MenuPanel(
                 open: _open,
+                isOpen: _isOpen,
                 backdrop: widget.backdrop,
                 items: widget.items,
                 width: widget.panelWidth,
@@ -228,6 +269,7 @@ class _LiquidMenuState extends State<LiquidMenu> with TickerProviderStateMixin {
 class _MenuPanel extends StatelessWidget {
   const _MenuPanel({
     required this.open,
+    required this.isOpen,
     required this.backdrop,
     required this.items,
     required this.width,
@@ -240,6 +282,10 @@ class _MenuPanel extends StatelessWidget {
   });
 
   final SpringValue open;
+
+  /// Whether the menu is on its way in rather than on its way out.
+  final bool isOpen;
+
   final Backdrop backdrop;
   final List<LiquidMenuItem> items;
   final double width;
@@ -280,9 +326,16 @@ class _MenuPanel extends StatelessWidget {
       listenable: open,
       builder: (BuildContext context, Widget? child) {
         return IgnorePointer(
-          // Only accept taps once the panel is most of the way open, so a row
-          // cannot be hit while it is still flying into place.
-          ignoring: open.value < 0.5,
+          // Rows land where they are drawn at every point of the bloom —
+          // `RenderGlassTransform` inverts its own matrix when hit-testing —
+          // so this gate is not about geometry. It is about intent: a panel
+          // that is still fading in is not yet something you can have aimed
+          // at, and one that has been dismissed is no longer something you
+          // can aim at. Without the [isOpen] half, a tap meant for whatever
+          // the menu had been covering selected a row instead, because the
+          // panel stays mounted and live for the whole closing spring while
+          // the dismiss barrier steps aside immediately.
+          ignoring: !isOpen || open.value < 0.5,
           child: child,
         );
       },

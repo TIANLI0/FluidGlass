@@ -1,6 +1,4 @@
 import 'package:fluid_glass/fluid_glass.dart';
-import 'package:fluid_glass_example/catalog/components/liquid_bottom_tabs.dart';
-import 'package:fluid_glass_example/catalog/components/liquid_button.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 

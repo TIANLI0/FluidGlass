@@ -78,6 +78,18 @@ class HomeContent extends StatelessWidget {
                 ),
                 const _Subtitle('Experiments'),
                 _ListItem(
+                  label: 'App chrome over a live feed',
+                  onTap: () => onNavigate(CatalogDestination.appChrome),
+                ),
+                _ListItem(
+                  label: 'Live background (animated, pan & zoom)',
+                  onTap: () => onNavigate(CatalogDestination.liveBackground),
+                ),
+                _ListItem(
+                  label: 'Quality tiers & device',
+                  onTap: () => onNavigate(CatalogDestination.quality),
+                ),
+                _ListItem(
                   label: 'Glass playground',
                   onTap: () => onNavigate(CatalogDestination.glassPlayground),
                 ),

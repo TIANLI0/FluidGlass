@@ -1,5 +1,4 @@
-import 'package:fluid_glass_example/catalog/utils/damped_drag_animation.dart';
-import 'package:fluid_glass_example/catalog/utils/spring.dart';
+import 'package:fluid_glass/fluid_glass.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 

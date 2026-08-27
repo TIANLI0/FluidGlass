@@ -1,9 +1,8 @@
 import 'dart:ui' show lerpDouble;
 
-import 'package:fluid_glass/fluid_glass.dart';
 import 'package:flutter/material.dart';
 
-import '../utils/damped_drag_animation.dart';
+import '../../fluid_glass.dart';
 
 /// Fills the played part of the track, matching the capsule the old
 /// width-animated Container produced: a capsule of the current fill width,
