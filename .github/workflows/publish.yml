@@ -63,11 +63,23 @@ jobs:
       - run: flutter pub get
         working-directory: example
 
-      - run: dart analyze --fatal-infos lib test
+      # `.` rather than `lib test`: the example's widget tests moved into the
+      # package's own suite in 0.1.3, and naming a directory that no longer
+      # exists is a hard error — `dart analyze` exits 64 on it, which is how the
+      # first v0.1.3 run failed. Analysing the whole package cannot go stale
+      # that way.
+      - run: dart analyze --fatal-infos .
         working-directory: example
 
-      - run: flutter test
+      # Same reason: `flutter test` with no `test/` is an error, not a no-op.
+      - name: Test the example, if it has any tests
         working-directory: example
+        run: |
+          if [ -d test ]; then
+            flutter test
+          else
+            echo "no example tests; the suite lives in the package"
+          fi
 
       # Fail with a readable message rather than hanging on an OAuth prompt.
       # Both variables are injected only when `permissions: id-token: write` is
