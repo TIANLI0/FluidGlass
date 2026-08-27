@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.1.6
+
+### Added
+
+- `LiquidMenu.margin`, `LiquidMenu.rootOverlay`, and a vertical counterpart to
+  the horizontal edge avoidance the menu always had. `side` is now the
+  *preferred* side: a menu low on the screen asked to open `below` opens `above`
+  instead of hanging off the bottom, and `margin` says how close to the
+  overlay's edges the panel may come — widen an edge to keep it clear of a safe
+  area, or of a bar drawn over the overlay it lives in. When neither side fits
+  (a panel taller than the overlay, which flipping cannot rescue) the preference
+  is kept, so the result stays predictable.
+
+  `rootOverlay` puts the panel in the root `Overlay` rather than the nearest
+  one. The nearest is often a nested navigator's, and anything drawn as that
+  navigator's sibling — an app's own bottom bar — paints over it; a menu that
+  has to cover such a bar belongs in the root overlay.
+
 ## 0.1.5
 
 ### Fixed

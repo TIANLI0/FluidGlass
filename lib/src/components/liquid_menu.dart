@@ -54,6 +54,8 @@ class LiquidMenu extends StatefulWidget {
     this.alignment = Alignment.topLeft,
     this.panelWidth = 240,
     this.gap = 8,
+    this.margin = const EdgeInsets.all(12),
+    this.rootOverlay = false,
   });
 
   /// What the panel's glass refracts.
@@ -64,8 +66,14 @@ class LiquidMenu extends StatefulWidget {
   /// Builds the trigger. [isOpen] lets the anchor reflect the menu's state,
   /// and [toggle] opens or closes it.
   final Widget Function(BuildContext context, bool isOpen, VoidCallback toggle)
-      anchorBuilder;
+  anchorBuilder;
 
+  /// Which side of the anchor the panel *prefers*.
+  ///
+  /// It flips to the other one when the preferred side cannot fit the panel
+  /// inside [margin] — the vertical counterpart of the horizontal edge
+  /// avoidance that was always there. A menu low on the screen asked to open
+  /// `below` opens `above` instead, rather than hanging off the bottom.
   final LiquidMenuSide side;
 
   /// Which edge of the anchor the panel lines up with. Only the horizontal
@@ -76,6 +84,23 @@ class LiquidMenu extends StatefulWidget {
 
   /// The space between the anchor and the panel, in logical pixels.
   final double gap;
+
+  /// How close to the overlay's edges the panel may come.
+  ///
+  /// Both the horizontal nudge and the vertical flip keep the panel inside
+  /// this. Widen an edge to keep clear of something the menu must not slide
+  /// under — a safe area, or a bar drawn over the overlay it lives in.
+  final EdgeInsets margin;
+
+  /// Whether the panel goes in the root [Overlay] rather than the nearest one.
+  ///
+  /// The nearest overlay is often a nested navigator's, and anything drawn as
+  /// that navigator's sibling — an app's own bottom bar, for instance — paints
+  /// over it. A menu that has to cover such a bar belongs in the root overlay.
+  /// The trade-off is the usual one for root-overlay children: the panel
+  /// outlives a route pop of the anchor's route unless the anchor is disposed,
+  /// which it is here — [dispose] hides the portal.
+  final bool rootOverlay;
 
   @override
   State<LiquidMenu> createState() => _LiquidMenuState();
@@ -181,87 +206,109 @@ class _LiquidMenuState extends State<LiquidMenu> with TickerProviderStateMixin {
 
   @override
   Widget build(BuildContext context) {
-    final bool below = widget.side == LiquidMenuSide.below;
     final bool leading = widget.alignment.x <= 0;
 
-    return OverlayPortal(
-      controller: _portal,
-      overlayChildBuilder: (BuildContext context) {
-        // Screen-edge avoidance: on a narrow screen an anchor-aligned panel
-        // can hang past the edge, shearing its rim off.
-        final Size screen = MediaQuery.sizeOf(context);
-        const double margin = 12.0;
-        double dx = 0;
-        if (leading) {
-          final double overflow =
-              _anchorRect.left + widget.panelWidth - (screen.width - margin);
-          if (overflow > 0) dx = -overflow;
-        } else {
-          final double underflow =
-              margin - (_anchorRect.right - widget.panelWidth);
-          if (underflow > 0) dx = underflow;
-        }
+    Widget buildOverlayChild(BuildContext context) {
+      // Edge avoidance: on a narrow screen an anchor-aligned panel can hang
+      // past the edge, shearing its rim off.
+      final Size screen = MediaQuery.sizeOf(context);
+      final EdgeInsets margin = widget.margin;
+      double dx = 0;
+      if (leading) {
+        final double overflow =
+            _anchorRect.left +
+            widget.panelWidth -
+            (screen.width - margin.right);
+        if (overflow > 0) dx = -overflow;
+      } else {
+        final double underflow =
+            margin.left - (_anchorRect.right - widget.panelWidth);
+        if (underflow > 0) dx = underflow;
+      }
 
-        return Stack(
-          children: <Widget>[
-            // Touching anywhere else dismisses, on the pointer DOWN — and the
-            // barrier stops intercepting the moment the menu starts closing.
-            // A barrier that lingered for the whole closing spring ate the
-            // taps that followed, so quickly toggling the anchor made the
-            // menu pop open and shut out of step with the finger.
-            //
-            // The press is absorbed rather than passed through, so dismissing
-            // never doubles as pressing something. The one thing it resolves
-            // itself is a press on a sibling menu's anchor, which opens that
-            // menu — otherwise switching between two menus cost two taps.
-            Positioned.fill(
-              child: IgnorePointer(
-                ignoring: !_isOpen,
-                child: Listener(
-                  behavior: HitTestBehavior.opaque,
-                  onPointerDown: (PointerDownEvent event) {
-                    final _LiquidMenuState? sibling =
-                        _siblingAnchoredAt(event.position);
-                    _close();
-                    sibling?._show();
-                  },
-                ),
-              ),
-            ),
-            CompositedTransformFollower(
-              link: _link,
-              showWhenUnlinked: false,
-              targetAnchor: below
-                  ? (leading ? Alignment.bottomLeft : Alignment.bottomRight)
-                  : (leading ? Alignment.topLeft : Alignment.topRight),
-              followerAnchor: below
-                  ? (leading ? Alignment.topLeft : Alignment.topRight)
-                  : (leading ? Alignment.bottomLeft : Alignment.bottomRight),
-              offset: Offset(dx, below ? widget.gap : -widget.gap),
-              child: _MenuPanel(
-                open: _open,
-                isOpen: _isOpen,
-                backdrop: widget.backdrop,
-                items: widget.items,
-                width: widget.panelWidth,
-                height: _panelHeight,
-                rowHeight: _rowHeight,
-                padding: _panelPadding,
-                growFromTop: below,
-                growFromLeft: leading,
-                onSelected: (LiquidMenuItem item) {
+      // The vertical counterpart: the preferred side wins when it fits, and
+      // the panel flips rather than hanging off an edge. Neither fitting means
+      // a panel taller than the overlay, which flipping cannot rescue — keep
+      // the preference so the result is at least predictable.
+      final double span = _panelHeight + widget.gap;
+      final bool fitsBelow =
+          _anchorRect.bottom + span <= screen.height - margin.bottom;
+      final bool fitsAbove = _anchorRect.top - span >= margin.top;
+      final bool prefersBelow = widget.side == LiquidMenuSide.below;
+      final bool below = prefersBelow
+          ? (fitsBelow || !fitsAbove)
+          : (!fitsAbove && fitsBelow);
+
+      return Stack(
+        children: <Widget>[
+          // Touching anywhere else dismisses, on the pointer DOWN — and the
+          // barrier stops intercepting the moment the menu starts closing.
+          // A barrier that lingered for the whole closing spring ate the
+          // taps that followed, so quickly toggling the anchor made the
+          // menu pop open and shut out of step with the finger.
+          //
+          // The press is absorbed rather than passed through, so dismissing
+          // never doubles as pressing something. The one thing it resolves
+          // itself is a press on a sibling menu's anchor, which opens that
+          // menu — otherwise switching between two menus cost two taps.
+          Positioned.fill(
+            child: IgnorePointer(
+              ignoring: !_isOpen,
+              child: Listener(
+                behavior: HitTestBehavior.opaque,
+                onPointerDown: (PointerDownEvent event) {
+                  final _LiquidMenuState? sibling = _siblingAnchoredAt(
+                    event.position,
+                  );
                   _close();
-                  item.onSelected?.call();
+                  sibling?._show();
                 },
               ),
             ),
-          ],
-        );
-      },
-      child: CompositedTransformTarget(
-        link: _link,
-        child: widget.anchorBuilder(context, _isOpen, _toggle),
-      ),
+          ),
+          CompositedTransformFollower(
+            link: _link,
+            showWhenUnlinked: false,
+            targetAnchor: below
+                ? (leading ? Alignment.bottomLeft : Alignment.bottomRight)
+                : (leading ? Alignment.topLeft : Alignment.topRight),
+            followerAnchor: below
+                ? (leading ? Alignment.topLeft : Alignment.topRight)
+                : (leading ? Alignment.bottomLeft : Alignment.bottomRight),
+            offset: Offset(dx, below ? widget.gap : -widget.gap),
+            child: _MenuPanel(
+              open: _open,
+              isOpen: _isOpen,
+              backdrop: widget.backdrop,
+              items: widget.items,
+              width: widget.panelWidth,
+              height: _panelHeight,
+              rowHeight: _rowHeight,
+              padding: _panelPadding,
+              growFromTop: below,
+              growFromLeft: leading,
+              onSelected: (LiquidMenuItem item) {
+                _close();
+                item.onSelected?.call();
+              },
+            ),
+          ),
+        ],
+      );
+    }
+
+    final Widget anchor = CompositedTransformTarget(
+      link: _link,
+      child: widget.anchorBuilder(context, _isOpen, _toggle),
+    );
+
+    return OverlayPortal(
+      controller: _portal,
+      overlayLocation: widget.rootOverlay
+          ? OverlayChildLocation.rootOverlay
+          : OverlayChildLocation.nearestOverlay,
+      overlayChildBuilder: buildOverlayChild,
+      child: anchor,
     );
   }
 }
@@ -380,8 +427,7 @@ class _MenuPanel extends StatelessWidget {
 
   /// Big enough to read as a squircle at this size, not so big it turns into
   /// a capsule.
-  static double _radiusFor(double width) =>
-      width / 4 < 22.0 ? width / 4 : 22.0;
+  static double _radiusFor(double width) => width / 4 < 22.0 ? width / 4 : 22.0;
 }
 
 class _MenuRow extends StatefulWidget {
@@ -440,21 +486,22 @@ class _MenuRowState extends State<_MenuRow> {
                 if (widget.item.isSelected)
                   Padding(
                     padding: const EdgeInsets.only(right: 8),
-                    child: Icon(Icons.check,
-                        size: 18, color: widget.contentColor),
+                    child: Icon(
+                      Icons.check,
+                      size: 18,
+                      color: widget.contentColor,
+                    ),
                   ),
                 Expanded(
                   child: Text(
                     widget.item.label,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style:
-                        TextStyle(color: widget.contentColor, fontSize: 16),
+                    style: TextStyle(color: widget.contentColor, fontSize: 16),
                   ),
                 ),
                 if (widget.item.icon != null)
-                  Icon(widget.item.icon,
-                      size: 19, color: widget.contentColor),
+                  Icon(widget.item.icon, size: 19, color: widget.contentColor),
               ],
             ),
           ),

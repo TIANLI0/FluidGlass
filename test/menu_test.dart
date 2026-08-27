@@ -6,14 +6,20 @@ Widget _host({
   required List<LiquidMenuItem> items,
   LiquidMenuSide side = LiquidMenuSide.below,
   Alignment alignment = Alignment.topLeft,
+  AlignmentGeometry anchorAlignment = Alignment.center,
+  EdgeInsets margin = const EdgeInsets.all(12),
+  bool rootOverlay = false,
 }) {
   return MaterialApp(
     home: Scaffold(
-      body: Center(
+      body: Align(
+        alignment: anchorAlignment,
         child: LiquidMenu(
           backdrop: emptyBackdrop,
           side: side,
           alignment: alignment,
+          margin: margin,
+          rootOverlay: rootOverlay,
           items: items,
           anchorBuilder:
               (BuildContext context, bool isOpen, VoidCallback toggle) {
@@ -322,5 +328,121 @@ void main() {
         reason: 'the panel must sit above the anchor');
 
     await tester.pump(const Duration(seconds: 1));
+  });
+  group('the panel flips rather than hanging off an edge', () {
+    final List<LiquidMenuItem> three = <LiquidMenuItem>[
+      const LiquidMenuItem(label: 'One'),
+      const LiquidMenuItem(label: 'Two'),
+      const LiquidMenuItem(label: 'Three'),
+    ];
+
+    Future<void> open(WidgetTester tester) async {
+      await tester.tap(find.text('Closed'));
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('an anchor at the bottom asked to open below opens above',
+        (WidgetTester tester) async {
+      await tester.pumpWidget(
+        _host(items: three, anchorAlignment: Alignment.bottomCenter),
+      );
+      await open(tester);
+
+      expect(tester.getRect(find.text('Two')).center.dy,
+          lessThan(tester.getRect(find.text('Open')).center.dy));
+    });
+
+    testWidgets('an anchor at the top asked to open above opens below',
+        (WidgetTester tester) async {
+      await tester.pumpWidget(
+        _host(
+          items: three,
+          side: LiquidMenuSide.above,
+          anchorAlignment: Alignment.topCenter,
+        ),
+      );
+      await open(tester);
+
+      expect(tester.getRect(find.text('Two')).center.dy,
+          greaterThan(tester.getRect(find.text('Open')).center.dy));
+    });
+
+    testWidgets('a margin that eats the space below flips it too',
+        (WidgetTester tester) async {
+      await tester.pumpWidget(
+        _host(
+          items: three,
+          margin: const EdgeInsets.only(top: 12, bottom: 420),
+        ),
+      );
+      await open(tester);
+
+      expect(tester.getRect(find.text('Two')).center.dy,
+          lessThan(tester.getRect(find.text('Open')).center.dy));
+    });
+
+    testWidgets('the preference is kept when neither side fits',
+        (WidgetTester tester) async {
+      // A margin taller than the overlay: flipping cannot rescue it, so the
+      // result must at least stay predictable.
+      await tester.pumpWidget(
+        _host(
+          items: three,
+          margin: const EdgeInsets.only(top: 600, bottom: 600),
+        ),
+      );
+      await open(tester);
+
+      expect(tester.getRect(find.text('Two')).center.dy,
+          greaterThan(tester.getRect(find.text('Open')).center.dy));
+    });
+  });
+
+  testWidgets('rootOverlay puts the panel over a sibling of the navigator',
+      (WidgetTester tester) async {
+    // The bar is a sibling of the Navigator, so it paints over anything in the
+    // navigator's own overlay — which is what rootOverlay exists to escape.
+    const Key bar = Key('bar');
+    await tester.pumpWidget(
+      MaterialApp(
+        builder: (BuildContext context, Widget? child) => Stack(
+          children: <Widget>[
+            child!,
+            const Align(
+              alignment: Alignment.bottomCenter,
+              child: SizedBox(key: bar, height: 64, width: double.infinity),
+            ),
+          ],
+        ),
+        home: Scaffold(
+          body: Center(
+            child: LiquidMenu(
+              backdrop: emptyBackdrop,
+              rootOverlay: true,
+              items: const <LiquidMenuItem>[LiquidMenuItem(label: 'One')],
+              anchorBuilder:
+                  (BuildContext context, bool isOpen, VoidCallback toggle) =>
+                      GestureDetector(
+                onTap: toggle,
+                child: SizedBox(
+                  width: 120,
+                  height: 48,
+                  child: Center(child: Text(isOpen ? 'Open' : 'Closed')),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('Closed'));
+    await tester.pumpAndSettle();
+
+    // It rendered at all, in the root overlay, without an Overlay lookup
+    // failure — the thing that used to need a nested navigator to expose.
+    expect(find.text('One'), findsOneWidget);
+    expect(find.byKey(bar), findsOneWidget);
+    expect(tester.takeException(), isNull);
   });
 }

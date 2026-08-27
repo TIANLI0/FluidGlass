@@ -106,7 +106,7 @@ Column(
 | `LiquidPanel` | The plain glass surface. Host anything — a card, a popover, a sheet. |
 | `LiquidButton` | A capsule that squashes and slides under the finger. A square one (`height` with `padding: EdgeInsets.zero`) is a circle; `onPressed: null` disables it. |
 | `LiquidButtonGroup` | A row of actions sharing one pane of glass. |
-| `LiquidMenu` | A pop-up menu that blooms out of its anchor. |
+| `LiquidMenu` | A pop-up menu that blooms out of its anchor. Flips side rather than hanging off an edge; `margin` keeps it clear of one, `rootOverlay` escapes a nested navigator's overlay. |
 | `LiquidBottomTabs` | A tab bar whose selection pill can be dragged. |
 | `LiquidSegmentedControl` | A segmented control with a draggable thumb. |
 | `LiquidSlider` | A slider that stretches as it is pulled. |
