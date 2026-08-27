@@ -1,5 +1,34 @@
 # Changelog
 
+## 0.1.7
+
+### Added
+
+- `LiquidSheet` and `showLiquidSheet`: the half-screen sheet, rounded at the top
+  two corners, with a grab handle, an optional title and rows that carry a
+  detail line and a trailing check. On a phone this is the form a single choice
+  out of several belongs in — rows tall enough to read, a title saying what is
+  being chosen — and it was the one common iOS surface the package had no
+  component for, so every app rebuilt it by hand on `LiquidPanel`.
+
+  Three things it does that are easy to get wrong by hand: the framework's own
+  bottom-sheet surface has to be made transparent so the glass panel is the only
+  one, *and its drag handle turned off with it* — that handle paints in the
+  surface that just became transparent, so it ends up floating outside the
+  glass; `isScrollControlled` has to be set or the framework caps the sheet at
+  9/16 of the screen and simply cuts the rows off; and the bottom two corners
+  must stay square, since a rounded corner against the screen edge shows a gap.
+
+  The check is at the trailing edge, unlike `LiquidMenuItem`'s leading one: a
+  sheet row is wide and its label is what is being read, so a mark at the start
+  pushes every label out of alignment with the ones above it. Rows are
+  mutually-exclusive selectables to a screen reader, labelled with the detail
+  line folded in.
+
+  `surfaceColor` accepts an opaque colour, which drops the glass — what an app
+  should pass when it could not capture a backdrop, so the sheet degrades
+  without a second layout.
+
 ## 0.1.6
 
 ### Added

@@ -47,6 +47,7 @@ export 'src/components/liquid_button_group.dart';
 export 'src/components/liquid_menu.dart';
 export 'src/components/liquid_panel.dart';
 export 'src/components/liquid_segmented_control.dart';
+export 'src/components/liquid_sheet.dart';
 export 'src/components/liquid_slider.dart';
 export 'src/components/liquid_toggle.dart';
 export 'src/draw_backdrop.dart'

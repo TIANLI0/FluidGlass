@@ -109,6 +109,7 @@ Column(
 | `LiquidMenu` | A pop-up menu that blooms out of its anchor. Flips side rather than hanging off an edge; `margin` keeps it clear of one, `rootOverlay` escapes a nested navigator's overlay. |
 | `LiquidBottomTabs` | A tab bar whose selection pill can be dragged. |
 | `LiquidSegmentedControl` | A segmented control with a draggable thumb. |
+| `LiquidSheet` | A half-screen sheet: grab handle, title, rows with a trailing check. `showLiquidSheet` presents it. |
 | `LiquidSlider` | A slider that stretches as it is pulled. |
 | `LiquidToggle` | A switch whose knob squashes into the track. |
 
