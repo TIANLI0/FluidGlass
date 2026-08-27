@@ -99,4 +99,12 @@ abstract class Backdrop {
   /// recorded picture, anything wrapped or combined — because there is nothing
   /// behind the element for the engine to filter.
   bool get isPaintedBehindConsumer => false;
+
+  /// Whether this backdrop can *only* be filtered by the compositor.
+  ///
+  /// True means the backdrop hands the element no pixels of its own — see
+  /// [NativeBackdrop] — so an element on it is pinned to [GlassQuality.plain]
+  /// however capable the device is: there is no texture for the lens or the
+  /// shaded rim to work on, and letting the element sample would draw nothing.
+  bool get isCompositorOnly => false;
 }

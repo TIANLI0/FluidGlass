@@ -39,6 +39,7 @@ export 'src/backdrops/combined_backdrop.dart';
 export 'src/backdrops/empty_backdrop.dart';
 export 'src/backdrops/layer_backdrop.dart'
     show BackdropLayer, LayerBackdrop, LayerBackdropSource, RenderBackdropLayer;
+export 'src/backdrops/native_backdrop.dart';
 export 'src/backdrops/wrapped_backdrop.dart';
 export 'src/components/interactive_highlight.dart';
 export 'src/components/liquid_bottom_tabs.dart';

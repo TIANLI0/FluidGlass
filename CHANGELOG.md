@@ -1,5 +1,38 @@
 # Changelog
 
+## 0.1.9
+
+### Added
+
+- `nativeBackdrop`: a backdrop that is whatever the compositor has already
+  painted beneath the element, so the whole chain becomes a
+  `BackdropFilterLayer` — Flutter's own `BackdropFilter` — with no capture at
+  all. The right instrument for a surface that sits *over* what it filters,
+  which is most modal chrome: a sheet, a dialog, a selection toolbar, a button
+  on a collapsing header.
+
+  It removes three things, not just cost. **The capture:** a full-screen
+  `toImageSync` is a texture the size of the screen — 18 MB on a 1440x3168
+  phone — allocated and rasterised every time the surface opens. **The
+  staleness:** a capture freezes at the moment it was taken, so anything moving
+  behind the surface stops moving inside it. **The dim bookkeeping:** a capture
+  has to have the modal barrier's dim painted into it by hand or the surface
+  reads as a lit window over a dimmed page, while a compositor filter is above
+  the barrier already.
+
+  There is a fourth, which is what prompted it: a captured source can *stop
+  existing*. A button on a collapsing app bar refracting the header image behind
+  it draws nothing once the header collapses away — a transparent hole with the
+  page scrolling through it. `nativeBackdrop` filters whatever is behind at that
+  moment, which is the header while it is there and the bar's own surface after,
+  and is correct in both without the element knowing which.
+
+  An element on it is pinned to `GlassQuality.plain` whatever the device could
+  afford — there is no texture for the lens or the shaded rim to bend, so
+  sampling would draw nothing. `Backdrop.isCompositorOnly` is the new flag that
+  says so, and it outranks an explicit `DrawBackdrop.quality` pin, since pinning
+  cannot conjure a texture either.
+
 ## 0.1.8
 
 ### Changed

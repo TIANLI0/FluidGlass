@@ -804,6 +804,10 @@ class RenderDrawBackdrop extends RenderProxyBox {
   /// classifier, or pinning a tier, takes effect without rebuilding anything —
   /// the element is already listening for repaints.
   GlassQuality get _resolvedQuality {
+    // A compositor-only backdrop hands over no pixels, so the shader tiers have
+    // nothing to work on: sampling it would draw nothing at all. This outranks
+    // an explicit pin — pinning cannot conjure a texture either.
+    if (_backdrop.isCompositorOnly) return GlassQuality.plain;
     final GlassDeviceTier tier = GlassDeviceTier.instance;
     final GlassQuality? pinned = _quality;
     // The tier's own value is already clamped; an explicitly pinned tier still

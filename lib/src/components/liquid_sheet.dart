@@ -44,8 +44,11 @@ class LiquidSheetItem {
 /// This is the face and the rows only. Two things are the caller's:
 ///
 /// - **The `Backdrop`**, as everywhere in this package — a glass widget cannot
-///   invent what it refracts. For a sheet that means a frozen capture taken
-///   before the sheet was inserted, since a live one would include the sheet.
+///   invent what it refracts. For a sheet, [nativeBackdrop] is almost always the
+///   right one: a sheet sits *over* what it filters, so the compositor can do it
+///   with no capture at all, and the modal barrier's dim is included for free.
+///   A frozen capture is the alternative, and the one that has to have the dim
+///   painted into it by hand.
 /// - **Getting it on screen.** [showLiquidSheet] wires the modal bottom sheet
 ///   for you (transparent background so this panel is the only surface, root
 ///   navigator, dismissal on selection); use this widget directly for a sheet

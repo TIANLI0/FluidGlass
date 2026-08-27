@@ -373,6 +373,7 @@ so scaling a glass element does not scale the image inside it.
 | `CanvasBackdrop(onDraw)` | A canvas callback, for cheap backgrounds. |
 | `CombinedBackdrop.of(a, b, …)` | Several backdrops, drawn in order. |
 | `WrappedBackdrop(inner, onDraw)` | Another backdrop, transformed as it is drawn. |
+| `nativeBackdrop` | Whatever the compositor already painted beneath the element — a `BackdropFilterLayer`, no capture. For chrome that sits *over* what it filters. |
 | `emptyBackdrop` | Nothing. |
 
 `DrawBackdrop.exportedBackdrop` fills a `LayerBackdrop` with the element's own
