@@ -101,8 +101,20 @@ class LayerBackdrop extends Backdrop with ChangeNotifier {
   /// Called from outside the paint phase (a scroll notification, a
   /// [BackdropLayer.liveness] tick), so consumers can be marked dirty
   /// immediately and repaint in the same frame rather than a frame late.
-  void invalidateSource() {
-    _source?.invalidateSnapshot();
+  ///
+  /// Pass [within] when the change is confined to one render object's subtree
+  /// — the scrollable that just moved, say. A [BackdropLayer] source that knows
+  /// nothing sampling it reads from there leaves its capture alone: a carousel
+  /// at the top of a page costs the glass bar at the bottom nothing. Without it
+  /// the change is taken to be anywhere.
+  void invalidateSource({RenderObject? within}) {
+    final LayerBackdropSource? source = _source;
+    if (within != null &&
+        source is RenderBackdropLayer &&
+        !source.sampledRegionTouches(within)) {
+      return;
+    }
+    source?.invalidateSnapshot();
     if (hasListeners) notifyListeners();
   }
 
@@ -254,14 +266,18 @@ class LayerBackdrop extends Backdrop with ChangeNotifier {
 /// The subtree may be as live as it likes. It is re-captured when it repaints,
 /// when a scroll moves inside it, and when anything behind a repaint boundary
 /// of its own repaints — the last of those by watching the captured layers,
-/// which needs nothing declared. What Flutter does not draw itself, it also
-/// cannot capture: a video texture, a camera preview or a native map inside the
+/// which needs nothing declared. Only the part the glass reads counts: a
+/// change that lands nowhere under any glass element — a spinner at the top of
+/// a page whose glass is a bar at the bottom — is seen and left alone, so it
+/// costs the glass nothing. What Flutter does not draw itself, it also cannot
+/// capture: a video texture, a camera preview or a native map inside the
 /// subtree comes out as a hole.
 class BackdropLayer extends StatelessWidget {
   const BackdropLayer({
     super.key,
     required this.backdrop,
     this.pixelRatio,
+    this.motionPixelRatio,
     this.liveness,
     this.child,
   });
@@ -293,7 +309,31 @@ class BackdropLayer extends StatelessWidget {
   ///   child: feed,
   /// )
   /// ```
+  ///
+  /// To pay less only while the source is *moving*, and keep it sharp at rest,
+  /// see [motionPixelRatio].
   final double? pixelRatio;
+
+  /// Resolution to capture the source at while it is in motion — changing on
+  /// consecutive frames, as a scrolling list or a running animation does.
+  ///
+  /// Null, the default, captures at [pixelRatio] whatever the source is doing.
+  /// Set below [pixelRatio], a source that has been re-captured on two
+  /// consecutive frames drops to this resolution for as long as the run lasts,
+  /// and is captured once more at [pixelRatio] the frame after it stops. A
+  /// one-off repaint never drops.
+  ///
+  /// This is the half of the [pixelRatio] trade that costs nothing to look at.
+  /// A capture costs in proportion to the pixels it covers, and a source that
+  /// changes every frame pays that every frame — but a frame in which the
+  /// content is moving is also a frame in which nobody can tell whether it was
+  /// sampled at full resolution, and glass that blurs what it samples hides the
+  /// difference outright. At rest, where a soft capture would show, the capture
+  /// is sharp.
+  ///
+  /// The exception is glass that shows the source *unblurred and magnified*
+  /// while the source itself is moving; leave this null there.
+  final double? motionPixelRatio;
 
   /// Something that ticks whenever the source's content changes.
   ///
@@ -328,7 +368,11 @@ class BackdropLayer extends StatelessWidget {
         onNotification: (ScrollNotification notification) {
           if (notification is ScrollUpdateNotification ||
               notification is OverscrollNotification) {
-            backdrop.invalidateSource();
+            // The scrollable that moved: a change confined to its box. The
+            // source may know that no glass reads from there.
+            backdrop.invalidateSource(
+              within: notification.context?.findRenderObject(),
+            );
           }
           // Never absorbed: an ancestor may well want these too.
           return false;
@@ -339,6 +383,7 @@ class BackdropLayer extends StatelessWidget {
     return _BackdropLayerHost(
       backdrop: backdrop,
       pixelRatio: pixelRatio,
+      motionPixelRatio: motionPixelRatio,
       liveness: liveness,
       child: content,
     );
@@ -349,12 +394,14 @@ class _BackdropLayerHost extends SingleChildRenderObjectWidget {
   const _BackdropLayerHost({
     required this.backdrop,
     required this.pixelRatio,
+    required this.motionPixelRatio,
     required this.liveness,
     super.child,
   });
 
   final LayerBackdrop backdrop;
   final double? pixelRatio;
+  final double? motionPixelRatio;
   final Listenable? liveness;
 
   @override
@@ -362,6 +409,7 @@ class _BackdropLayerHost extends SingleChildRenderObjectWidget {
     return RenderBackdropLayer(
       backdrop: backdrop,
       pixelRatio: pixelRatio,
+      motionPixelRatio: motionPixelRatio,
       liveness: liveness,
     );
   }
@@ -371,6 +419,7 @@ class _BackdropLayerHost extends SingleChildRenderObjectWidget {
     renderObject
       ..backdrop = backdrop
       ..pixelRatio = pixelRatio
+      ..motionPixelRatio = motionPixelRatio
       ..liveness = liveness;
   }
 }
@@ -380,9 +429,11 @@ class RenderBackdropLayer extends RenderProxyBox implements LayerBackdropSource 
   RenderBackdropLayer({
     required LayerBackdrop backdrop,
     double? pixelRatio,
+    double? motionPixelRatio,
     Listenable? liveness,
   })  : _backdrop = backdrop,
         _pixelRatio = pixelRatio,
+        _motionPixelRatio = motionPixelRatio,
         _liveness = liveness;
 
   /// See [BackdropLayer.liveness].
@@ -407,6 +458,16 @@ class RenderBackdropLayer extends RenderProxyBox implements LayerBackdropSource 
     markNeedsPaint();
   }
 
+  /// See [BackdropLayer.motionPixelRatio].
+  double? get motionPixelRatio => _motionPixelRatio;
+  double? _motionPixelRatio;
+  set motionPixelRatio(double? value) {
+    if (_motionPixelRatio == value) return;
+    _motionPixelRatio = value;
+    _releaseSnapshot();
+    markNeedsPaint();
+  }
+
   LayerBackdrop get backdrop => _backdrop;
   LayerBackdrop _backdrop;
   set backdrop(LayerBackdrop value) {
@@ -418,7 +479,6 @@ class RenderBackdropLayer extends RenderProxyBox implements LayerBackdropSource 
     markNeedsPaint();
   }
 
-  // Captured lazily on first request per frame, then reused by every consumer.
   /// Captures taken since the last invalidation, newest last.
   ///
   /// Keyed by the region they cover: a consumer is served by any capture that
@@ -433,6 +493,74 @@ class RenderBackdropLayer extends RenderProxyBox implements LayerBackdropSource 
   /// the thing being avoided in the first place.
   static const int _maxRegions = 3;
 
+  // ---------------------------------------------------------------------------
+  // What the consumers read.
+  //
+  // Every request for a region is remembered — the region itself, before any
+  // merging — for the current capture generation and the one before it. That
+  // is worth keeping for two reasons.
+  //
+  // A request is captured together with any region it overlaps from the
+  // previous generation. Two pieces of glass reading the same strip through
+  // slightly different paddings — a bar and the copy of it a selection pill
+  // magnifies — used to cost two captures a frame, one a few pixels taller
+  // than the other, because the first capture did not quite contain the
+  // second request. Now the first capture is taken to the size the strip was
+  // last frame, and the second request is served from it.
+  //
+  // And their union is what the source *cares about*. A change to the subtree
+  // that lands nowhere near it does not need a re-capture: see `_checkSubtree`
+  // and `sampledRegionTouches`.
+  // ---------------------------------------------------------------------------
+
+  final List<Rect> _requested = <Rect>[];
+  final List<Rect> _previousRequested = <Rect>[];
+
+  /// Past this many distinct requests in one generation they collapse into
+  /// their union. A consumer sliding across a still source asks once per
+  /// frame, and the list must not grow with it.
+  static const int _maxRequests = 8;
+
+  /// How far a request may miss a previous one and still be captured with it.
+  static const double _mergeSlack = 1.0;
+
+  /// How far outside what consumers read a change still counts as touching it.
+  ///
+  /// A picture's recorded bounds are its render object's, and a render object
+  /// may paint past its own bounds — a drop shadow, an overflowing `Stack`, a
+  /// `Transform` that did not need a layer. Anything closer than this to a
+  /// sampled region is assumed able to reach into it.
+  static const double _interestMargin = 64.0;
+
+  // ---------------------------------------------------------------------------
+  // Motion.
+  //
+  // A capture costs in proportion to its pixels, and a source that changes on
+  // every frame pays that on every frame. Those are also the frames on which a
+  // softer capture cannot be seen. So when `motionPixelRatio` is set, a run of
+  // consecutive re-captures switches to it, and the frame after the run ends
+  // takes one more capture at full resolution. A single repaint never drops:
+  // the run has to be at least `_motionStreakThreshold` long.
+  // ---------------------------------------------------------------------------
+
+  /// Frames counted by the post-frame watch, so "was the previous capture in
+  /// the frame right before this one" has an answer.
+  int _frameIndex = 0;
+  int _lastCaptureFrame = -2;
+
+  /// Consecutive frames on which a changed source was re-captured.
+  int _motionStreak = 0;
+
+  /// Below this many consecutive re-captures the source is not in motion.
+  static const int _motionStreakThreshold = 2;
+
+  /// Whether the current generation was started by a change to the content,
+  /// as opposed to asking for the same content again at another resolution.
+  bool _generationInvalidated = false;
+
+  /// Whether the captures held right now were taken at [motionPixelRatio].
+  bool _motionCaptureHeld = false;
+
   /// How many times this source has been rasterised, in debug builds.
   ///
   /// Each one is an `OffsetLayer.toImageSync` — a synchronous rasterisation
@@ -441,6 +569,15 @@ class RenderBackdropLayer extends RenderProxyBox implements LayerBackdropSource 
   /// scrolling source is captured once per region per frame and no more.
   @visibleForTesting
   int debugCaptureCount = 0;
+
+  /// The pixel ratio of the most recent capture, in debug builds.
+  @visibleForTesting
+  double? debugLastCapturePixelRatio;
+
+  /// How many changes to the subtree were seen and left alone because they
+  /// landed nowhere any consumer reads, in debug builds.
+  @visibleForTesting
+  int debugIgnoredChanges = 0;
 
   /// Latched once [_maxRegions] is exceeded, so the decision survives the
   /// frame that discovered it. Cleared when the source is resized.
@@ -492,6 +629,7 @@ class RenderBackdropLayer extends RenderProxyBox implements LayerBackdropSource 
       _captureWholeSource = false;
     }
     _releaseSnapshot();
+    _generationInvalidated = true;
     _painting = true;
     try {
       super.paint(context, offset);
@@ -504,17 +642,118 @@ class RenderBackdropLayer extends RenderProxyBox implements LayerBackdropSource 
     _watchSubtree();
   }
 
+  /// Starts a new capture generation: drops the captures and moves this
+  /// generation's requests over to "previous".
   void _releaseSnapshot() {
     for (final _Capture capture in _captures) {
       capture.image.dispose();
     }
     _captures.clear();
+    _motionCaptureHeld = false;
+    if (_requested.isNotEmpty) {
+      _previousRequested
+        ..clear()
+        ..addAll(_requested);
+      _requested.clear();
+    }
   }
 
   @override
   void invalidateSnapshot() {
     _invalidatedBySignal = true;
+    _generationInvalidated = true;
     _releaseSnapshot();
+  }
+
+  /// Whether a change confined to [changed]'s subtree can reach anything a
+  /// consumer reads.
+  ///
+  /// True when in doubt: when [changed] is not a laid-out box inside this
+  /// source, or when nothing has sampled the source yet.
+  bool sampledRegionTouches(RenderObject changed) {
+    if (!attached || changed == this) return true;
+    if (changed is! RenderBox || !changed.attached || !changed.hasSize) {
+      return true;
+    }
+    final Rect? interest = _interestRegion();
+    if (interest == null) return true;
+    RenderObject? node = changed.parent;
+    while (node != null && node != this) {
+      node = node.parent;
+    }
+    if (node == null) return true;
+    final Rect where = MatrixUtils.transformRect(
+      changed.getTransformTo(this),
+      changed.paintBounds,
+    );
+    return _touches(where.left, where.top, where.right, where.bottom, interest);
+  }
+
+  /// Everything consumers have asked to read, this generation and last,
+  /// inflated by [_interestMargin]. Null until something has asked.
+  Rect? _interestRegion() {
+    Rect? region;
+    for (final Rect r in _requested) {
+      region = region == null ? r : region.expandToInclude(r);
+    }
+    for (final Rect r in _previousRequested) {
+      region = region == null ? r : region.expandToInclude(r);
+    }
+    return region?.inflate(_interestMargin);
+  }
+
+  /// Whether the box `(l, t, r, b)` overlaps [interest]. Unknown bounds — any
+  /// NaN — count as overlapping, since they cannot be ruled out.
+  static bool _touches(double l, double t, double r, double b, Rect interest) {
+    if (l.isNaN || t.isNaN || r.isNaN || b.isNaN) return true;
+    return r > interest.left &&
+        l < interest.right &&
+        b > interest.top &&
+        t < interest.bottom;
+  }
+
+  static bool _covers(Rect outer, Rect inner) {
+    const double epsilon = 0.001;
+    return outer.left <= inner.left + epsilon &&
+        outer.top <= inner.top + epsilon &&
+        outer.right >= inner.right - epsilon &&
+        outer.bottom >= inner.bottom - epsilon;
+  }
+
+  /// Remembers that a consumer reads [region] this generation.
+  void _noteRequest(Rect region) {
+    for (final Rect r in _requested) {
+      if (_covers(r, region)) return;
+    }
+    _requested.add(region);
+    if (_requested.length > _maxRequests) {
+      Rect union = _requested.first;
+      for (int i = 1; i < _requested.length; i++) {
+        union = union.expandToInclude(_requested[i]);
+      }
+      _requested
+        ..clear()
+        ..add(union);
+    }
+  }
+
+  /// Grows [wanted] to take in every region it overlaps from the previous
+  /// generation, so one capture serves the requests that follow.
+  Rect _mergeWithPrevious(Rect wanted, Rect bounds) {
+    if (_previousRequested.isEmpty) return wanted;
+    Rect merged = wanted;
+    bool grew = true;
+    while (grew) {
+      grew = false;
+      for (final Rect r in _previousRequested) {
+        if (_covers(merged, r)) continue;
+        if (r.inflate(_mergeSlack).overlaps(merged)) {
+          merged = merged.expandToInclude(r);
+          grew = true;
+        }
+      }
+    }
+    return merged.intersect(bounds);
   }
 
   // ---------------------------------------------------------------------------
@@ -533,13 +772,34 @@ class RenderBackdropLayer extends RenderProxyBox implements LayerBackdropSource 
   // — which makes a walk of the captured layer tree an exact answer to "did
   // anything in here repaint", for the price of visiting a few dozen layers on
   // frames that were happening anyway.
+  //
+  // Each leaf — a picture, a texture — goes in as a signature: its identity
+  // hashed together with everything the containers above it do to it (their
+  // offsets, an opacity, a transform, a clip), so a leaf whose ancestor moved
+  // or faded reads as changed even though the picture itself was kept. The
+  // walk also records *where* each leaf draws, in the source's own
+  // coordinates. A leaf that changed but lies nowhere near what any consumer
+  // reads is a change the glass never sees, so it does not cost a re-capture: a
+  // progress spinner at the top of a page leaves the glass bar at the bottom of
+  // it alone. Two leaves swapping z-order with nothing else changing is the one
+  // change this cannot see; a reorder repaints in practice.
   // ---------------------------------------------------------------------------
 
   bool _subtreeWatchPending = false;
 
-  /// The identities of the pictures in the captured layer tree, last frame.
+  /// The signatures of the leaves in the captured layer tree, last frame.
   List<int> _layerFingerprint = <int>[];
   List<int> _nextFingerprint = <int>[];
+
+  /// Per fingerprint entry, where it draws in the source's coordinates: four
+  /// doubles, left / top / right / bottom, NaN when unknown.
+  List<double> _layerBounds = <double>[];
+  List<double> _nextBounds = <double>[];
+
+  /// Scratch for the set-based diff, kept so it holds its capacity. Only
+  /// touched on frames where the in-order comparison found a difference.
+  final Map<int, int> _diffScratch = <int, int>{};
+
   /// False until the first check has recorded a baseline; there is nothing to
   /// compare a first reading against.
   bool _watchInitialised = false;
@@ -577,6 +837,7 @@ class RenderBackdropLayer extends RenderProxyBox implements LayerBackdropSource 
   }
 
   void _checkSubtree() {
+    _frameIndex += 1;
     // Consumed whether or not the rest of the check runs, so a frame that was
     // already accounted for cannot suppress a later one.
     final bool alreadyHandled = _invalidatedBySignal || _paintedThisFrame;
@@ -588,30 +849,55 @@ class RenderBackdropLayer extends RenderProxyBox implements LayerBackdropSource 
     // *sits*, which is placement rather than content and is tracked separately
     // — counting it would throw the capture away every time the source moved.
     final List<int> next = _nextFingerprint..clear();
+    final List<double> nextBounds = _nextBounds..clear();
     for (Layer? child = layer?.firstChild; child != null; child = child.nextSibling) {
-      _collectFingerprint(child, next);
+      _collectFingerprint(child, next, nextBounds, 0, 0.0, 0.0, null, true);
     }
     final bool first = !_watchInitialised;
-    bool contentChanged = !first && next.length != _layerFingerprint.length;
-    if (!first && !contentChanged) {
-      for (int i = 0; i < next.length; i++) {
-        if (next[i] != _layerFingerprint[i]) {
-          contentChanged = true;
-          break;
+    bool contentChanged = false;
+    bool relevantChange = false;
+    // A frame something already reported needs no diagnosis, only the new
+    // baseline.
+    if (!first && !alreadyHandled) {
+      final List<int> prev = _layerFingerprint;
+      // The same leaves in the same order is every frame in which nothing
+      // repainted, and costs one pass.
+      bool same = next.length == prev.length;
+      if (same) {
+        for (int i = 0; i < next.length; i++) {
+          if (next[i] != prev[i]) {
+            same = false;
+            break;
+          }
         }
       }
+      if (!same) {
+        contentChanged = true;
+        final Rect? interest = _interestRegion();
+        relevantChange = interest == null ||
+            _changesTouch(prev, _layerBounds, next, nextBounds, interest);
+      }
     }
-    // Swap rather than copy: two lists that keep their capacity, so a source
+    // Swap rather than copy: lists that keep their capacity, so a source
     // watched for the life of the app allocates nothing per frame.
     _nextFingerprint = _layerFingerprint;
     _layerFingerprint = next;
+    _nextBounds = _layerBounds;
+    _layerBounds = nextBounds;
 
     final Matrix4? transform = attached ? getTransformTo(null) : null;
     final bool moved = !first && _lastSourceTransform != transform;
     _lastSourceTransform = transform;
     _watchInitialised = true;
 
-    if (contentChanged && !alreadyHandled) {
+    if (contentChanged && !relevantChange) {
+      assert(() {
+        debugIgnoredChanges += 1;
+        return true;
+      }());
+    }
+
+    if (relevantChange && !alreadyHandled) {
       _backdrop.invalidateSource();
       // Our own invalidation is not the signal that suppresses the next check.
       _invalidatedBySignal = false;
@@ -620,55 +906,211 @@ class RenderBackdropLayer extends RenderProxyBox implements LayerBackdropSource 
       // the source moving; only the consumers' placement of it is stale.
       _backdrop.notifyConsumers();
     }
+
+    _settleMotion(changedThisFrame: alreadyHandled || relevantChange);
   }
 
-  /// Appends an identity for every picture in [layer]'s subtree.
+  /// Once a source in motion comes to rest, the capture taken at
+  /// [motionPixelRatio] is retaken at full resolution.
+  void _settleMotion({required bool changedThisFrame}) {
+    if (!_motionCaptureHeld) return;
+    if (changedThisFrame) {
+      // Still moving. Make sure a frame follows this one, so the moment it
+      // stops is observed rather than left until something else happens to
+      // schedule a frame. During the run this is a no-op: frames are coming.
+      SchedulerBinding.instance.scheduleFrame();
+      return;
+    }
+    _motionStreak = 0;
+    // A new generation for the same content: not an invalidation, so the
+    // capture it takes is at full resolution.
+    _releaseSnapshot();
+    _backdrop.notifyConsumers();
+  }
+
+  static bool _entryTouches(List<double> bounds, int entry, Rect interest) {
+    final int j = entry * 4;
+    return _touches(bounds[j], bounds[j + 1], bounds[j + 2], bounds[j + 3], interest);
+  }
+
+  /// Whether any leaf that differs between [prev] and [next] draws into
+  /// [interest].
   ///
-  /// Container boundaries go in too, so a layer appearing or disappearing reads
-  /// as a change even when no picture was touched.
-  static void _collectFingerprint(Layer? layer, List<int> out) {
+  /// Matched by signature rather than by position, so a layer appearing or
+  /// disappearing — a list item scrolling into view — shifts nothing: only the
+  /// leaves that are actually new, gone or altered are looked at.
+  bool _changesTouch(
+    List<int> prev,
+    List<double> prevBounds,
+    List<int> next,
+    List<double> nextBounds,
+    Rect interest,
+  ) {
+    final Map<int, int> unmatched = _diffScratch..clear();
+    for (int i = 0; i < prev.length; i++) {
+      unmatched[prev[i]] = i;
+    }
+    bool touched = false;
+    for (int i = 0; i < next.length && !touched; i++) {
+      if (unmatched.remove(next[i]) != null) continue;
+      touched = _entryTouches(nextBounds, i, interest);
+    }
+    if (!touched) {
+      for (final int i in unmatched.values) {
+        if (_entryTouches(prevBounds, i, interest)) {
+          touched = true;
+          break;
+        }
+      }
+    }
+    unmatched.clear();
+    return touched;
+  }
+
+  /// Appends a signature for every leaf in [layer]'s subtree to [out], and
+  /// where each one draws, in the source's coordinates, to [bounds].
+  ///
+  /// [pathHash] folds in what every container above does to its children —
+  /// an offset, an opacity, a transform, a clip — so a leaf under a container
+  /// that changed reads as changed. A repaint boundary that repaints hands
+  /// `pushOpacity` and friends the layer they used last time, so an animated
+  /// opacity or transform between two boundaries can change with every picture
+  /// underneath it staying put.
+  ///
+  /// [dx], [dy] and [transform] place [layer]'s coordinates in the source's:
+  /// an offset in the common case, a full matrix only once a [TransformLayer]
+  /// has been passed on the way down. [placed] is false under a container this
+  /// walk cannot place, and every leaf beneath it is recorded as unknown.
+  void _collectFingerprint(
+    Layer? layer,
+    List<int> out,
+    List<double> bounds,
+    int pathHash,
+    double dx,
+    double dy,
+    Matrix4? transform,
+    bool placed,
+  ) {
     if (layer == null) return;
     if (layer is PictureLayer) {
-      out.add(identityHashCode(layer.picture));
+      out.add(Object.hash(pathHash, identityHashCode(layer.picture)));
+      _addBounds(bounds, layer.canvasBounds, dx, dy, transform, placed);
       return;
     }
     if (layer is ContainerLayer) {
-      out.add(_containerMark);
-      // What the layer itself does, as well as what is under it. A repaint
-      // boundary that repaints hands `pushOpacity` and friends the layer they
-      // used last time, so an animated opacity or transform between two
-      // boundaries can change with every picture underneath it staying put.
+      int hash = Object.hash(pathHash, layer.runtimeType);
+      double childDx = dx;
+      double childDy = dy;
+      Matrix4? childTransform = transform;
+      bool childPlaced = placed;
+      // `TransformLayer` and `OpacityLayer` are `OffsetLayer`s, so they come
+      // before it.
       switch (layer) {
-        case OpacityLayer(:final int? alpha):
-          out.add(alpha ?? -1);
-        case TransformLayer(:final Matrix4? transform):
-          out.add(transform?.hashCode ?? 0);
+        case TransformLayer(:final Matrix4? transform, :final Offset offset):
+          hash = Object.hash(hash, transform, offset);
+          // `TransformLayer.addToScene` applies the matrix, then the offset, so
+          // a child's coordinates reach the parent's through
+          // `T(dx + offset) * matrix`. Offsets gathered so far fold into it.
+          final Matrix4 placement = Matrix4.translationValues(
+            childDx + offset.dx,
+            childDy + offset.dy,
+            0,
+          );
+          if (transform != null) placement.multiply(transform);
+          childTransform = childTransform == null
+              ? placement
+              : (childTransform.clone()..multiply(placement));
+          childDx = 0;
+          childDy = 0;
+        case OpacityLayer(:final int? alpha, :final Offset offset):
+          hash = Object.hash(hash, alpha, offset);
+          childDx += offset.dx;
+          childDy += offset.dy;
         case ClipRectLayer(:final Rect? clipRect):
-          out.add(clipRect?.hashCode ?? 0);
+          hash = Object.hash(hash, clipRect);
         case ClipRRectLayer(:final RRect? clipRRect):
-          out.add(clipRRect?.hashCode ?? 0);
+          hash = Object.hash(hash, clipRRect);
         case ColorFilterLayer(:final ColorFilter? colorFilter):
-          out.add(colorFilter?.hashCode ?? 0);
+          hash = Object.hash(hash, colorFilter);
         case OffsetLayer(:final Offset offset):
-          out.add(offset.hashCode);
-        default:
+          // Plain, or an `ImageFilterLayer`: children drawn at `offset`.
+          hash = Object.hash(hash, offset);
+          childDx += offset.dx;
+          childDy += offset.dy;
+        case ClipPathLayer() ||
+              ShaderMaskLayer() ||
+              BackdropFilterLayer() ||
+              AnnotatedRegionLayer():
+          // Draws its children where they are. (A clip path is a fresh `Path`
+          // every paint, so its identity says nothing; a change to it comes
+          // with a repaint of what it clips.)
           break;
+        default:
+          // A `LeaderLayer`, a `FollowerLayer`, something custom: where its
+          // children end up is not known from here, so a change under it is
+          // taken to be anywhere.
+          childPlaced = false;
       }
       for (Layer? child = layer.firstChild; child != null; child = child.nextSibling) {
-        _collectFingerprint(child, out);
+        _collectFingerprint(
+          child,
+          out,
+          bounds,
+          hash,
+          childDx,
+          childDy,
+          childTransform,
+          childPlaced,
+        );
       }
-      out.add(_containerEnd);
       return;
     }
     // A texture or platform view: content the engine owns, which can change
     // without any Flutter-side repaint. `toImageSync` cannot rasterise it
     // either, so there is nothing useful to do beyond saying so.
-    out.add(identityHashCode(layer.runtimeType));
+    out.add(Object.hash(pathHash, layer.runtimeType));
+    if (layer is TextureLayer) {
+      _addBounds(bounds, layer.rect, dx, dy, transform, placed);
+    } else if (layer is PlatformViewLayer) {
+      _addBounds(bounds, layer.rect, dx, dy, transform, placed);
+    } else {
+      _addBounds(bounds, Rect.zero, dx, dy, transform, false);
+    }
     assert(_warnUncapturable(layer));
   }
 
-  static const int _containerMark = -1;
-  static const int _containerEnd = -2;
+  static void _addBounds(
+    List<double> out,
+    Rect rect,
+    double dx,
+    double dy,
+    Matrix4? transform,
+    bool placed,
+  ) {
+    if (!placed) {
+      out
+        ..add(double.nan)
+        ..add(double.nan)
+        ..add(double.nan)
+        ..add(double.nan);
+      return;
+    }
+    if (transform == null) {
+      out
+        ..add(rect.left + dx)
+        ..add(rect.top + dy)
+        ..add(rect.right + dx)
+        ..add(rect.bottom + dy);
+      return;
+    }
+    final Rect where =
+        MatrixUtils.transformRect(transform, rect.shift(Offset(dx, dy)));
+    out
+      ..add(where.left)
+      ..add(where.top)
+      ..add(where.right)
+      ..add(where.bottom);
+  }
 
   static bool _warnedUncapturable = false;
 
@@ -743,8 +1185,7 @@ class RenderBackdropLayer extends RenderProxyBox implements LayerBackdropSource 
     // Someone is sampling, so keep watching for changes this render object's
     // own paint would not notice.
     _watchSubtree();
-    final double ratio = _pixelRatio ?? devicePixelRatio;
-    final _Capture? capture = _obtainCapture(ratio, region);
+    final _Capture? capture = _obtainCapture(devicePixelRatio, region);
     if (capture == null) return;
 
     final ui.Image image = capture.image;
@@ -809,23 +1250,48 @@ class RenderBackdropLayer extends RenderProxyBox implements LayerBackdropSource 
     }
   }
 
+  /// The resolution the next capture is taken at.
+  ///
+  /// Every capture in one generation shares a resolution, so a consumer served
+  /// by two of them cannot see a seam between them. The first capture of a
+  /// generation decides, from whether the source is in motion.
+  double _resolvePixelRatio(double consumerPixelRatio) {
+    final double still = _pixelRatio ?? consumerPixelRatio;
+    if (_captures.isNotEmpty) return _captures.first.pixelRatio;
+
+    final bool consecutive =
+        _generationInvalidated && _frameIndex - _lastCaptureFrame <= 1;
+    _motionStreak = consecutive ? _motionStreak + 1 : 0;
+    _lastCaptureFrame = _frameIndex;
+    _generationInvalidated = false;
+
+    final double? motion = _motionPixelRatio;
+    if (motion == null || motion >= still) return still;
+    _motionCaptureHeld = _motionStreak >= _motionStreakThreshold;
+    return _motionCaptureHeld ? motion : still;
+  }
+
   /// A capture covering [region], reusing one from this frame when possible.
-  _Capture? _obtainCapture(double devicePixelRatio, Rect? region) {
+  _Capture? _obtainCapture(double consumerPixelRatio, Rect? region) {
     final OffsetLayer? offsetLayer = layer as OffsetLayer?;
     if (offsetLayer == null || !hasSize || size.isEmpty) return null;
     final Rect bounds = Offset.zero & size;
 
+    // What is needed, and what will be captured if nothing held covers it.
+    Rect needed = bounds;
     Rect wanted = bounds;
-    if (region != null && !_captureWholeSource) {
+    if (region != null) {
       final Rect clipped = region.intersect(bounds);
       if (clipped.isEmpty) return null;
-      wanted = clipped;
+      needed = clipped;
+      if (!_captureWholeSource) wanted = _mergeWithPrevious(clipped, bounds);
     }
+    _noteRequest(needed);
+
+    final double pixelRatio = _resolvePixelRatio(consumerPixelRatio);
 
     for (final _Capture capture in _captures) {
-      if (capture.pixelRatio == devicePixelRatio &&
-          capture.region.contains(wanted.topLeft) &&
-          capture.region.contains(wanted.bottomRight - const Offset(0.01, 0.01))) {
+      if (capture.pixelRatio == pixelRatio && _covers(capture.region, needed)) {
         return capture;
       }
     }
@@ -846,15 +1312,16 @@ class RenderBackdropLayer extends RenderProxyBox implements LayerBackdropSource 
 
     try {
       final ui.Image image =
-          offsetLayer.toImageSync(wanted, pixelRatio: devicePixelRatio);
+          offsetLayer.toImageSync(wanted, pixelRatio: pixelRatio);
       assert(() {
         debugCaptureCount += 1;
+        debugLastCapturePixelRatio = pixelRatio;
         return true;
       }());
       final _Capture capture = _Capture(
         image: image,
         region: wanted,
-        pixelRatio: devicePixelRatio,
+        pixelRatio: pixelRatio,
       );
       _captures.add(capture);
       return capture;

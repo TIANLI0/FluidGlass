@@ -288,6 +288,25 @@ here and is close to invisible, since the glass blurs what it samples anyway.
 Turning off `addRepaintBoundaries` on the list made no difference, in case that
 was the next guess.
 
+Three things keep that cost down without touching a pixel at rest. A request is
+captured together with any region it overlapped last frame, so glass elements
+reading the same strip through slightly different paddings share one capture. A
+change to the source that lands nowhere under any glass — a spinner, a marquee
+or a carousel at the top of a page whose glass is a bar at the bottom — is seen
+and left alone, because the watch knows where each picture draws. And
+`BackdropLayer.motionPixelRatio` captures at a lower resolution only while the
+source is changing on consecutive frames, with a full-resolution capture the
+frame after it stops: sharp at rest, where sharpness shows, and cheap in motion,
+where it does not.
+
+```dart
+BackdropLayer(
+  backdrop: backdrop,
+  motionPixelRatio: MediaQuery.devicePixelRatioOf(context) * 0.5,
+  child: page,
+)
+```
+
 The catalog's **Live background** screen is the two cases that are not a
 scroll — an aurora repainting inside a `RepaintBoundary`, and a photo you pan
 and pinch — with pinned glass over both. **Quality tiers & device** shows both

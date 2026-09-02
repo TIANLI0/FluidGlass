@@ -1,5 +1,57 @@
 # Changelog
 
+## 0.1.10
+
+Three ways a live backdrop now costs less, none of which changes a pixel at
+rest. Every capture is an `OffsetLayer.toImageSync` — a rasterisation of the
+source that flushes the pipeline mid-frame and scales with the pixels it
+covers — and all three are about taking fewer of them, or smaller ones, only
+where nobody can see the difference.
+
+### Performance
+
+- **Glass elements reading overlapping strips share one capture a frame.**
+  Every region a consumer asks for is remembered for a generation, and a
+  request is captured together with any region it overlapped last frame. A
+  bottom tab bar and the accent copy its pill magnifies read the same strip
+  through paddings that differ by a few pixels, so the first capture never
+  quite contained the second request and every frame of a scroll cost two
+  captures of almost the same strip; it costs one. Strips that do not overlap
+  — a top bar and a bottom bar — are still captured separately, since one
+  capture spanning both would cover more pixels than two.
+
+- **A change that lands nowhere under any glass no longer costs a
+  re-capture.** The layer watch records where every leaf draws, in the
+  source's own coordinates, and reports a change only if a leaf that is new,
+  gone or altered lies within 64 logical pixels of something a consumer reads.
+  A scroll notification is placed the same way, from the scrollable that sent
+  it. A progress spinner, a marquee or a carousel at the top of a page used to
+  keep the glass bar at the bottom re-capturing and repainting on every frame;
+  for a bar over a page like that the idle cost is now nothing. Leaves are
+  matched by signature — the picture's identity hashed with what every
+  container above does to it — rather than by position, so a list item
+  scrolling into view shifts nothing. A change whose placement cannot be known
+  (under a `LeaderLayer`, a `FollowerLayer` or a custom container) is still
+  taken to be anywhere.
+
+- **`BackdropLayer.motionPixelRatio`**: a second capture resolution used only
+  while the source is *in motion* — re-captured on consecutive frames — with
+  one full-resolution capture taken the frame after it stops. A one-off
+  repaint never drops. The frames on which the capture is paid every frame are
+  also the frames on which a softer capture cannot be seen, and glass that
+  blurs what it samples hides the difference outright; at rest, where a soft
+  capture would show, the capture is sharp. Leave it null for glass that shows
+  the source unblurred and magnified while the source itself moves.
+
+- `RenderBackdropLayer.debugLastCapturePixelRatio` and `debugIgnoredChanges`
+  join `debugCaptureCount`, for tests that pin what a frame costs.
+
+### Changed
+
+- `LayerBackdrop.invalidateSource` takes an optional `within` render object,
+  for a change confined to one subtree. Without it the change is taken to be
+  anywhere, as before.
+
 ## 0.1.9
 
 ### Added
