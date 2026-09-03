@@ -307,6 +307,24 @@ BackdropLayer(
 )
 ```
 
+A change is placed by the box of the render object that repainted, and a render
+object may paint past its box — a drop shadow, an overflowing `Stack` — so a
+change within `BackdropLayer.changeMargin` of what the glass reads (64 logical
+pixels by default) still counts as reaching it. An app whose widgets overflow
+less can lower it, and a card deck sliding just above a glass bar then costs the
+bar nothing:
+
+```dart
+BackdropLayer(backdrop: backdrop, changeMargin: 32, child: page)
+```
+
+`LiquidBottomTabs` adds no live capture of its own. The accent-tinted copy of
+the tabs that its pill magnifies was once a second glass element captured
+through a `BackdropLayer`, and the pill re-captured it on every frame it moved;
+the pill now draws that copy's glass itself, over its own footprint only, and
+reads the accent tab row from a capture that is taken once and held. Switching
+tabs costs the panel and the pill, and no `toImageSync` between them.
+
 The catalog's **Live background** screen is the two cases that are not a
 scroll — an aurora repainting inside a `RepaintBoundary`, and a photo you pan
 and pinch — with pinned glass over both. **Quality tiers & device** shows both

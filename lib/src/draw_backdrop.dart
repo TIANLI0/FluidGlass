@@ -1199,6 +1199,7 @@ class RenderDrawBackdrop extends RenderProxyBox {
       layerBlock: _layerBlock,
       backdrop: _backdrop,
       sampleMargin: padding,
+      quality: _resolvedQuality,
     );
     void drawBackdrop() => _backdrop.drawBackdrop(drawContext);
     final OnDrawBackdropCallback? onDrawBackdrop = _onDrawBackdrop;

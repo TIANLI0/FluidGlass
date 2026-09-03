@@ -66,6 +66,10 @@ class LayerBackdrop extends Backdrop with ChangeNotifier {
   /// Whether a source is currently attached.
   bool get hasSource => _source != null;
 
+  /// The attached source, for a [Backdrop] that draws it in the source's own
+  /// coordinates rather than through [drawBackdrop]'s consumer mapping.
+  LayerBackdropSource? get source => _source;
+
   /// Whether any glass element is currently sampling this backdrop.
   ///
   /// A consumer subscribes to [repaintNotifier], which is this object, so its
@@ -278,6 +282,7 @@ class BackdropLayer extends StatelessWidget {
     required this.backdrop,
     this.pixelRatio,
     this.motionPixelRatio,
+    this.changeMargin = RenderBackdropLayer.defaultChangeMargin,
     this.liveness,
     this.child,
   });
@@ -352,6 +357,22 @@ class BackdropLayer extends StatelessWidget {
   /// first frame rather than the second.
   final Listenable? liveness;
 
+  /// How far outside what the glass reads a repaint still counts as reaching
+  /// it, in logical pixels.
+  ///
+  /// A change inside the source is placed by the box of the render object
+  /// that repainted, and a render object may paint past its own box — a drop
+  /// shadow, an overflowing `Stack`, a `Transform` that needed no layer. So a
+  /// change this close to a sampled region is taken to affect it and costs a
+  /// re-capture; farther away it is ignored. The default,
+  /// [RenderBackdropLayer.defaultChangeMargin], is generous. A source whose
+  /// widgets paint less far outside their boxes than that — the usual drop
+  /// shadow reaches 20 or 30 pixels — can lower it, and a carousel or a list
+  /// row animating just above a glass bar then stops costing the bar a capture
+  /// per frame. Too low and the glass shows a stale strip where such an
+  /// overflow lands under it.
+  final double changeMargin;
+
   final Widget? child;
 
   @override
@@ -384,6 +405,7 @@ class BackdropLayer extends StatelessWidget {
       backdrop: backdrop,
       pixelRatio: pixelRatio,
       motionPixelRatio: motionPixelRatio,
+      changeMargin: changeMargin,
       liveness: liveness,
       child: content,
     );
@@ -395,6 +417,7 @@ class _BackdropLayerHost extends SingleChildRenderObjectWidget {
     required this.backdrop,
     required this.pixelRatio,
     required this.motionPixelRatio,
+    required this.changeMargin,
     required this.liveness,
     super.child,
   });
@@ -402,6 +425,7 @@ class _BackdropLayerHost extends SingleChildRenderObjectWidget {
   final LayerBackdrop backdrop;
   final double? pixelRatio;
   final double? motionPixelRatio;
+  final double changeMargin;
   final Listenable? liveness;
 
   @override
@@ -410,6 +434,7 @@ class _BackdropLayerHost extends SingleChildRenderObjectWidget {
       backdrop: backdrop,
       pixelRatio: pixelRatio,
       motionPixelRatio: motionPixelRatio,
+      changeMargin: changeMargin,
       liveness: liveness,
     );
   }
@@ -420,6 +445,7 @@ class _BackdropLayerHost extends SingleChildRenderObjectWidget {
       ..backdrop = backdrop
       ..pixelRatio = pixelRatio
       ..motionPixelRatio = motionPixelRatio
+      ..changeMargin = changeMargin
       ..liveness = liveness;
   }
 }
@@ -430,11 +456,25 @@ class RenderBackdropLayer extends RenderProxyBox implements LayerBackdropSource 
     required LayerBackdrop backdrop,
     double? pixelRatio,
     double? motionPixelRatio,
+    double changeMargin = defaultChangeMargin,
     Listenable? liveness,
   })  : _backdrop = backdrop,
         _pixelRatio = pixelRatio,
         _motionPixelRatio = motionPixelRatio,
+        _changeMargin = changeMargin,
         _liveness = liveness;
+
+  /// See [BackdropLayer.changeMargin].
+  static const double defaultChangeMargin = 64.0;
+
+  /// See [BackdropLayer.changeMargin].
+  double get changeMargin => _changeMargin;
+  double _changeMargin;
+  set changeMargin(double value) {
+    if (_changeMargin == value) return;
+    _changeMargin = value;
+    // Only what the next check compares against; nothing on screen changes.
+  }
 
   /// See [BackdropLayer.liveness].
   Listenable? get liveness => _liveness;
@@ -523,14 +563,6 @@ class RenderBackdropLayer extends RenderProxyBox implements LayerBackdropSource 
 
   /// How far a request may miss a previous one and still be captured with it.
   static const double _mergeSlack = 1.0;
-
-  /// How far outside what consumers read a change still counts as touching it.
-  ///
-  /// A picture's recorded bounds are its render object's, and a render object
-  /// may paint past its own bounds — a drop shadow, an overflowing `Stack`, a
-  /// `Transform` that did not need a layer. Anything closer than this to a
-  /// sampled region is assumed able to reach into it.
-  static const double _interestMargin = 64.0;
 
   // ---------------------------------------------------------------------------
   // Motion.
@@ -690,7 +722,7 @@ class RenderBackdropLayer extends RenderProxyBox implements LayerBackdropSource 
   }
 
   /// Everything consumers have asked to read, this generation and last,
-  /// inflated by [_interestMargin]. Null until something has asked.
+  /// inflated by [changeMargin]. Null until something has asked.
   Rect? _interestRegion() {
     Rect? region;
     for (final Rect r in _requested) {
@@ -699,7 +731,7 @@ class RenderBackdropLayer extends RenderProxyBox implements LayerBackdropSource 
     for (final Rect r in _previousRequested) {
       region = region == null ? r : region.expandToInclude(r);
     }
-    return region?.inflate(_interestMargin);
+    return region?.inflate(_changeMargin);
   }
 
   /// Whether the box `(l, t, r, b)` overlaps [interest]. Unknown bounds — any

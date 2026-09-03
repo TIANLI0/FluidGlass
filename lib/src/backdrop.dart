@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/rendering.dart';
 
 import 'glass_layer.dart';
+import 'quality/glass_quality.dart';
 
 /// Everything a [Backdrop] needs in order to draw itself into a glass element.
 class BackdropDrawContext {
@@ -14,6 +15,7 @@ class BackdropDrawContext {
     required this.layerBlock,
     required this.backdrop,
     this.sampleMargin = 0.0,
+    this.quality = GlassQuality.liquid,
   });
 
   /// The canvas to draw into. Its origin is the glass element's top-left
@@ -54,6 +56,13 @@ class BackdropDrawContext {
   /// instead, by extending the edge pixels outwards.
   final double sampleMargin;
 
+  /// The tier the consuming element draws at.
+  ///
+  /// A backdrop that runs effects of its own — filtering what it hands over —
+  /// resolves them at this tier, so it never draws a refraction the element
+  /// itself has given up.
+  final GlassQuality quality;
+
   /// A copy of this context that draws into [canvas] instead.
   BackdropDrawContext copyWith({Canvas? canvas}) {
     return BackdropDrawContext(
@@ -65,6 +74,7 @@ class BackdropDrawContext {
       layerBlock: layerBlock,
       backdrop: backdrop,
       sampleMargin: sampleMargin,
+      quality: quality,
     );
   }
 }

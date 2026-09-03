@@ -1,5 +1,49 @@
 # Changelog
 
+## 0.1.12
+
+### Performance
+
+- `LiquidBottomTabs` no longer captures its accent-tinted tab copy on every
+  frame the selection pill moves. The copy used to be a second glass element
+  of its own inside a `BackdropLayer`, and since its lens and rim follow the
+  press, the pill re-captured it — an `OffsetLayer.toImageSync`, a pipeline
+  flush — on every frame of every tab switch. The pill's backdrop now draws the
+  copy's glass itself: the same blur and lens, resolved for the whole bar's
+  geometry but run in a save-layer the size of the pill's window onto it, so
+  the lens still bends along the bar's edge exactly where it did. The accent
+  tab row is still a captured subtree, but nothing in it moves any more — its
+  press scale is applied where it is drawn — so it is captured once and read
+  every frame. What a tab switch costs is now the panel and the pill, with no
+  capture in between.
+- The bar's animated values — the pill's position, the panel's give under an
+  over-drag, the tab press scale — are read during paint. Nothing in the bar is
+  rebuilt or laid out per frame.
+
+### Added
+
+- `BackdropEffectScope.resolve` takes `layerRect`: the window of the padded
+  element the filters will actually run over. `BackdropEffectGeometry.layerRect`
+  carries it to shader effects, whose `layerSize` and `offset` then describe
+  the window rather than the whole layer.
+- `BackdropLayer.changeMargin`: how far outside what the glass reads a repaint
+  inside the source is still taken to reach it. A change is placed by the box
+  of the render object that repainted, and a render object may paint past its
+  box, so the default allows 64 logical pixels. An app whose widgets overflow
+  less than that can lower it, and a card deck or a list row animating just
+  above a glass bar then stops costing the bar a capture on every frame.
+- `BackdropDrawContext.quality`: the tier the consuming element draws at, for a
+  `Backdrop` that resolves effects of its own.
+- `InteractiveHighlight.paintOverlay`, the press glow as a canvas call.
+- `LayerBackdrop.source`, the attached source, for a backdrop that draws it in
+  the source's own coordinates.
+
+### Changed
+
+- `LiquidBottomTabScale` still marks the accent copy of the tabs, but the scale
+  it reports there is now always 1.0 and its notifier never fires: the copy is
+  scaled at paint time inside the pill.
+
 ## 0.1.10
 
 Three ways a live backdrop now costs less, none of which changes a pixel at

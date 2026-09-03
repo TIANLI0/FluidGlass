@@ -70,6 +70,14 @@ class InteractiveHighlight extends ChangeNotifier {
     return _InteractiveHighlightOverlay(highlight: this, child: child);
   }
 
+  /// Paints the highlight directly, over a [size]-sized area at the canvas
+  /// origin — what [wrapOverlay] draws, for a caller composing its own picture.
+  ///
+  /// [quality] is the tier to draw at; null follows the device.
+  void paintOverlay(Canvas canvas, Size size, {GlassQuality? quality}) {
+    _paintInteractiveHighlight(canvas, size, this, quality);
+  }
+
   /// Attaches the pointer handling that drives the highlight.
   ///
   /// [onTap] fires on release however far the pointer travelled, matching
@@ -131,74 +139,82 @@ class _InteractiveHighlightPainter extends CustomPainter {
   /// device.
   final GlassQuality? pinnedQuality;
 
-  /// Resolved the same way [DrawBackdrop] resolves it, so a component's glow
-  /// and its glass never disagree about which tier they are drawing at.
-  GlassQuality get _quality {
-    final GlassDeviceTier tier = GlassDeviceTier.instance;
-    return pinnedQuality == null
-        ? tier.quality
-        : pinnedQuality!.atMost(tier.ceiling);
-  }
-
-  /// One shader per program, reused across frames: uniforms are cheap to
-  /// re-set, creating and compiling a fresh instance every paint is not.
-  static final Expando<ui.FragmentShader> _shaders =
-      Expando<ui.FragmentShader>();
-
   @override
-  void paint(Canvas canvas, Size size) {
-    final double progress = highlight.pressProgress;
-    if (progress <= 0.0) return;
-
-    final ui.FragmentProgram? program =
-        _quality.hasShaders ? FluidGlassPrograms.instance.interactiveHighlight : null;
-    if (program == null) {
-      // The flat fallback: for a backend with no runtime shaders, and equally
-      // for the cheap tier, which is defined as running no fragment programs at
-      // all. A glow under the finger is not worth a shader pass on a device
-      // that gave up the refraction to keep its frame budget.
-      canvas.drawRect(
-        Offset.zero & size,
-        Paint()
-          ..color = const Color(0xFFFFFFFF).withValues(alpha: 0.25 * progress)
-          ..blendMode = BlendMode.plus,
-      );
-      return;
-    }
-
-    canvas.drawRect(
-      Offset.zero & size,
-      Paint()
-        ..color = const Color(0xFFFFFFFF).withValues(alpha: 0.08 * progress)
-        ..blendMode = BlendMode.plus,
-    );
-
-    final Offset position =
-        highlight.position(size, highlight._positionAnimation.value);
-    // White at 0.15 * progress, premultiplied: Skia premultiplies AGSL
-    // layout(color) uniforms, and the shader's result has to stay a valid
-    // premultiplied colour. Passing it un-premultiplied would add a full-white
-    // disc under the finger instead of a soft glow.
-    final double alpha = 0.15 * progress;
-    final ui.FragmentShader shader =
-        _shaders[program] ??= program.fragmentShader();
-    shader
-      ..setFloat(0, alpha)
-      ..setFloat(1, alpha)
-      ..setFloat(2, alpha)
-      ..setFloat(3, alpha)
-      ..setFloat(4, size.shortestSide * 1.5)
-      ..setFloat(5, position.dx.clamp(0.0, size.width))
-      ..setFloat(6, position.dy.clamp(0.0, size.height));
-
-    canvas.drawRect(
-      Offset.zero & size,
-      Paint()
-        ..shader = shader
-        ..blendMode = BlendMode.plus,
-    );
-  }
+  void paint(Canvas canvas, Size size) =>
+      _paintInteractiveHighlight(canvas, size, highlight, pinnedQuality);
 
   @override
   bool shouldRepaint(covariant _InteractiveHighlightPainter oldDelegate) => true;
+}
+
+/// One shader per program, reused across frames: uniforms are cheap to re-set,
+/// creating and compiling a fresh instance every paint is not.
+final Expando<ui.FragmentShader> _highlightShaders =
+    Expando<ui.FragmentShader>();
+
+/// Draws the glow for [highlight] over a [size]-sized area at the canvas
+/// origin.
+///
+/// [pinnedQuality] is resolved the same way [DrawBackdrop] resolves it, so a
+/// component's glow and its glass never disagree about which tier they are
+/// drawing at.
+void _paintInteractiveHighlight(
+  Canvas canvas,
+  Size size,
+  InteractiveHighlight highlight,
+  GlassQuality? pinnedQuality,
+) {
+  final double progress = highlight.pressProgress;
+  if (progress <= 0.0) return;
+
+  final GlassDeviceTier tier = GlassDeviceTier.instance;
+  final GlassQuality quality =
+      pinnedQuality == null ? tier.quality : pinnedQuality.atMost(tier.ceiling);
+  final ui.FragmentProgram? program =
+      quality.hasShaders ? FluidGlassPrograms.instance.interactiveHighlight : null;
+  if (program == null) {
+    // The flat fallback: for a backend with no runtime shaders, and equally
+    // for the cheap tier, which is defined as running no fragment programs at
+    // all. A glow under the finger is not worth a shader pass on a device
+    // that gave up the refraction to keep its frame budget.
+    canvas.drawRect(
+      Offset.zero & size,
+      Paint()
+        ..color = const Color(0xFFFFFFFF).withValues(alpha: 0.25 * progress)
+        ..blendMode = BlendMode.plus,
+    );
+    return;
+  }
+
+  canvas.drawRect(
+    Offset.zero & size,
+    Paint()
+      ..color = const Color(0xFFFFFFFF).withValues(alpha: 0.08 * progress)
+      ..blendMode = BlendMode.plus,
+  );
+
+  final Offset position =
+      highlight.position(size, highlight._positionAnimation.value);
+  // White at 0.15 * progress, premultiplied: Skia premultiplies AGSL
+  // layout(color) uniforms, and the shader's result has to stay a valid
+  // premultiplied colour. Passing it un-premultiplied would add a full-white
+  // disc under the finger instead of a soft glow.
+  final double alpha = 0.15 * progress;
+  final ui.FragmentShader shader =
+      _highlightShaders[program] ??= program.fragmentShader();
+  shader
+    ..setFloat(0, alpha)
+    ..setFloat(1, alpha)
+    ..setFloat(2, alpha)
+    ..setFloat(3, alpha)
+    ..setFloat(4, size.shortestSide * 1.5)
+    ..setFloat(5, position.dx.clamp(0.0, size.width))
+    ..setFloat(6, position.dy.clamp(0.0, size.height));
+
+  canvas.drawRect(
+    Offset.zero & size,
+    Paint()
+      ..shader = shader
+      ..blendMode = BlendMode.plus,
+  );
 }

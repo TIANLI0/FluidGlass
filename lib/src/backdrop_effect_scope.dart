@@ -15,7 +15,11 @@ import 'shapes/rounded_rectangular_shape.dart';
 /// through a callback rather than eagerly.
 @immutable
 class BackdropEffectGeometry {
-  const BackdropEffectGeometry({required this.size, required this.padding});
+  const BackdropEffectGeometry({
+    required this.size,
+    required this.padding,
+    this.layerRect,
+  });
 
   /// The size of the glass element, in logical pixels.
   final Size size;
@@ -23,11 +27,21 @@ class BackdropEffectGeometry {
   /// How far the sampled layer extends beyond the element on every side.
   final double padding;
 
-  /// The size of the (padded) layer the effect filters.
-  Size get layerSize => Size(size.width + padding * 2, size.height + padding * 2);
+  /// The part of the padded layer actually being filtered, in element space.
+  ///
+  /// Null — the usual case — means the whole padded layer. A caller that
+  /// draws only a window onto a larger element (a selection pill showing part
+  /// of the bar beneath it) filters just that window, and the shaders have to
+  /// know where in the element it lies so the element's geometry stays put.
+  final Rect? layerRect;
 
-  /// The offset from layer space to element space, i.e. `(-padding, -padding)`.
-  Offset get offset => Offset(-padding, -padding);
+  /// The size of the layer the effect filters.
+  Size get layerSize =>
+      layerRect?.size ?? Size(size.width + padding * 2, size.height + padding * 2);
+
+  /// The offset from layer space to element space: `(-padding, -padding)` for
+  /// the whole layer, or [layerRect]'s top-left for a window onto it.
+  Offset get offset => layerRect?.topLeft ?? Offset(-padding, -padding);
 }
 
 /// Configures a shader's uniforms once the layer geometry is known.
@@ -170,10 +184,18 @@ class BackdropEffectScope {
 
   /// Resolves the collected stages into the save-layer filters to apply,
   /// innermost first.
-  List<ui.ImageFilter> resolve() {
+  ///
+  /// [layerRect] narrows the filtered layer to a window of the padded element,
+  /// in element space. Shader effects then keep the element's geometry — a
+  /// lens still bends along the element's edge, not the window's — while the
+  /// save-layer they run in is only as large as the window.
+  List<ui.ImageFilter> resolve({Rect? layerRect}) {
     if (!hasEffects) return const <ui.ImageFilter>[];
-    final BackdropEffectGeometry geometry =
-        BackdropEffectGeometry(size: _size, padding: padding);
+    final BackdropEffectGeometry geometry = BackdropEffectGeometry(
+      size: _size,
+      padding: padding,
+      layerRect: layerRect,
+    );
 
     final List<ui.ImageFilter> filters = <ui.ImageFilter>[];
     for (final _Stage stage in _stages) {
