@@ -2,6 +2,7 @@ import 'dart:math' as math;
 import 'dart:ui' show lerpDouble;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 
 import '../../fluid_glass.dart';
 
@@ -51,19 +52,15 @@ class LiquidBottomTab extends StatelessWidget {
         child: DragInspector(
           onTap: onPressed,
           behavior: HitTestBehavior.opaque,
-          child: ListenableBuilder(
-            listenable: notifier ?? const AlwaysStoppedAnimation<double>(0),
-            builder: (BuildContext context, Widget? _) {
-              return Transform.scale(
-                scale: scale(),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  spacing: 2,
-                  children: children,
-                ),
-              );
-            },
+          child: _RepaintScale(
+            repaint: notifier ?? const AlwaysStoppedAnimation<double>(0),
+            scale: scale,
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.center,
+              spacing: 2,
+              children: children,
+            ),
           ),
         ),
       ),
@@ -229,6 +226,12 @@ class _LiquidBottomTabsState extends State<LiquidBottomTabs>
       canvas.drawRect(Offset.zero & size, Paint()..color = containerColor);
     }
 
+    void drawAccentContainer(Canvas canvas, Size size) {
+      const Capsule()
+          .createOutline(size, isLtr ? TextDirection.ltr : TextDirection.rtl)
+          .draw(canvas, Paint()..color = containerColor);
+    }
+
     return LayoutBuilder(
       builder: (BuildContext context, BoxConstraints constraints) {
         _maxWidth = constraints.maxWidth;
@@ -237,115 +240,198 @@ class _LiquidBottomTabsState extends State<LiquidBottomTabs>
         return SizedBox(
           width: _maxWidth,
           height: 64,
-          child: ListenableBuilder(
-            listenable: _repaint,
-            builder: (BuildContext context, Widget? _) {
-              final double panelOffset = _panelOffset;
-              final double pressProgress = _animation.pressProgress;
-
-              return Stack(
-                alignment: isLtr ? Alignment.centerLeft : Alignment.centerRight,
-                // The pill paints outside the panel by design: it carries a
-                // drop shadow and grows to 1.39x while pressed. A Stack clips
-                // as soon as a positioned child overflows, and the pill's
-                // `left` lands exactly on 0 at the first tab and exactly on the
-                // panel width at the last, so rounding alone decided whether
-                // the clip engaged and sheared the corners off at either end.
-                clipBehavior: Clip.none,
-                children: <Widget>[
-                  // The panel itself.
-                  Transform.translate(
-                    offset: Offset(panelOffset, 0),
-                    child: DrawBackdrop(
-                      backdrop: widget.backdrop,
-                      shape: () => const Capsule(),
-                      effects: (BackdropEffectScope scope) => scope
-                        ..vibrancy()
-                        ..blur(8)
-                        ..lens(24, 24),
-                      layerBlock: (GlassLayer layer) {
-                        final double scale = lerpDouble(
-                          1.0,
-                          1.0 + 16.0 / math.max(layer.size.width, 1.0),
-                          _animation.pressProgress,
-                        )!;
-                        layer.scaleX = scale;
-                        layer.scaleY = scale;
-                      },
-                      onDrawSurface: drawContainer,
-                      // The surface only paints src-over, so the isolating
-                      // save-layer would change nothing but cost a pass.
-                      isolateSurface: false,
-                      repaint: _repaint,
-                      child: _interactiveHighlight.wrapOverlay(
-                        child: SizedBox(
-                          height: 64,
-                          width: _maxWidth,
-                          child: Padding(
-                            padding: const EdgeInsets.all(4),
-                            child: Row(
-                              crossAxisAlignment: CrossAxisAlignment.center,
-                              children: widget.children,
-                            ),
-                          ),
-                        ),
+          child: Stack(
+            alignment: isLtr ? Alignment.centerLeft : Alignment.centerRight,
+            // The pill paints outside the panel by design: it carries a
+            // drop shadow and grows to 1.39x while pressed. A Stack clips
+            // as soon as a positioned child overflows, and the pill's
+            // `left` lands exactly on 0 at the first tab and exactly on the
+            // panel width at the last, so rounding alone decided whether
+            // the clip engaged and sheared the corners off at either end.
+            clipBehavior: Clip.none,
+            children: <Widget>[
+              // The panel itself.
+              DrawBackdrop(
+                backdrop: widget.backdrop,
+                shape: () => const Capsule(),
+                effects: (BackdropEffectScope scope) => scope
+                  ..vibrancy()
+                  ..blur(8)
+                  ..lens(24, 24),
+                layerBlock: (GlassLayer layer) {
+                  layer.translationX = _panelOffset;
+                  final double scale = lerpDouble(
+                    1.0,
+                    1.0 + 16.0 / math.max(layer.size.width, 1.0),
+                    _animation.pressProgress,
+                  )!;
+                  layer.scaleX = scale;
+                  layer.scaleY = scale;
+                },
+                onDrawSurface: drawContainer,
+                // The surface only paints src-over, so the isolating
+                // save-layer would change nothing but cost a pass.
+                isolateSurface: false,
+                repaint: _repaint,
+                child: _interactiveHighlight.wrapOverlay(
+                  child: SizedBox(
+                    height: 64,
+                    width: _maxWidth,
+                    child: Padding(
+                      padding: const EdgeInsets.all(4),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: widget.children,
                       ),
                     ),
                   ),
+                ),
+              ),
 
-                  // An accent-tinted copy of the tabs, invisible on screen but
-                  // captured as the backdrop the selection pill magnifies.
-                  // The panel-offset translate sits outside the BackdropLayer:
-                  // the capture box then moves with the panel, so the give the
-                  // panel takes on when over-dragged cannot push the copy's end
-                  // caps outside the captured region. (Compose records the
-                  // copy's draw commands unclipped; toImageSync clips hard at
-                  // the layer's bounds, which sheared the rim at either end.)
-                  ExcludeSemantics(
-                    child: _Invisible(
-                      child: Transform.translate(
-                        offset: Offset(panelOffset, 0),
-                        child: BackdropLayer(
-                          backdrop: _tabsBackdrop,
-                          child: LiquidBottomTabScale(
-                            notifier: _repaint,
-                            scale: () =>
-                                lerpDouble(1.0, 1.2, _animation.pressProgress)!,
-                            child: DrawBackdrop(
-                              backdrop: widget.backdrop,
-                              shape: () => const Capsule(),
-                              effects: (BackdropEffectScope scope) {
-                                final double progress =
-                                    _animation.pressProgress;
-                                scope
-                                  ..vibrancy()
-                                  ..blur(8)
-                                  ..lens(24 * progress, 24 * progress);
-                              },
-                              highlight: () => Highlight.standard.copyWith(
-                                alpha: _animation.pressProgress,
-                              ),
-                              onDrawSurface: drawContainer,
-                              isolateSurface: false,
-                              repaint: _repaint,
+              // An accent glass copy, invisible on screen but recorded as
+              // the backdrop the selection pill magnifies. Recording the
+              // glass commands avoids the synchronous `toImageSync` that
+              // a live `BackdropLayer` would otherwise run on every spring
+              // tick. The accent tabs are clipped directly into the pill.
+              ExcludeSemantics(
+                child: _Invisible(
+                  child: DrawBackdrop(
+                    backdrop: widget.backdrop,
+                    shape: () => const Capsule(),
+                    effects: (BackdropEffectScope scope) {
+                      final double progress = _animation.pressProgress;
+                      scope
+                        ..vibrancy()
+                        ..blur(8)
+                        ..lens(24 * progress, 24 * progress);
+                    },
+                    highlight: () => Highlight.standard.copyWith(
+                      alpha: _animation.pressProgress,
+                    ),
+                    layerBlock: (GlassLayer layer) {
+                      layer.translationX = _panelOffset;
+                    },
+                    exportedBackdrop: _tabsBackdrop,
+                    // The exported picture records this callback without the
+                    // widget's clip, so draw the capsule explicitly. That
+                    // keeps its edge curved when the pressed pill grows past
+                    // the panel bounds.
+                    onDrawSurface: drawAccentContainer,
+                    isolateSurface: false,
+                    repaint: _repaint,
+                    child: SizedBox(height: 56, width: _maxWidth),
+                  ),
+                ),
+              ),
+
+              // The selection pill.
+              //
+              // The full-width render box moves both paint and hit testing.
+              // A transformed tab-width box would look right but Flutter's
+              // Stack would reject a pointer before reaching it once the pill
+              // moved outside its original layout bounds.
+              _SlidingPill(
+                repaint: _repaint,
+                position: () => _animation.value,
+                panelOffset: () => _panelOffset,
+                tabWidth: _tabWidth,
+                fullWidth: _maxWidth,
+                isLtr: isLtr,
+                // Both the press highlight and the drag animation need
+                // every event, so one inspector feeds both rather than two
+                // nested ones competing in the gesture arena.
+                child: DragInspector(
+                  onDragStart: (Offset position, Size size) {
+                    _interactiveHighlight.handleDown(position);
+                    _animation.handleDragStart(position);
+                  },
+                  onDrag: (Offset position, Offset delta, Size size) {
+                    _interactiveHighlight.handleMove(position);
+                    _animation.handleDrag(size, delta);
+                  },
+                  onDragEnd: () {
+                    _interactiveHighlight.handleUp();
+                    _animation.handleDragEnd();
+                  },
+                  onDragCancel: () {
+                    _interactiveHighlight.handleUp();
+                    _animation.handleDragEnd();
+                  },
+                  child: DrawBackdrop(
+                    backdrop: _pillBackdrop,
+                    shape: () => const Capsule(),
+                    effects: (BackdropEffectScope scope) {
+                      final double progress = _animation.pressProgress;
+                      scope.lens(
+                        10 * progress,
+                        14 * progress,
+                        chromaticAberration: true,
+                      );
+                    },
+                    highlight: () => Highlight.standard.copyWith(
+                      alpha: _animation.pressProgress,
+                    ),
+                    shadow: () => GlassShadow.standard.copyWith(
+                      alpha: _animation.pressProgress,
+                    ),
+                    innerShadow: () => GlassInnerShadow(
+                      radius: 8 * _animation.pressProgress,
+                      alpha: _animation.pressProgress,
+                    ),
+                    layerBlock: _pillLayerBlock,
+                    onDrawSurface: (Canvas canvas, Size size) {
+                      final double progress = _animation.pressProgress;
+                      final Rect rect = Offset.zero & size;
+                      canvas.drawRect(
+                        rect,
+                        Paint()
+                          ..color =
+                              (isLight
+                                      ? const Color(0xFF000000)
+                                      : const Color(0xFFFFFFFF))
+                                  .withValues(alpha: 0.1 * (1 - progress)),
+                      );
+                      canvas.drawRect(
+                        rect,
+                        Paint()
+                          ..color = const Color(
+                            0xFF000000,
+                          ).withValues(alpha: 0.03 * progress),
+                      );
+                    },
+                    isolateSurface: false,
+                    repaint: _repaint,
+                    child: ExcludeSemantics(
+                      child: IgnorePointer(
+                        child: ClipPath(
+                          clipper: const GlassShapeClipper(Capsule()),
+                          child: _SlidingTabCopy(
+                            repaint: _repaint,
+                            position: () => _animation.value,
+                            tabWidth: _tabWidth,
+                            fullWidth: _maxWidth,
+                            isLtr: isLtr,
+                            child: LiquidBottomTabScale(
+                              notifier: _repaint,
+                              scale: () => lerpDouble(
+                                1.0,
+                                1.2,
+                                _animation.pressProgress,
+                              )!,
                               child: _interactiveHighlight.wrapOverlay(
-                                child: SizedBox(
-                                  height: 56,
-                                  width: _maxWidth,
-                                  child: Padding(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 4,
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 4,
+                                  ),
+                                  child: ColorFiltered(
+                                    colorFilter: ColorFilter.mode(
+                                      accentColor,
+                                      BlendMode.srcIn,
                                     ),
-                                    child: ColorFiltered(
-                                      colorFilter: ColorFilter.mode(
-                                        accentColor,
-                                        BlendMode.srcIn,
-                                      ),
-                                      child: Row(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.center,
-                                        children: widget.children,
-                                      ),
+                                    child: Row(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.center,
+                                      children: widget.children,
                                     ),
                                   ),
                                 ),
@@ -356,91 +442,9 @@ class _LiquidBottomTabsState extends State<LiquidBottomTabs>
                       ),
                     ),
                   ),
-
-                  // The selection pill.
-                  //
-                  // Positioned rather than painted through a transform:
-                  // Flutter bounds-checks every ancestor before descending into
-                  // it during hit-testing, so a pill drawn outside its parent
-                  // stops receiving touches as soon as it leaves the first tab.
-                  Positioned(
-                    left: isLtr
-                        ? 4 + _animation.value * _tabWidth + panelOffset
-                        : null,
-                    right: isLtr
-                        ? null
-                        : 4 + _animation.value * _tabWidth - panelOffset,
-                    top: 4,
-                    // Both the press highlight and the drag animation need
-                    // every event, so one inspector feeds both rather than two
-                    // nested ones competing in the gesture arena.
-                    child: DragInspector(
-                      onDragStart: (Offset position, Size size) {
-                        _interactiveHighlight.handleDown(position);
-                        _animation.handleDragStart(position);
-                      },
-                      onDrag: (Offset position, Offset delta, Size size) {
-                        _interactiveHighlight.handleMove(position);
-                        _animation.handleDrag(size, delta);
-                      },
-                      onDragEnd: () {
-                        _interactiveHighlight.handleUp();
-                        _animation.handleDragEnd();
-                      },
-                      onDragCancel: () {
-                        _interactiveHighlight.handleUp();
-                        _animation.handleDragEnd();
-                      },
-                      child: DrawBackdrop(
-                        backdrop: _pillBackdrop,
-                        shape: () => const Capsule(),
-                        effects: (BackdropEffectScope scope) {
-                          final double progress = _animation.pressProgress;
-                          scope.lens(
-                            10 * progress,
-                            14 * progress,
-                            chromaticAberration: true,
-                          );
-                        },
-                        highlight: () => Highlight.standard.copyWith(
-                          alpha: _animation.pressProgress,
-                        ),
-                        shadow: () =>
-                            GlassShadow.standard.copyWith(alpha: pressProgress),
-                        innerShadow: () => GlassInnerShadow(
-                          radius: 8 * _animation.pressProgress,
-                          alpha: _animation.pressProgress,
-                        ),
-                        layerBlock: _pillLayerBlock,
-                        onDrawSurface: (Canvas canvas, Size size) {
-                          final double progress = _animation.pressProgress;
-                          final Rect rect = Offset.zero & size;
-                          canvas.drawRect(
-                            rect,
-                            Paint()
-                              ..color =
-                                  (isLight
-                                          ? const Color(0xFF000000)
-                                          : const Color(0xFFFFFFFF))
-                                      .withValues(alpha: 0.1 * (1 - progress)),
-                          );
-                          canvas.drawRect(
-                            rect,
-                            Paint()
-                              ..color = const Color(
-                                0xFF000000,
-                              ).withValues(alpha: 0.03 * progress),
-                          );
-                        },
-                        isolateSurface: false,
-                        repaint: _repaint,
-                        child: SizedBox(height: 56, width: _tabWidth),
-                      ),
-                    ),
-                  ),
-                ],
-              );
-            },
+                ),
+              ),
+            ],
           ),
         );
       },
@@ -448,18 +452,435 @@ class _LiquidBottomTabsState extends State<LiquidBottomTabs>
   }
 }
 
-/// Paints its child but composites it away, so a [BackdropLayer] inside can
-/// still capture it.
+/// Scales at paint time so a tab press never rebuilds or lays out its label.
+class _RepaintScale extends SingleChildRenderObjectWidget {
+  const _RepaintScale({
+    required this.repaint,
+    required this.scale,
+    super.child,
+  });
+
+  final Listenable repaint;
+  final double Function() scale;
+
+  @override
+  _RenderRepaintScale createRenderObject(BuildContext context) =>
+      _RenderRepaintScale(repaint: repaint, scale: scale);
+
+  @override
+  void updateRenderObject(
+    BuildContext context,
+    _RenderRepaintScale renderObject,
+  ) {
+    renderObject
+      ..repaint = repaint
+      ..scale = scale;
+  }
+}
+
+class _RenderRepaintScale extends RenderProxyBox {
+  _RenderRepaintScale({
+    required Listenable repaint,
+    required double Function() scale,
+  }) : _repaint = repaint,
+       _scale = scale;
+
+  Listenable _repaint;
+  set repaint(Listenable value) {
+    if (_repaint == value) return;
+    if (attached) _repaint.removeListener(markNeedsPaint);
+    _repaint = value;
+    if (attached) _repaint.addListener(markNeedsPaint);
+    markNeedsPaint();
+  }
+
+  double Function() _scale;
+  set scale(double Function() value) {
+    if (_scale == value) return;
+    _scale = value;
+    markNeedsPaint();
+  }
+
+  final LayerHandle<TransformLayer> _transformLayer =
+      LayerHandle<TransformLayer>();
+
+  Matrix4 get _transform {
+    final double value = _scale();
+    if (value == 1.0) return Matrix4.identity();
+    final Offset centre = size.center(Offset.zero);
+    return Matrix4.identity()
+      ..translateByDouble(centre.dx, centre.dy, 0, 1)
+      ..scaleByDouble(value, value, 1, 1)
+      ..translateByDouble(-centre.dx, -centre.dy, 0, 1);
+  }
+
+  @override
+  void attach(PipelineOwner owner) {
+    super.attach(owner);
+    _repaint.addListener(markNeedsPaint);
+  }
+
+  @override
+  void detach() {
+    _repaint.removeListener(markNeedsPaint);
+    super.detach();
+  }
+
+  @override
+  void paint(PaintingContext context, Offset offset) {
+    if (child == null) return;
+    final Matrix4 transform = _transform;
+    if (transform.isIdentity()) {
+      _transformLayer.layer = null;
+      super.paint(context, offset);
+      return;
+    }
+    _transformLayer.layer = context.pushTransform(
+      needsCompositing,
+      offset,
+      transform,
+      super.paint,
+      oldLayer: _transformLayer.layer,
+    );
+  }
+
+  @override
+  void applyPaintTransform(RenderBox child, Matrix4 transform) {
+    transform.multiply(_transform);
+  }
+
+  @override
+  bool hitTestChildren(BoxHitTestResult result, {required Offset position}) {
+    return result.addWithPaintTransform(
+      transform: _transform,
+      position: position,
+      hitTest: (BoxHitTestResult result, Offset position) =>
+          super.hitTestChildren(result, position: position),
+    );
+  }
+
+  @override
+  void dispose() {
+    _transformLayer.layer = null;
+    super.dispose();
+  }
+}
+
+/// Moves the pill inside a full-width hit-test box without rebuilding it.
+class _SlidingPill extends SingleChildRenderObjectWidget {
+  const _SlidingPill({
+    required this.repaint,
+    required this.position,
+    required this.panelOffset,
+    required this.tabWidth,
+    required this.fullWidth,
+    required this.isLtr,
+    super.child,
+  });
+
+  final Listenable repaint;
+  final double Function() position;
+  final double Function() panelOffset;
+  final double tabWidth;
+  final double fullWidth;
+  final bool isLtr;
+
+  @override
+  _RenderSlidingPill createRenderObject(BuildContext context) =>
+      _RenderSlidingPill(
+        repaint: repaint,
+        position: position,
+        panelOffset: panelOffset,
+        tabWidth: tabWidth,
+        fullWidth: fullWidth,
+        isLtr: isLtr,
+      );
+
+  @override
+  void updateRenderObject(
+    BuildContext context,
+    _RenderSlidingPill renderObject,
+  ) {
+    renderObject
+      ..repaint = repaint
+      ..position = position
+      ..panelOffset = panelOffset
+      ..tabWidth = tabWidth
+      ..fullWidth = fullWidth
+      ..isLtr = isLtr;
+  }
+}
+
+class _RenderSlidingPill extends RenderProxyBox {
+  _RenderSlidingPill({
+    required Listenable repaint,
+    required double Function() position,
+    required double Function() panelOffset,
+    required double tabWidth,
+    required double fullWidth,
+    required bool isLtr,
+  }) : _repaint = repaint,
+       _position = position,
+       _panelOffset = panelOffset,
+       _tabWidth = tabWidth,
+       _fullWidth = fullWidth,
+       _isLtr = isLtr;
+
+  Listenable _repaint;
+  set repaint(Listenable value) {
+    if (_repaint == value) return;
+    if (attached) _repaint.removeListener(markNeedsPaint);
+    _repaint = value;
+    if (attached) _repaint.addListener(markNeedsPaint);
+    markNeedsPaint();
+  }
+
+  double Function() _position;
+  set position(double Function() value) {
+    if (_position == value) return;
+    _position = value;
+    markNeedsPaint();
+  }
+
+  double Function() _panelOffset;
+  set panelOffset(double Function() value) {
+    if (_panelOffset == value) return;
+    _panelOffset = value;
+    markNeedsPaint();
+  }
+
+  double _tabWidth;
+  set tabWidth(double value) {
+    if (_tabWidth == value) return;
+    _tabWidth = value;
+    markNeedsLayout();
+  }
+
+  double _fullWidth;
+  set fullWidth(double value) {
+    if (_fullWidth == value) return;
+    _fullWidth = value;
+    markNeedsLayout();
+  }
+
+  bool _isLtr;
+  set isLtr(bool value) {
+    if (_isLtr == value) return;
+    _isLtr = value;
+    markNeedsPaint();
+  }
+
+  Offset get _childOffset {
+    final double travel = _position() * _tabWidth;
+    final double x = _isLtr
+        ? 4.0 + travel + _panelOffset()
+        : _fullWidth - 4.0 - _tabWidth - travel + _panelOffset();
+    return Offset(x, 4);
+  }
+
+  @override
+  void performLayout() {
+    size = constraints.constrain(Size(_fullWidth, 64));
+    child?.layout(
+      BoxConstraints.tight(Size(_tabWidth, 56)),
+      parentUsesSize: false,
+    );
+  }
+
+  @override
+  void attach(PipelineOwner owner) {
+    super.attach(owner);
+    _repaint.addListener(markNeedsPaint);
+  }
+
+  @override
+  void detach() {
+    _repaint.removeListener(markNeedsPaint);
+    super.detach();
+  }
+
+  @override
+  void paint(PaintingContext context, Offset offset) {
+    final RenderBox? child = this.child;
+    if (child != null) context.paintChild(child, offset + _childOffset);
+  }
+
+  @override
+  void applyPaintTransform(RenderBox child, Matrix4 transform) {
+    final Offset childOffset = _childOffset;
+    transform.translateByDouble(childOffset.dx, childOffset.dy, 0, 1);
+  }
+
+  @override
+  bool hitTestChildren(BoxHitTestResult result, {required Offset position}) {
+    final RenderBox? child = this.child;
+    if (child == null) return false;
+    return result.addWithPaintOffset(
+      offset: _childOffset,
+      position: position,
+      hitTest: (BoxHitTestResult result, Offset position) =>
+          child.hitTest(result, position: position),
+    );
+  }
+}
+
+/// Paints the full accent row through the moving pill's fixed-size clip.
+class _SlidingTabCopy extends SingleChildRenderObjectWidget {
+  const _SlidingTabCopy({
+    required this.repaint,
+    required this.position,
+    required this.tabWidth,
+    required this.fullWidth,
+    required this.isLtr,
+    super.child,
+  });
+
+  final Listenable repaint;
+  final double Function() position;
+  final double tabWidth;
+  final double fullWidth;
+  final bool isLtr;
+
+  @override
+  _RenderSlidingTabCopy createRenderObject(BuildContext context) =>
+      _RenderSlidingTabCopy(
+        repaint: repaint,
+        position: position,
+        tabWidth: tabWidth,
+        fullWidth: fullWidth,
+        isLtr: isLtr,
+      );
+
+  @override
+  void updateRenderObject(
+    BuildContext context,
+    _RenderSlidingTabCopy renderObject,
+  ) {
+    renderObject
+      ..repaint = repaint
+      ..position = position
+      ..tabWidth = tabWidth
+      ..fullWidth = fullWidth
+      ..isLtr = isLtr;
+  }
+}
+
+class _RenderSlidingTabCopy extends RenderProxyBox {
+  _RenderSlidingTabCopy({
+    required Listenable repaint,
+    required double Function() position,
+    required double tabWidth,
+    required double fullWidth,
+    required bool isLtr,
+  }) : _repaint = repaint,
+       _position = position,
+       _tabWidth = tabWidth,
+       _fullWidth = fullWidth,
+       _isLtr = isLtr;
+
+  Listenable _repaint;
+  set repaint(Listenable value) {
+    if (_repaint == value) return;
+    if (attached) _repaint.removeListener(markNeedsPaint);
+    _repaint = value;
+    if (attached) _repaint.addListener(markNeedsPaint);
+    markNeedsPaint();
+  }
+
+  double Function() _position;
+  set position(double Function() value) {
+    if (_position == value) return;
+    _position = value;
+    markNeedsPaint();
+  }
+
+  double _tabWidth;
+  set tabWidth(double value) {
+    if (_tabWidth == value) return;
+    _tabWidth = value;
+    markNeedsLayout();
+  }
+
+  double _fullWidth;
+  set fullWidth(double value) {
+    if (_fullWidth == value) return;
+    _fullWidth = value;
+    markNeedsLayout();
+  }
+
+  bool _isLtr;
+  set isLtr(bool value) {
+    if (_isLtr == value) return;
+    _isLtr = value;
+    markNeedsPaint();
+  }
+
+  final LayerHandle<TransformLayer> _transformLayer =
+      LayerHandle<TransformLayer>();
+
+  double get _translationX {
+    final double value = _position();
+    return _isLtr
+        ? -4.0 - value * _tabWidth
+        : -_fullWidth + 4.0 + _tabWidth + value * _tabWidth;
+  }
+
+  @override
+  void performLayout() {
+    size = constraints.constrain(Size(_tabWidth, 56));
+    child?.layout(
+      BoxConstraints.tight(Size(_fullWidth, 56)),
+      parentUsesSize: false,
+    );
+  }
+
+  @override
+  void attach(PipelineOwner owner) {
+    super.attach(owner);
+    _repaint.addListener(markNeedsPaint);
+  }
+
+  @override
+  void detach() {
+    _repaint.removeListener(markNeedsPaint);
+    super.detach();
+  }
+
+  @override
+  void paint(PaintingContext context, Offset offset) {
+    if (child == null) return;
+    _transformLayer.layer = context.pushTransform(
+      needsCompositing,
+      offset,
+      Matrix4.translationValues(_translationX, 0, 0),
+      super.paint,
+      oldLayer: _transformLayer.layer,
+    );
+  }
+
+  @override
+  void applyPaintTransform(RenderBox child, Matrix4 transform) {
+    transform.translateByDouble(_translationX, 0, 0, 1);
+  }
+
+  @override
+  bool hitTestChildren(BoxHitTestResult result, {required Offset position}) =>
+      false;
+
+  @override
+  void dispose() {
+    _transformLayer.layer = null;
+    super.dispose();
+  }
+}
+
+/// Paints its child but composites it away while its exported picture remains
+/// available to the selection pill.
 ///
 /// [Opacity] with `0` skips painting the child entirely, which would leave the
-/// captured layer empty.
+/// exported backdrop empty.
 ///
-/// Clipping to nothing rather than filtering to nothing: the [BackdropLayer]
-/// inside is a repaint boundary, so its own layer is still recorded in full
-/// and the clip only removes it from the screen. A transparent `dstIn` colour
-/// filter costs an offscreen pass instead, and — because `ColorFiltered` sets
-/// `alwaysNeedsCompositing` — it also forced the glass element beneath it to
-/// promote its shape clip to a compositing layer.
+/// A transparent `dstIn` colour filter costs an offscreen pass instead.
 class _Invisible extends StatelessWidget {
   const _Invisible({required this.child});
 
