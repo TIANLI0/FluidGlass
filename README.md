@@ -299,13 +299,6 @@ source is changing on consecutive frames, with a full-resolution capture the
 frame after it stops: sharp at rest, where sharpness shows, and cheap in motion,
 where it does not.
 
-`LiquidBottomTabs` does not add another live capture for its animated selection
-pill. Its accent glass background is exported as recorded draw commands and the
-accent tab row is clipped directly into the pill, so dragging or springing the
-selection does not introduce an extra `toImageSync` pipeline flush. Tab scaling
-and pill movement are also evaluated during paint and hit testing rather than
-rebuilding and laying out the whole bar on every animation tick.
-
 ```dart
 BackdropLayer(
   backdrop: backdrop,
@@ -438,9 +431,6 @@ engine:
   the source's draw commands unclipped — so a transform that shifts content
   past those bounds must sit *outside* the `BackdropLayer`, or the shifted
   edge is sheared off in every glass element that samples it.
-- `LiquidBottomTabs` reuses the page's live capture. Its selection-pill accent
-  source is a recorded `Picture`, not a nested `BackdropLayer`, so pill motion
-  remains a compositor/paint operation rather than a synchronous capture.
 - Skia caches blurred masks by path and sigma; Impeller does not, so the
   highlight, shadow and inner shadow are baked into cached textures instead of
   being re-blurred every frame.

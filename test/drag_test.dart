@@ -4,19 +4,13 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  testWidgets('a spring retargeted every frame still advances', (
-    WidgetTester tester,
-  ) async {
+  testWidgets('a spring retargeted every frame still advances', (WidgetTester tester) async {
     late SpringValue spring;
     await tester.pumpWidget(
       MaterialApp(
         home: _Vsync(
           builder: (TickerProvider vsync) {
-            spring = SpringValue(
-              vsync: vsync,
-              value: 0,
-              visibilityThreshold: 0.001,
-            );
+            spring = SpringValue(vsync: vsync, value: 0, visibilityThreshold: 0.001);
             return const SizedBox();
           },
         ),
@@ -28,17 +22,12 @@ void main() {
       spring.animateTo(1, springOf(1, 1000));
       await tester.pump(const Duration(milliseconds: 16));
     }
-    expect(
-      spring.value,
-      greaterThan(0.5),
-      reason: 'a spring retargeted each frame must keep advancing',
-    );
+    expect(spring.value, greaterThan(0.5),
+        reason: 'a spring retargeted each frame must keep advancing');
     spring.dispose();
   });
 
-  testWidgets('DampedDragAnimation presses and tracks a drag', (
-    WidgetTester tester,
-  ) async {
+  testWidgets('DampedDragAnimation presses and tracks a drag', (WidgetTester tester) async {
     late DampedDragAnimation animation;
     final List<Offset> drags = <Offset>[];
 
@@ -68,15 +57,10 @@ void main() {
       ),
     );
 
-    final TestGesture gesture = await tester.startGesture(
-      tester.getCenter(find.byType(SizedBox).first),
-    );
+    final TestGesture gesture =
+        await tester.startGesture(tester.getCenter(find.byType(SizedBox).first));
     await tester.pump(const Duration(milliseconds: 16));
-    expect(
-      drags,
-      isNotEmpty,
-      reason: 'the pointer down must report a zero drag',
-    );
+    expect(drags, isNotEmpty, reason: 'the pointer down must report a zero drag');
 
     for (int i = 0; i < 10; i++) {
       await gesture.moveBy(const Offset(20, 0));
@@ -84,21 +68,9 @@ void main() {
     }
 
     expect(drags.length, greaterThan(5));
-    expect(
-      animation.targetValue,
-      greaterThan(1.0),
-      reason: 'drag must move the target',
-    );
-    expect(
-      animation.value,
-      greaterThan(0.5),
-      reason: 'the value must follow the target',
-    );
-    expect(
-      animation.pressProgress,
-      greaterThan(0.5),
-      reason: 'press must engage',
-    );
+    expect(animation.targetValue, greaterThan(1.0), reason: 'drag must move the target');
+    expect(animation.value, greaterThan(0.5), reason: 'the value must follow the target');
+    expect(animation.pressProgress, greaterThan(0.5), reason: 'press must engage');
 
     await gesture.up();
     await tester.pump(const Duration(milliseconds: 16));
@@ -106,9 +78,7 @@ void main() {
     animation.dispose();
   });
 
-  testWidgets('the bottom-tabs pill follows a drag', (
-    WidgetTester tester,
-  ) async {
+  testWidgets('the bottom-tabs pill follows a drag', (WidgetTester tester) async {
     int selected = 0;
     await tester.pumpWidget(
       MaterialApp(
@@ -120,8 +90,7 @@ void main() {
                 builder: (BuildContext context, StateSetter setState) {
                   return LiquidBottomTabs(
                     selectedTabIndex: selected,
-                    onTabSelected: (int index) =>
-                        setState(() => selected = index),
+                    onTabSelected: (int index) => setState(() => selected = index),
                     backdrop: emptyBackdrop,
                     tabsCount: 3,
                     children: <Widget>[
@@ -142,8 +111,8 @@ void main() {
     await tester.pump();
 
     // Grab the pill: it starts over the first tab.
-    final Offset start =
-        tester.getTopLeft(find.byType(LiquidBottomTabs)) + const Offset(60, 32);
+    final Offset start = tester.getTopLeft(find.byType(LiquidBottomTabs)) +
+        const Offset(60, 32);
     final TestGesture gesture = await tester.startGesture(start);
     for (int i = 0; i < 12; i++) {
       await gesture.moveBy(const Offset(20, 0));
@@ -153,16 +122,11 @@ void main() {
     await tester.pump(const Duration(milliseconds: 16));
     await tester.pump(const Duration(seconds: 1));
 
-    expect(
-      selected,
-      greaterThan(0),
-      reason: 'dragging the pill must change tabs',
-    );
+    expect(selected, greaterThan(0), reason: 'dragging the pill must change tabs');
   });
 
-  testWidgets('the bottom-tabs bar is never clipped at either end', (
-    WidgetTester tester,
-  ) async {
+  testWidgets('the bottom-tabs bar is never clipped at either end',
+      (WidgetTester tester) async {
     // The panel is offset by up to 4dp of give once dragged, and the pill
     // carries a shadow and grows to 1.39x while pressed, so both paint outside
     // their boxes. A Stack clips as soon as a positioned child overflows, and
@@ -180,8 +144,7 @@ void main() {
                   int selected = 0;
                   return LiquidBottomTabs(
                     selectedTabIndex: selected,
-                    onTabSelected: (int index) =>
-                        setState(() => selected = index),
+                    onTabSelected: (int index) => setState(() => selected = index),
                     backdrop: emptyBackdrop,
                     tabsCount: 3,
                     children: <Widget>[
@@ -209,18 +172,11 @@ void main() {
     );
 
     void expectNoClip(String state) {
-      expect(
-        stack.clipBehavior,
-        Clip.none,
-        reason: 'the bar must not clip ($state)',
-      );
+      expect(stack.clipBehavior, Clip.none, reason: 'the bar must not clip ($state)');
       RenderBox? child = stack.firstChild;
       while (child != null) {
-        expect(
-          stack.describeApproximatePaintClip(child),
-          isNull,
-          reason: 'no child may be clipped ($state)',
-        );
+        expect(stack.describeApproximatePaintClip(child), isNull,
+            reason: 'no child may be clipped ($state)');
         child = (child.parentData! as StackParentData).nextSibling;
       }
     }
@@ -241,17 +197,14 @@ void main() {
         await gesture.moveBy(Offset.zero);
         await tester.pump(const Duration(milliseconds: 16));
       }
-      expectNoClip(
-        direction > 0 ? 'held at the right end' : 'held at the left end',
-      );
+      expectNoClip(direction > 0 ? 'held at the right end' : 'held at the left end');
       await gesture.up();
       await tester.pump(const Duration(seconds: 1));
     }
   });
 
-  testWidgets('a LiquidButton still reports taps through its press handling', (
-    WidgetTester tester,
-  ) async {
+  testWidgets('a LiquidButton still reports taps through its press handling',
+      (WidgetTester tester) async {
     // Regression: the press handling must not enter the gesture arena, or it
     // wins as the innermost competitor and swallows the tap.
     int taps = 0;
@@ -281,9 +234,8 @@ void main() {
     await tester.pump(const Duration(seconds: 1));
   });
 
-  testWidgets('the pill stays grabbable after it has moved', (
-    WidgetTester tester,
-  ) async {
+  testWidgets('the pill stays grabbable after it has moved',
+      (WidgetTester tester) async {
     // Regression: the pill used to be painted through a transform inside a
     // one-tab-wide Padding. Flutter bounds-checks every ancestor, so once the
     // pill left the first tab it stopped receiving touches entirely — it could
@@ -299,8 +251,7 @@ void main() {
                 builder: (BuildContext context, StateSetter setState) {
                   return LiquidBottomTabs(
                     selectedTabIndex: selected,
-                    onTabSelected: (int index) =>
-                        setState(() => selected = index),
+                    onTabSelected: (int index) => setState(() => selected = index),
                     backdrop: emptyBackdrop,
                     tabsCount: 3,
                     children: <Widget>[
@@ -322,9 +273,7 @@ void main() {
 
     final Offset barTopLeft = tester.getTopLeft(find.byType(LiquidBottomTabs));
     // Send the pill to the last tab.
-    final TestGesture first = await tester.startGesture(
-      barTopLeft + const Offset(60, 32),
-    );
+    final TestGesture first = await tester.startGesture(barTopLeft + const Offset(60, 32));
     for (int i = 0; i < 20; i++) {
       await first.moveBy(const Offset(20, 0));
       await tester.pump(const Duration(milliseconds: 16));
@@ -347,77 +296,8 @@ void main() {
     await tester.pump(const Duration(milliseconds: 16));
     await tester.pump(const Duration(seconds: 1));
 
-    expect(
-      selected,
-      0,
-      reason: 'the pill must respond to a drag started at its current position',
-    );
-  });
-
-  testWidgets('the moved pill stays grabbable in right-to-left layouts', (
-    WidgetTester tester,
-  ) async {
-    int selected = 0;
-    await tester.pumpWidget(
-      MaterialApp(
-        home: Directionality(
-          textDirection: TextDirection.rtl,
-          child: Scaffold(
-            body: Center(
-              child: SizedBox(
-                width: 360,
-                child: StatefulBuilder(
-                  builder: (BuildContext context, StateSetter setState) {
-                    return LiquidBottomTabs(
-                      selectedTabIndex: selected,
-                      onTabSelected: (int index) =>
-                          setState(() => selected = index),
-                      backdrop: emptyBackdrop,
-                      tabsCount: 3,
-                      children: <Widget>[
-                        for (int i = 0; i < 3; i++)
-                          LiquidBottomTab(
-                            onPressed: () => setState(() => selected = i),
-                            children: <Widget>[Text('RTL ${i + 1}')],
-                          ),
-                      ],
-                    );
-                  },
-                ),
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-    await tester.pump();
-
-    final Offset barTopLeft = tester.getTopLeft(find.byType(LiquidBottomTabs));
-    const double tabWidth = (360 - 8) / 3;
-
-    // Index zero starts at the right in RTL; drag left to reach index two.
-    final TestGesture first = await tester.startGesture(
-      barTopLeft + Offset(4 + tabWidth * 2 + tabWidth / 2, 32),
-    );
-    for (int i = 0; i < 20; i++) {
-      await first.moveBy(const Offset(-20, 0));
-      await tester.pump(const Duration(milliseconds: 16));
-    }
-    await first.up();
-    await tester.pump(const Duration(seconds: 1));
-    expect(selected, 2);
-
-    // Grab the pill at its new, leftmost position and drag it back right.
-    final TestGesture second = await tester.startGesture(
-      barTopLeft + Offset(4 + tabWidth / 2, 32),
-    );
-    for (int i = 0; i < 20; i++) {
-      await second.moveBy(const Offset(20, 0));
-      await tester.pump(const Duration(milliseconds: 16));
-    }
-    await second.up();
-    await tester.pump(const Duration(seconds: 1));
-    expect(selected, 0);
+    expect(selected, 0,
+        reason: 'the pill must respond to a drag started at its current position');
   });
 }
 

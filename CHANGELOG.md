@@ -1,25 +1,5 @@
 # Changelog
 
-## 0.1.11
-
-### Performance
-
-- `LiquidBottomTabs` no longer creates a second live `BackdropLayer` for the
-  accent copy inside its moving pill. The glass background is now exported as
-  recorded draw commands and the accent tab row is clipped directly into the
-  pill, removing an `OffsetLayer.toImageSync` pipeline flush from every spring
-  and drag frame.
-- Tab press scaling and pill movement now read their animation values during
-  paint and hit testing. They no longer rebuild and lay out the whole bottom
-  bar on each animation tick.
-
-### Fixed
-
-- The selection pill remains draggable at its rendered position after moving,
-  including in right-to-left layouts.
-- `LiquidButton` and grouped button press, drag, over-drag and spring-back
-  interactions retain their existing gesture behavior.
-
 ## 0.1.10
 
 Three ways a live backdrop now costs less, none of which changes a pixel at
