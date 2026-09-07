@@ -30,6 +30,7 @@ library;
 import 'src/internal/shader_programs.dart';
 
 export 'src/animation/damped_drag_animation.dart';
+export 'src/animation/liquid_press.dart';
 export 'src/animation/spring.dart';
 export 'src/backdrop.dart';
 export 'src/backdrop_effect_scope.dart'

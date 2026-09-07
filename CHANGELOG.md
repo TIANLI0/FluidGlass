@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.1.13
+
+### Added
+
+- `LiquidPressDeformation`: the displacement law the pressable components move
+  by — the swell while an element is held, the `tanh`-bounded lean towards the
+  finger, the stretch along the axis being pulled — as four plain numbers, with
+  a `transform` matrix for a `Transform` aligned to the centre. `LiquidButton`
+  and `LiquidButtonGroup` resolve it and write it onto their glass layer; it is
+  public so that something which is not made of glass can move by exactly the
+  same law rather than by a copy of it that drifts. Nothing about the glass
+  components' motion changes: the internal `applyDragDeformation` is now the
+  one caller that writes those numbers onto a `GlassLayer`.
+
 ## 0.1.12
 
 ### Performance

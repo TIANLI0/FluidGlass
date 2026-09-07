@@ -402,6 +402,40 @@ DrawBackdrop(
 `layerBlock` transforms the element *and* counter-transforms what it refracts,
 so scaling a glass element does not scale the image inside it.
 
+#### The press motion, without the glass
+
+`LiquidPressDeformation` is the displacement law the pressable components move
+by — a swell while the element is held, a `tanh`-bounded lean towards the
+finger, a stretch along the axis being pulled — as four plain numbers. It is
+what `LiquidButton` writes onto its glass layer, and it is public so that
+something which is not made of glass can move by exactly the same law:
+
+```dart
+final LiquidPressDeformation press = LiquidPressDeformation.resolve(
+  size,
+  offset: highlight.offset,          // travel since the pointer went down
+  pressProgress: highlight.pressProgress,
+);
+
+Transform(
+  alignment: Alignment.center,
+  transform: press.transform,
+  child: child,
+)
+```
+
+Feed it from springs, not from raw pointer values — the squash and the
+ring-down are the springs' doing, not the law's. `InteractiveHighlight` carries
+the pair the components use, and `SpringValue` builds your own.
+
+Note that `InteractiveHighlight.wrapGestures` and `DragInspector` stay out of
+the gesture arena, which is what lets a press survive a drag; inside a
+`Scrollable` that also means the press is not released when the scroll claims
+the pointer, and the tap still fires on the lift. Where an ancestor may claim
+the gesture, drive the highlight from your own arena-aware handler — a
+`GestureDetector`'s `onTapDown`/`onTapCancel`, or a Material button's
+`statesController` — and keep a `Listener` only for the position.
+
 ### Backdrops
 
 | Backdrop | Source of pixels |
