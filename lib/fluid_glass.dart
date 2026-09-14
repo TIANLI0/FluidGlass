@@ -43,9 +43,12 @@ export 'src/backdrops/layer_backdrop.dart'
 export 'src/backdrops/native_backdrop.dart';
 export 'src/backdrops/wrapped_backdrop.dart';
 export 'src/components/interactive_highlight.dart';
+export 'src/components/liquid_adaptive_panel.dart';
 export 'src/components/liquid_bottom_tabs.dart';
 export 'src/components/liquid_button.dart';
 export 'src/components/liquid_button_group.dart';
+export 'src/components/liquid_dialog.dart';
+export 'src/components/liquid_magnifier.dart';
 export 'src/components/liquid_menu.dart';
 export 'src/components/liquid_panel.dart';
 export 'src/components/liquid_segmented_control.dart';

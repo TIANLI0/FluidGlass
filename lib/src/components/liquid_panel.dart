@@ -24,6 +24,7 @@ class LiquidPanel extends StatelessWidget {
     this.blurRadius = 8,
     this.refractionHeight = 20,
     this.refractionAmount = 28,
+    this.depthEffect = false,
     this.showHighlight = true,
     this.showShadow = true,
     this.layerBlock,
@@ -48,6 +49,14 @@ class LiquidPanel extends StatelessWidget {
   final double blurRadius;
   final double refractionHeight;
   final double refractionAmount;
+
+  /// Blends the edge normal towards a radial one, which reads as a thicker
+  /// piece of glass.
+  ///
+  /// Worth it on a large panel a reader looks straight at — a dialog, a card —
+  /// where the extra depth is legible. On a bar or a small button the rim is
+  /// too narrow to tell the two apart, so the default leaves it off.
+  final bool depthEffect;
 
   final bool showHighlight;
   final bool showShadow;
@@ -77,7 +86,11 @@ class LiquidPanel extends StatelessWidget {
         scope
           ..vibrancy()
           ..blur(blurRadius)
-          ..lens(refractionHeight * r, refractionAmount * r);
+          ..lens(
+            refractionHeight * r,
+            refractionAmount * r,
+            depthEffect: depthEffect,
+          );
       },
       highlight: showHighlight
           ? () => Highlight.standard.copyWith(alpha: _revealNow())
@@ -86,10 +99,8 @@ class LiquidPanel extends StatelessWidget {
           ? () => GlassShadow.standard.copyWith(alpha: _revealNow())
           : null,
       layerBlock: layerBlock,
-      onDrawSurface: (Canvas canvas, Size size) => canvas.drawRect(
-        Offset.zero & size,
-        Paint()..color = container,
-      ),
+      onDrawSurface: (Canvas canvas, Size size) =>
+          canvas.drawRect(Offset.zero & size, Paint()..color = container),
       // Src-over only, so the isolating save-layer would be pure cost.
       isolateSurface: false,
       repaint: repaint,

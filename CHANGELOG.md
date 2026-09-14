@@ -1,5 +1,40 @@
 # Changelog
 
+## 0.1.15
+
+### Added
+
+- `LiquidDialog` and `showLiquidDialog`: a centred modal panel — title, message
+  or free-form content, and the actions that answer it. It defaults to
+  `nativeBackdrop`, which is what a dialog usually wants: it sits *over* what it
+  filters, so the compositor does the work with no capture, and the barrier's
+  dim comes free. Pass a `LayerBackdrop` for the refraction instead — with the
+  dim inside what that layer captures, or the dialog reads as a lit window over
+  a darkened page. Actions never dismiss on their own: a dialog's actions do not
+  all end it (one may open a policy to read first), so `onPressed` owns that.
+  Up to two actions share a row, three or more stack, and the axis can be
+  forced either way.
+- `LiquidMagnifier`: a loupe. The magnification is *where the glass samples
+  from*, not an effect over it — the backdrop is drawn through a scaled canvas
+  before the lens runs, so the rim refracts already-magnified pixels instead of
+  framing a picture-in-picture. `focalOffset` says what it looks at relative to
+  where it sits, so a text loupe can float above the finger.
+- `LiquidAdaptivePanel` and `BackdropLuminance`: glass that measures the average
+  luminance of what it sits on and retunes its brightness, contrast and blur to
+  stay legible over it, handing the caller the content colour that reading can
+  carry. The sampler records one small thumbnail per *sample* rather than per
+  frame, and reads it back on a cancellable timer.
+- `LiquidPanel.depthEffect`, which blends the edge normal towards a radial one.
+  Worth it on a large panel a reader looks straight at; too subtle to tell apart
+  on a bar, so it stays off by default.
+
+### Changed
+
+- The catalog's dialog, magnifier and adaptive-luminance pages now use the
+  components above instead of hand-rolling them over `DrawBackdrop`. The dialog
+  page also shows the modal route, so both backdrops a dialog can have are on
+  screen next to each other.
+
 ## 0.1.14
 
 ### Performance

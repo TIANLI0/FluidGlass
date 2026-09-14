@@ -110,6 +110,9 @@ Column(
 | `LiquidBottomTabs` | A tab bar whose selection pill can be dragged. |
 | `LiquidSegmentedControl` | A segmented control with a draggable thumb. |
 | `LiquidSheet` | A half-screen sheet: grab handle, title, rows with a trailing check. `showLiquidSheet` presents it. |
+| `LiquidDialog` | A centred modal: title, message, and the actions that answer it. `showLiquidDialog` presents it, on `nativeBackdrop` by default. |
+| `LiquidMagnifier` | A loupe. Samples through a scaled canvas, so the rim refracts already-magnified pixels; `focalOffset` is what it looks at. |
+| `LiquidAdaptivePanel` | A panel that measures the luminance under it and retunes brightness, contrast and blur to stay legible. `BackdropLuminance` is the measuring on its own. |
 | `LiquidSlider` | A slider that stretches as it is pulled. |
 | `LiquidToggle` | A switch whose knob squashes into the track. |
 
