@@ -21,7 +21,8 @@ class FluidGlassPrograms extends ChangeNotifier {
   /// spellings are tried — see [_programFromAsset].
   static const String _packagePrefix = 'packages/fluid_glass/';
 
-  static const String _refractionAsset = 'packages/fluid_glass/shaders/refraction.frag';
+  static const String _refractionAsset =
+      'packages/fluid_glass/shaders/refraction.frag';
   static const String _dispersionAsset =
       'packages/fluid_glass/shaders/refraction_dispersion.frag';
   static const String _highlightDefaultAsset =
@@ -111,13 +112,14 @@ class FluidGlassPrograms extends ChangeNotifier {
 
   Future<void> _load() async {
     try {
-      final List<ui.FragmentProgram> programs = await Future.wait(<Future<ui.FragmentProgram>>[
-        _programFromAsset(_refractionAsset),
-        _programFromAsset(_dispersionAsset),
-        _programFromAsset(_highlightDefaultAsset),
-        _programFromAsset(_highlightAmbientAsset),
-        _programFromAsset(_interactiveHighlightAsset),
-      ]);
+      final List<ui.FragmentProgram> programs =
+          await Future.wait(<Future<ui.FragmentProgram>>[
+            _programFromAsset(_refractionAsset),
+            _programFromAsset(_dispersionAsset),
+            _programFromAsset(_highlightDefaultAsset),
+            _programFromAsset(_highlightAmbientAsset),
+            _programFromAsset(_interactiveHighlightAsset),
+          ]);
       _refraction = programs[0];
       _dispersion = programs[1];
       _highlightDefault = programs[2];
@@ -130,7 +132,9 @@ class FluidGlassPrograms extends ChangeNotifier {
           exception: e,
           stack: stack,
           library: 'fluid_glass',
-          context: ErrorDescription('while loading the FluidGlass fragment programs'),
+          context: ErrorDescription(
+            'while loading the FluidGlass fragment programs',
+          ),
         ),
       );
     }

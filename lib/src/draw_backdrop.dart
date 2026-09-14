@@ -39,10 +39,8 @@ typedef GlassInnerShadowGetter = GlassInnerShadow? Function();
 typedef GlassDrawCallback = void Function(Canvas canvas, Size size);
 
 /// Wraps the drawing of the backdrop, so it can be transformed first.
-typedef OnDrawBackdropCallback = void Function(
-  BackdropDrawContext context,
-  void Function() drawBackdrop,
-);
+typedef OnDrawBackdropCallback =
+    void Function(BackdropDrawContext context, void Function() drawBackdrop);
 
 Highlight? _defaultHighlight() => Highlight.standard;
 GlassShadow? _defaultShadow() => GlassShadow.standard;
@@ -98,9 +96,9 @@ class DrawBackdrop extends StatelessWidget {
     this.quality,
     this.repaint,
     this.child,
-  })  : highlight = null,
-        shadow = null,
-        innerShadow = null;
+  }) : highlight = null,
+       shadow = null,
+       innerShadow = null;
 
   /// What the glass refracts.
   final Backdrop backdrop;
@@ -176,7 +174,11 @@ class DrawBackdrop extends StatelessWidget {
     // The layer block lives in an ancestor render object so the element's
     // reported position already includes its transform, which is what the
     // backdrop sampling reads.
-    return _GlassTransform(layerBlock: layerBlock!, repaint: repaint, child: core);
+    return _GlassTransform(
+      layerBlock: layerBlock!,
+      repaint: repaint,
+      child: core,
+    );
   }
 }
 
@@ -192,7 +194,10 @@ class _GlassTransform extends SingleChildRenderObjectWidget {
   }
 
   @override
-  void updateRenderObject(BuildContext context, RenderGlassTransform renderObject) {
+  void updateRenderObject(
+    BuildContext context,
+    RenderGlassTransform renderObject,
+  ) {
     renderObject
       ..layerBlock = layerBlock
       ..repaint = repaint;
@@ -201,9 +206,11 @@ class _GlassTransform extends SingleChildRenderObjectWidget {
 
 /// Applies a [GlassLayerBlock]'s transform and opacity to its child.
 class RenderGlassTransform extends RenderProxyBox {
-  RenderGlassTransform({required GlassLayerBlock layerBlock, Listenable? repaint})
-      : _layerBlock = layerBlock,
-        _repaint = repaint;
+  RenderGlassTransform({
+    required GlassLayerBlock layerBlock,
+    Listenable? repaint,
+  }) : _layerBlock = layerBlock,
+       _repaint = repaint;
 
   GlassLayerBlock get layerBlock => _layerBlock;
   GlassLayerBlock _layerBlock;
@@ -285,7 +292,8 @@ class RenderGlassTransform extends RenderProxyBox {
     );
   }
 
-  final LayerHandle<TransformLayer> _transformLayer = LayerHandle<TransformLayer>();
+  final LayerHandle<TransformLayer> _transformLayer =
+      LayerHandle<TransformLayer>();
   final LayerHandle<OpacityLayer> _opacityLayer = LayerHandle<OpacityLayer>();
 
   @override
@@ -391,7 +399,10 @@ class _DrawBackdropCore extends SingleChildRenderObjectWidget {
   }
 
   @override
-  void updateRenderObject(BuildContext context, RenderDrawBackdrop renderObject) {
+  void updateRenderObject(
+    BuildContext context,
+    RenderDrawBackdrop renderObject,
+  ) {
     renderObject
       ..backdrop = backdrop
       ..shape = shape
@@ -439,24 +450,24 @@ class RenderDrawBackdrop extends RenderProxyBox {
     required TextDirection textDirection,
     required BackdropKey? backdropGroupKey,
     required double devicePixelRatio,
-  })  : _backdrop = backdrop,
-        _shape = shape,
-        _effects = effects,
-        _highlight = highlight,
-        _shadow = shadow,
-        _innerShadow = innerShadow,
-        _layerBlock = layerBlock,
-        _exportedBackdrop = exportedBackdrop,
-        _onDrawBehind = onDrawBehind,
-        _onDrawBackdrop = onDrawBackdrop,
-        _onDrawSurface = onDrawSurface,
-        _onDrawFront = onDrawFront,
-        _isolateSurface = isolateSurface,
-        _quality = quality,
-        _repaint = repaint,
-        _textDirection = textDirection,
-        _backdropGroupKey = backdropGroupKey,
-        _devicePixelRatio = devicePixelRatio;
+  }) : _backdrop = backdrop,
+       _shape = shape,
+       _effects = effects,
+       _highlight = highlight,
+       _shadow = shadow,
+       _innerShadow = innerShadow,
+       _layerBlock = layerBlock,
+       _exportedBackdrop = exportedBackdrop,
+       _onDrawBehind = onDrawBehind,
+       _onDrawBackdrop = onDrawBackdrop,
+       _onDrawSurface = onDrawSurface,
+       _onDrawFront = onDrawFront,
+       _isolateSurface = isolateSurface,
+       _quality = quality,
+       _repaint = repaint,
+       _textDirection = textDirection,
+       _backdropGroupKey = backdropGroupKey,
+       _devicePixelRatio = devicePixelRatio;
 
   Backdrop get backdrop => _backdrop;
   Backdrop _backdrop;
@@ -664,9 +675,12 @@ class RenderDrawBackdrop extends RenderProxyBox {
     return _corners ??= shape.corners(size, _textDirection);
   }
 
-  final LayerHandle<ClipRectLayer> _clipRectLayer = LayerHandle<ClipRectLayer>();
-  final LayerHandle<ClipRRectLayer> _clipRRectLayer = LayerHandle<ClipRRectLayer>();
-  final LayerHandle<ClipPathLayer> _clipPathLayer = LayerHandle<ClipPathLayer>();
+  final LayerHandle<ClipRectLayer> _clipRectLayer =
+      LayerHandle<ClipRectLayer>();
+  final LayerHandle<ClipRRectLayer> _clipRRectLayer =
+      LayerHandle<ClipRRectLayer>();
+  final LayerHandle<ClipPathLayer> _clipPathLayer =
+      LayerHandle<ClipPathLayer>();
 
   /// Repaints when the element moves relative to a coordinate-dependent
   /// backdrop, even though nothing about the element itself changed.
@@ -702,8 +716,10 @@ class RenderDrawBackdrop extends RenderProxyBox {
   bool _subscribedToBackdrop = false;
 
   void _onBackdropChanged() {
-    if (_samplingLayer.layer != null && _usesSamplingLayer &&
-        SchedulerBinding.instance.schedulerPhase == SchedulerPhase.postFrameCallbacks) {
+    if (_samplingLayer.layer != null &&
+        _usesSamplingLayer &&
+        SchedulerBinding.instance.schedulerPhase ==
+            SchedulerPhase.postFrameCallbacks) {
       // Keep notifications from dirtying render objects after composition.
       // Custom sources may have no revision, so invalidate the stored picture.
       _samplingLayer.layer!.invalidate();
@@ -836,11 +852,11 @@ class RenderDrawBackdrop extends RenderProxyBox {
     markNeedsPaint();
   }
 
-  bool get _usesSamplingLayer => !_usesNativeFilter &&
-      !_isCaptured &&
-      hasLiveSamplingSource(_backdrop);
+  bool get _usesSamplingLayer =>
+      !_usesNativeFilter && !_isCaptured && hasLiveSamplingSource(_backdrop);
 
-  final LayerHandle<SamplingLayer> _samplingLayer = LayerHandle<SamplingLayer>();
+  final LayerHandle<SamplingLayer> _samplingLayer =
+      LayerHandle<SamplingLayer>();
 
   @override
   bool get alwaysNeedsCompositing => _usesNativeFilter || _usesSamplingLayer;
@@ -929,8 +945,10 @@ class RenderDrawBackdrop extends RenderProxyBox {
     // The clip is not optional on the native path: a `BackdropFilterLayer` with
     // nothing clipping it filters the whole enclosing layer, so a rectangular
     // element that "clips nothing" would blur the entire screen.
-    _paintClipped(context, offset, outline, padding, forceClip: native,
-        (PaintingContext context, Offset offset) {
+    _paintClipped(context, offset, outline, padding, forceClip: native, (
+      PaintingContext context,
+      Offset offset,
+    ) {
       final Canvas canvas = context.canvas;
 
       if (native) {
@@ -965,6 +983,7 @@ class RenderDrawBackdrop extends RenderProxyBox {
         if (needsIsolation) canvas.restore();
         canvas.restore();
       }
+
       if (_usesSamplingLayer) {
         final SamplingLayer sampling = _samplingLayer.layer ??= SamplingLayer();
         sampling.configure(
@@ -1189,18 +1208,14 @@ class RenderDrawBackdrop extends RenderProxyBox {
       ..backdropKey = _backdropGroupKey;
     _backdropFilterLayer.layer = layer;
 
-    context.pushLayer(
-      layer,
-      (PaintingContext context, Offset offset) {
-        if (onDrawSurface == null) return;
-        final Canvas canvas = context.canvas;
-        canvas.save();
-        canvas.translate(offset.dx, offset.dy);
-        onDrawSurface(canvas, size);
-        canvas.restore();
-      },
-      offset,
-    );
+    context.pushLayer(layer, (PaintingContext context, Offset offset) {
+      if (onDrawSurface == null) return;
+      final Canvas canvas = context.canvas;
+      canvas.save();
+      canvas.translate(offset.dx, offset.dy);
+      onDrawSurface(canvas, size);
+      canvas.restore();
+    }, offset);
   }
 
   final LayerHandle<BackdropFilterLayer> _backdropFilterLayer =
@@ -1255,7 +1270,11 @@ class RenderDrawBackdrop extends RenderProxyBox {
   ///
   /// Everything except the child content is re-recorded, so glass nested in
   /// this element refracts the glass around it and not itself.
-  void _exportBackdrop(Size size, List<ui.ImageFilter> filters, double padding) {
+  void _exportBackdrop(
+    Size size,
+    List<ui.ImageFilter> filters,
+    double padding,
+  ) {
     final LayerBackdrop? exported = _exportedBackdrop;
     if (exported == null) return;
     // Re-recording the whole backdrop stack is only worth it if something is

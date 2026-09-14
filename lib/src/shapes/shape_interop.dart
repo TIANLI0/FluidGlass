@@ -58,8 +58,10 @@ class GlassShapeBorder extends OutlinedBorder {
   }
 
   Path _pathFor(Rect rect, TextDirection? textDirection) {
-    final GlassOutline outline =
-        shape.createOutline(rect.size, textDirection ?? TextDirection.ltr);
+    final GlassOutline outline = shape.createOutline(
+      rect.size,
+      textDirection ?? TextDirection.ltr,
+    );
     return outline.toPath().shift(rect.topLeft);
   }
 
@@ -73,7 +75,10 @@ class GlassShapeBorder extends OutlinedBorder {
   }
 
   @override
-  GlassShapeBorder copyWith({BorderSide? side, RoundedRectangularShape? shape}) {
+  GlassShapeBorder copyWith({
+    BorderSide? side,
+    RoundedRectangularShape? shape,
+  }) {
     return GlassShapeBorder(shape ?? this.shape, side: side ?? this.side);
   }
 

@@ -5,16 +5,16 @@ import '../backdrop.dart';
 /// Draws several backdrops on top of one another, in order.
 class CombinedBackdrop extends Backdrop {
   CombinedBackdrop(this.backdrops)
-      : isCoordinatesDependent =
-            backdrops.any((Backdrop backdrop) => backdrop.isCoordinatesDependent);
+    : isCoordinatesDependent = backdrops.any(
+        (Backdrop backdrop) => backdrop.isCoordinatesDependent,
+      );
 
-  CombinedBackdrop.of(Backdrop first, Backdrop second, [Backdrop? third, Backdrop? fourth])
-      : this(<Backdrop>[
-          first,
-          second,
-          ?third,
-          ?fourth,
-        ]);
+  CombinedBackdrop.of(
+    Backdrop first,
+    Backdrop second, [
+    Backdrop? third,
+    Backdrop? fourth,
+  ]) : this(<Backdrop>[first, second, ?third, ?fourth]);
 
   final List<Backdrop> backdrops;
 

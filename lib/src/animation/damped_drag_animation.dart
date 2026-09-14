@@ -20,25 +20,37 @@ class DampedDragAnimation extends ChangeNotifier {
     this.onDragStarted,
     this.onDragStopped,
     this.onDrag,
-  })  : _valueAnimation =
-            SpringValue(vsync: vsync, value: initialValue, visibilityThreshold: visibilityThreshold),
-        // Compose's `Animatable(0f, 5f)` threshold is dead: it only supplies
-        // the default spec for `animateTo`, and this animation always passes
-        // one explicitly. The live threshold is the spec's, which Kotlin sets
-        // to `visibilityThreshold * 10f`. At 5.0 the spring settled on its
-        // first tick, so the value tracked the raw tracker output and the
-        // squash-and-stretch lost its lag and its ring-down.
-        _velocityAnimation = SpringValue(
-          vsync: vsync,
-          value: 0.0,
-          visibilityThreshold: visibilityThreshold * 10.0,
-        ),
-        _pressProgressAnimation =
-            SpringValue(vsync: vsync, value: 0.0, visibilityThreshold: 0.001),
-        _scaleXAnimation =
-            SpringValue(vsync: vsync, value: initialScale, visibilityThreshold: 0.001),
-        _scaleYAnimation =
-            SpringValue(vsync: vsync, value: initialScale, visibilityThreshold: 0.001) {
+  }) : _valueAnimation = SpringValue(
+         vsync: vsync,
+         value: initialValue,
+         visibilityThreshold: visibilityThreshold,
+       ),
+       // Compose's `Animatable(0f, 5f)` threshold is dead: it only supplies
+       // the default spec for `animateTo`, and this animation always passes
+       // one explicitly. The live threshold is the spec's, which Kotlin sets
+       // to `visibilityThreshold * 10f`. At 5.0 the spring settled on its
+       // first tick, so the value tracked the raw tracker output and the
+       // squash-and-stretch lost its lag and its ring-down.
+       _velocityAnimation = SpringValue(
+         vsync: vsync,
+         value: 0.0,
+         visibilityThreshold: visibilityThreshold * 10.0,
+       ),
+       _pressProgressAnimation = SpringValue(
+         vsync: vsync,
+         value: 0.0,
+         visibilityThreshold: 0.001,
+       ),
+       _scaleXAnimation = SpringValue(
+         vsync: vsync,
+         value: initialScale,
+         visibilityThreshold: 0.001,
+       ),
+       _scaleYAnimation = SpringValue(
+         vsync: vsync,
+         value: initialScale,
+         visibilityThreshold: 0.001,
+       ) {
     _valueAnimation.addListener(_onValueTick);
     _velocityAnimation.addListener(notifyListeners);
     _pressProgressAnimation.addListener(notifyListeners);
@@ -70,8 +82,9 @@ class DampedDragAnimation extends ChangeNotifier {
 
   // Compose resets the tracker on press; Flutter's has no reset, so it is
   // replaced instead.
-  VelocityTracker _velocityTracker =
-      VelocityTracker.withKind(PointerDeviceKind.unknown);
+  VelocityTracker _velocityTracker = VelocityTracker.withKind(
+    PointerDeviceKind.unknown,
+  );
 
   /// Velocity is tracked only for the animation `updateValue` starts, so
   /// `animateToValue` must not feed the tracker.
@@ -89,9 +102,10 @@ class DampedDragAnimation extends ChangeNotifier {
   double get scaleY => _scaleYAnimation.value;
   double get velocity => _velocityAnimation.value;
 
-  double _coerce(double value) =>
-      value.clamp(math.min(valueRange.start, valueRange.end),
-          math.max(valueRange.start, valueRange.end));
+  double _coerce(double value) => value.clamp(
+    math.min(valueRange.start, valueRange.end),
+    math.max(valueRange.start, valueRange.end),
+  );
 
   void press() {
     _velocityTracker = VelocityTracker.withKind(PointerDeviceKind.unknown);
@@ -166,7 +180,8 @@ class DampedDragAnimation extends ChangeNotifier {
       SchedulerBinding.instance.currentFrameTimeStamp,
       Offset(value, 0),
     );
-    final double targetVelocity = _velocityTracker.getVelocity().pixelsPerSecond.dx /
+    final double targetVelocity =
+        _velocityTracker.getVelocity().pixelsPerSecond.dx /
         (valueRange.end - valueRange.start);
     _velocityAnimation.animateTo(targetVelocity, _velocitySpec);
   }

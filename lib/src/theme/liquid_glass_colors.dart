@@ -128,17 +128,12 @@ class LiquidGlassColors {
       other.destructive == destructive;
 
   @override
-  int get hashCode => Object.hash(
-        accent,
-        toggleAccent,
-        container,
-        content,
-        track,
-        destructive,
-      );
+  int get hashCode =>
+      Object.hash(accent, toggleAccent, container, content, track, destructive);
 
   @override
-  String toString() => 'LiquidGlassColors(accent: $accent, '
+  String toString() =>
+      'LiquidGlassColors(accent: $accent, '
       'toggleAccent: $toggleAccent, container: $container, '
       'content: $content, track: $track, destructive: $destructive)';
 }

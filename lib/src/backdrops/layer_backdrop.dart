@@ -35,8 +35,12 @@ abstract class LayerBackdropSource {
   /// that the caller will actually read — already inflated by [clampMargin].
   /// A source free to capture less should capture only that. Null means "no
   /// idea, give me everything".
-  void drawSource(Canvas canvas, double devicePixelRatio,
-      {double clampMargin, Rect? region});
+  void drawSource(
+    Canvas canvas,
+    double devicePixelRatio, {
+    double clampMargin,
+    Rect? region,
+  });
 
   /// Discards any cached capture, so the next [drawSource] takes a fresh one.
   void invalidateSnapshot();
@@ -211,8 +215,9 @@ class LayerBackdrop extends Backdrop with ChangeNotifier {
     // mapping is just negating the offset; reserve the matrix copy/inversion
     // for actual scale, rotation and perspective transforms.
     final Offset? sourceTranslation = MatrixUtils.getAsTranslation(toSource);
-    final Offset? translation =
-        sourceTranslation == null ? null : -sourceTranslation;
+    final Offset? translation = sourceTranslation == null
+        ? null
+        : -sourceTranslation;
     Matrix4? toConsumer;
     if (translation == null) {
       toConsumer = Matrix4.copy(toSource);
@@ -225,8 +230,10 @@ class LayerBackdrop extends Backdrop with ChangeNotifier {
     // source. Under a rotation this is the bounding box, which over-captures a
     // little and stays correct.
     final Rect element = Offset.zero & context.size;
-    final Rect region =
-        MatrixUtils.transformRect(toSource, element.inflate(context.sampleMargin));
+    final Rect region = MatrixUtils.transformRect(
+      toSource,
+      element.inflate(context.sampleMargin),
+    );
 
     // The clamp margin is quoted in the element's pixels; the source's may be a
     // different size entirely. Take it from what the padding grew to.
@@ -438,7 +445,10 @@ class _BackdropLayerHost extends SingleChildRenderObjectWidget {
   }
 
   @override
-  void updateRenderObject(BuildContext context, RenderBackdropLayer renderObject) {
+  void updateRenderObject(
+    BuildContext context,
+    RenderBackdropLayer renderObject,
+  ) {
     renderObject
       ..backdrop = backdrop
       ..pixelRatio = pixelRatio
@@ -449,18 +459,19 @@ class _BackdropLayerHost extends SingleChildRenderObjectWidget {
 }
 
 /// Captures its subtree into a texture that [LayerBackdrop] consumers sample.
-class RenderBackdropLayer extends RenderProxyBox implements LayerBackdropSource {
+class RenderBackdropLayer extends RenderProxyBox
+    implements LayerBackdropSource {
   RenderBackdropLayer({
     required LayerBackdrop backdrop,
     double? pixelRatio,
     double? motionPixelRatio,
     double changeMargin = defaultChangeMargin,
     Listenable? liveness,
-  })  : _backdrop = backdrop,
-        _pixelRatio = pixelRatio,
-        _motionPixelRatio = motionPixelRatio,
-        _changeMargin = changeMargin,
-        _liveness = liveness;
+  }) : _backdrop = backdrop,
+       _pixelRatio = pixelRatio,
+       _motionPixelRatio = motionPixelRatio,
+       _changeMargin = changeMargin,
+       _liveness = liveness;
 
   /// See [BackdropLayer.changeMargin].
   static const double defaultChangeMargin = 64.0;
@@ -745,8 +756,13 @@ class RenderBackdropLayer extends RenderProxyBox implements LayerBackdropSource 
       changed.paintBounds,
     );
     for (int i = 0; i < interest.length; i++) {
-      if (_touches(where.left, where.top, where.right, where.bottom,
-          interest[i])) {
+      if (_touches(
+        where.left,
+        where.top,
+        where.right,
+        where.bottom,
+        interest[i],
+      )) {
         return true;
       }
     }
@@ -761,8 +777,7 @@ class RenderBackdropLayer extends RenderProxyBox implements LayerBackdropSource 
   List<Rect> _interestRegions() {
     final List<Rect> regions = _interestScratch..clear();
     for (int source = 0; source < 2; source++) {
-      final List<Rect> requests =
-          source == 0 ? _requested : _previousRequested;
+      final List<Rect> requests = source == 0 ? _requested : _previousRequested;
       for (int r = 0; r < requests.length; r++) {
         final Rect padded = requests[r].inflate(_changeMargin);
         bool covered = false;
@@ -934,8 +949,12 @@ class RenderBackdropLayer extends RenderProxyBox implements LayerBackdropSource 
       // Composition already checked the finished layer tree. Only advance
       // motion bookkeeping here, rather than walking the source twice.
       _frameIndex++;
-      _settleMotion(changedThisFrame: _changedBeforeComposition ||
-          _invalidatedBySignal || _paintedThisFrame);
+      _settleMotion(
+        changedThisFrame:
+            _changedBeforeComposition ||
+            _invalidatedBySignal ||
+            _paintedThisFrame,
+      );
       _changedBeforeComposition = false;
       _invalidatedBySignal = false;
       _paintedThisFrame = false;
@@ -956,7 +975,11 @@ class RenderBackdropLayer extends RenderProxyBox implements LayerBackdropSource 
     final List<double> nextBounds = _nextBounds..clear();
     final bool hadBackdropDependency = _hasBackdropDependency;
     _hasBackdropDependency = false;
-    for (Layer? child = layer?.firstChild; child != null; child = child.nextSibling) {
+    for (
+      Layer? child = layer?.firstChild;
+      child != null;
+      child = child.nextSibling
+    ) {
       _collectFingerprint(child, next, nextBounds, 0, 0.0, 0.0, null, true);
     }
     final bool first = !_watchInitialised;
@@ -980,7 +1003,8 @@ class RenderBackdropLayer extends RenderProxyBox implements LayerBackdropSource 
       if (!same) {
         contentChanged = true;
         final List<Rect> interest = _interestRegions();
-        relevantChange = hadBackdropDependency ||
+        relevantChange =
+            hadBackdropDependency ||
             _hasBackdropDependency ||
             interest.isEmpty ||
             _changesTouch(prev, _layerBounds, next, nextBounds, interest);
@@ -1024,8 +1048,10 @@ class RenderBackdropLayer extends RenderProxyBox implements LayerBackdropSource 
       if (relevantChange || moved) _backdrop.scheduleNotification();
       _changedBeforeComposition |= alreadyHandled || relevantChange;
     } else {
-      _settleMotion(changedThisFrame:
-          alreadyHandled || relevantChange || _changedBeforeComposition);
+      _settleMotion(
+        changedThisFrame:
+            alreadyHandled || relevantChange || _changedBeforeComposition,
+      );
       _changedBeforeComposition = false;
     }
     if (contentChanged && !relevantChange) {
@@ -1065,7 +1091,10 @@ class RenderBackdropLayer extends RenderProxyBox implements LayerBackdropSource 
   }
 
   static bool _entryTouches(
-      List<double> bounds, int entry, List<Rect> interest) {
+    List<double> bounds,
+    int entry,
+    List<Rect> interest,
+  ) {
     final int j = entry * 4;
     final double l = bounds[j];
     final double t = bounds[j + 1];
@@ -1174,7 +1203,9 @@ class RenderBackdropLayer extends RenderProxyBox implements LayerBackdropSource 
         case ColorFilterLayer(:final ColorFilter? colorFilter):
           hash = Object.hash(hash, colorFilter);
         case ImageFilterLayer(
-            :final ui.ImageFilter? imageFilter, :final Offset offset):
+          :final ui.ImageFilter? imageFilter,
+          :final Offset offset,
+        ):
           hash = Object.hash(hash, imageFilter, offset);
           childDx += offset.dx;
           childDy += offset.dy;
@@ -1188,11 +1219,20 @@ class RenderBackdropLayer extends RenderProxyBox implements LayerBackdropSource 
         case ClipPathLayer(:final Path? clipPath):
           hash = Object.hash(hash, clipPath, layer.clipBehavior);
         case ShaderMaskLayer():
-          hash = Object.hash(hash, layer.shader, layer.maskRect, layer.blendMode);
+          hash = Object.hash(
+            hash,
+            layer.shader,
+            layer.maskRect,
+            layer.blendMode,
+          );
         case BackdropFilterLayer():
           _hasBackdropDependency = true;
           hash = Object.hash(
-              hash, layer.filter, layer.blendMode, layer.backdropKey);
+            hash,
+            layer.filter,
+            layer.blendMode,
+            layer.backdropKey,
+          );
           childPlaced = false;
           // This layer can change pixels even with no painted children.
           out.add(hash);
@@ -1202,8 +1242,13 @@ class RenderBackdropLayer extends RenderProxyBox implements LayerBackdropSource 
           childDx += layer.offset.dx;
           childDy += layer.offset.dy;
         case FollowerLayer():
-          hash = Object.hash(hash, layer.getLastTransform(),
-              layer.linkedOffset, layer.unlinkedOffset, layer.showWhenUnlinked);
+          hash = Object.hash(
+            hash,
+            layer.getLastTransform(),
+            layer.linkedOffset,
+            layer.unlinkedOffset,
+            layer.showWhenUnlinked,
+          );
           childPlaced = false;
         case AnnotatedRegionLayer():
           break;
@@ -1212,7 +1257,11 @@ class RenderBackdropLayer extends RenderProxyBox implements LayerBackdropSource 
           // its painted children must be treated as potentially relevant.
           childPlaced = false;
       }
-      for (Layer? child = layer.firstChild; child != null; child = child.nextSibling) {
+      for (
+        Layer? child = layer.firstChild;
+        child != null;
+        child = child.nextSibling
+      ) {
         _collectFingerprint(
           child,
           out,
@@ -1264,8 +1313,10 @@ class RenderBackdropLayer extends RenderProxyBox implements LayerBackdropSource 
         ..add(rect.bottom + dy);
       return;
     }
-    final Rect where =
-        MatrixUtils.transformRect(transform, rect.shift(Offset(dx, dy)));
+    final Rect where = MatrixUtils.transformRect(
+      transform,
+      rect.shift(Offset(dx, dy)),
+    );
     out
       ..add(where.left)
       ..add(where.top)
@@ -1279,25 +1330,29 @@ class RenderBackdropLayer extends RenderProxyBox implements LayerBackdropSource 
     if (layer is! TextureLayer && layer is! PlatformViewLayer) return true;
     if (_warnedUncapturable) return true;
     _warnedUncapturable = true;
-    FlutterError.reportError(FlutterErrorDetails(
-      exception: FlutterError.fromParts(<DiagnosticsNode>[
-        ErrorSummary('A BackdropLayer contains content Flutter cannot capture.'),
-        ErrorDescription(
-          'The source subtree holds a ${layer.runtimeType}, which is drawn by '
-          'the platform rather than by Flutter — a video texture, a camera '
-          'preview, a native map or web view. Capturing a layer tree does not '
-          'include those, so glass over this source refracts a hole where they '
-          'are.',
-        ),
-        ErrorHint(
-          'Put the glass over something Flutter draws, or place the platform '
-          'view outside the BackdropLayer and accept that the glass will not '
-          'refract it.',
-        ),
-      ]),
-      library: 'fluid_glass',
-      context: ErrorDescription('while watching a BackdropLayer source'),
-    ));
+    FlutterError.reportError(
+      FlutterErrorDetails(
+        exception: FlutterError.fromParts(<DiagnosticsNode>[
+          ErrorSummary(
+            'A BackdropLayer contains content Flutter cannot capture.',
+          ),
+          ErrorDescription(
+            'The source subtree holds a ${layer.runtimeType}, which is drawn by '
+            'the platform rather than by Flutter — a video texture, a camera '
+            'preview, a native map or web view. Capturing a layer tree does not '
+            'include those, so glass over this source refracts a hole where they '
+            'are.',
+          ),
+          ErrorHint(
+            'Put the glass over something Flutter draws, or place the platform '
+            'view outside the BackdropLayer and accept that the glass will not '
+            'refract it.',
+          ),
+        ]),
+        library: 'fluid_glass',
+        context: ErrorDescription('while watching a BackdropLayer source'),
+      ),
+    );
     return true;
   }
 
@@ -1311,34 +1366,42 @@ class RenderBackdropLayer extends RenderProxyBox implements LayerBackdropSource 
   void _reportNestedConsumer() {
     if (_hasNestedConsumer) return;
     _hasNestedConsumer = true;
-    FlutterError.reportError(FlutterErrorDetails(
-      exception: FlutterError.fromParts(<DiagnosticsNode>[
-        ErrorSummary('A glass element is sampling a BackdropLayer it is '
-            'inside of.'),
-        ErrorDescription(
-          'DrawBackdrop asked this BackdropLayer for its capture while the '
-          'BackdropLayer was painting, which means the glass is part of the '
-          'subtree it is trying to refract. Glass cannot refract itself: the '
-          'capture would contain the glass, and the two would repaint each '
-          'other on every frame.',
-        ),
-        ErrorHint(
-          'Wrap only the content the glass should refract in the '
-          'BackdropLayer, and put the glass over it as a sibling:\n'
-          '  Stack(children: [\n'
-          '    Positioned.fill(child: BackdropLayer(backdrop: b, child: page)),\n'
-          '    DrawBackdrop(backdrop: b, ...),\n'
-          '  ])',
-        ),
-      ]),
-      library: 'fluid_glass',
-      context: ErrorDescription('while drawing a glass element'),
-    ));
+    FlutterError.reportError(
+      FlutterErrorDetails(
+        exception: FlutterError.fromParts(<DiagnosticsNode>[
+          ErrorSummary(
+            'A glass element is sampling a BackdropLayer it is '
+            'inside of.',
+          ),
+          ErrorDescription(
+            'DrawBackdrop asked this BackdropLayer for its capture while the '
+            'BackdropLayer was painting, which means the glass is part of the '
+            'subtree it is trying to refract. Glass cannot refract itself: the '
+            'capture would contain the glass, and the two would repaint each '
+            'other on every frame.',
+          ),
+          ErrorHint(
+            'Wrap only the content the glass should refract in the '
+            'BackdropLayer, and put the glass over it as a sibling:\n'
+            '  Stack(children: [\n'
+            '    Positioned.fill(child: BackdropLayer(backdrop: b, child: page)),\n'
+            '    DrawBackdrop(backdrop: b, ...),\n'
+            '  ])',
+          ),
+        ]),
+        library: 'fluid_glass',
+        context: ErrorDescription('while drawing a glass element'),
+      ),
+    );
   }
 
   @override
-  void drawSource(Canvas canvas, double devicePixelRatio,
-      {double clampMargin = 0.0, Rect? region}) {
+  void drawSource(
+    Canvas canvas,
+    double devicePixelRatio, {
+    double clampMargin = 0.0,
+    Rect? region,
+  }) {
     if (_painting) {
       _reportNestedConsumer();
       return;
@@ -1370,7 +1433,8 @@ class RenderBackdropLayer extends RenderProxyBox implements LayerBackdropSource 
     final double m = clampMargin;
     final double sx = iw / dst.width;
     final double sy = ih / dst.height;
-    void strip(Rect src, Rect at) => canvas.drawImageRect(image, src, at, paint);
+    void strip(Rect src, Rect at) =>
+        canvas.drawImageRect(image, src, at, paint);
 
     final bool atLeft = dst.left <= bounds.left;
     final bool atTop = dst.top <= bounds.top;
@@ -1378,36 +1442,52 @@ class RenderBackdropLayer extends RenderProxyBox implements LayerBackdropSource 
     final bool atBottom = dst.bottom >= bounds.bottom;
 
     if (atTop) {
-      strip(Rect.fromLTWH(0, 0, iw, sy),
-          Rect.fromLTRB(dst.left, dst.top - m, dst.right, dst.top));
+      strip(
+        Rect.fromLTWH(0, 0, iw, sy),
+        Rect.fromLTRB(dst.left, dst.top - m, dst.right, dst.top),
+      );
     }
     if (atBottom) {
-      strip(Rect.fromLTWH(0, ih - sy, iw, sy),
-          Rect.fromLTRB(dst.left, dst.bottom, dst.right, dst.bottom + m));
+      strip(
+        Rect.fromLTWH(0, ih - sy, iw, sy),
+        Rect.fromLTRB(dst.left, dst.bottom, dst.right, dst.bottom + m),
+      );
     }
     if (atLeft) {
-      strip(Rect.fromLTWH(0, 0, sx, ih),
-          Rect.fromLTRB(dst.left - m, dst.top, dst.left, dst.bottom));
+      strip(
+        Rect.fromLTWH(0, 0, sx, ih),
+        Rect.fromLTRB(dst.left - m, dst.top, dst.left, dst.bottom),
+      );
     }
     if (atRight) {
-      strip(Rect.fromLTWH(iw - sx, 0, sx, ih),
-          Rect.fromLTRB(dst.right, dst.top, dst.right + m, dst.bottom));
+      strip(
+        Rect.fromLTWH(iw - sx, 0, sx, ih),
+        Rect.fromLTRB(dst.right, dst.top, dst.right + m, dst.bottom),
+      );
     }
     if (atTop && atLeft) {
-      strip(Rect.fromLTWH(0, 0, sx, sy),
-          Rect.fromLTRB(dst.left - m, dst.top - m, dst.left, dst.top));
+      strip(
+        Rect.fromLTWH(0, 0, sx, sy),
+        Rect.fromLTRB(dst.left - m, dst.top - m, dst.left, dst.top),
+      );
     }
     if (atTop && atRight) {
-      strip(Rect.fromLTWH(iw - sx, 0, sx, sy),
-          Rect.fromLTRB(dst.right, dst.top - m, dst.right + m, dst.top));
+      strip(
+        Rect.fromLTWH(iw - sx, 0, sx, sy),
+        Rect.fromLTRB(dst.right, dst.top - m, dst.right + m, dst.top),
+      );
     }
     if (atBottom && atLeft) {
-      strip(Rect.fromLTWH(0, ih - sy, sx, sy),
-          Rect.fromLTRB(dst.left - m, dst.bottom, dst.left, dst.bottom + m));
+      strip(
+        Rect.fromLTWH(0, ih - sy, sx, sy),
+        Rect.fromLTRB(dst.left - m, dst.bottom, dst.left, dst.bottom + m),
+      );
     }
     if (atBottom && atRight) {
-      strip(Rect.fromLTWH(iw - sx, ih - sy, sx, sy),
-          Rect.fromLTRB(dst.right, dst.bottom, dst.right + m, dst.bottom + m));
+      strip(
+        Rect.fromLTWH(iw - sx, ih - sy, sx, sy),
+        Rect.fromLTRB(dst.right, dst.bottom, dst.right + m, dst.bottom + m),
+      );
     }
   }
 
@@ -1469,7 +1549,8 @@ class RenderBackdropLayer extends RenderProxyBox implements LayerBackdropSource 
     // again on the next one: a second `toImageSync` every frame, for as long
     // as the motion lasts. One capture of the whole source is far cheaper
     // than chasing an edge that keeps moving, so latch to it.
-    final bool growingRequest = _captures.isNotEmpty &&
+    final bool growingRequest =
+        _captures.isNotEmpty &&
         wanted != bounds &&
         _captures.any((_Capture capture) => capture.region.overlaps(needed));
     if (growingRequest) {
@@ -1491,8 +1572,10 @@ class RenderBackdropLayer extends RenderProxyBox implements LayerBackdropSource 
     }
 
     try {
-      final ui.Image image =
-          offsetLayer.toImageSync(wanted, pixelRatio: pixelRatio);
+      final ui.Image image = offsetLayer.toImageSync(
+        wanted,
+        pixelRatio: pixelRatio,
+      );
       assert(() {
         debugCaptureCount += 1;
         debugLastCapturePixelRatio = pixelRatio;
@@ -1568,8 +1651,12 @@ class PictureBackdropSource implements LayerBackdropSource {
   }
 
   @override
-  void drawSource(Canvas canvas, double devicePixelRatio,
-      {double clampMargin = 0.0, Rect? region}) {
+  void drawSource(
+    Canvas canvas,
+    double devicePixelRatio, {
+    double clampMargin = 0.0,
+    Rect? region,
+  }) {
     final ui.Picture? picture = _picture;
     if (picture == null) return;
     // A recorded picture has no edge pixels to extend; whatever it drew is all

@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.1.16
+
+### Added
+
+- `LiquidDialog.titleStyle`, `.messageStyle` and `.actionStyle`, merged over the
+  built-in type. An app whose design system owns its typeface can re-letter the
+  dialog by passing a `fontFamily` alone: the fields left null keep the sizes
+  and weights, so the layout does not move.
+
 ## 0.1.15
 
 ### Added

@@ -19,20 +19,31 @@ class ContinuousCurvatureRoundedRectangleCornerBuilder {
     _sin3 = _sin2 * _sin;
     final double sin3 = _sin3;
 
-    _k0 = 27.0 * (_sqrt2 - 6.0 * _cos + 6.0 * _sqrt2 * _cos2 - 4.0 * cos3) * _cot +
+    _k0 =
+        27.0 *
+            (_sqrt2 - 6.0 * _cos + 6.0 * _sqrt2 * _cos2 - 4.0 * cos3) *
+            _cot +
         2.0 *
             _sin *
             (-9.0 +
                 2.0 * (_sqrt2 - 2.0 * _sin) * sin3 +
                 2.0 * _sqrt2 * _cos * (9.0 + _sin2) -
                 2.0 * _cos2 * (9.0 + 2.0 * _sin2));
-    _k1 = -81.0 *
-            (-2.0 + _sqrt2 + 4.0 * (-1.0 + _sqrt2) * _cos + 2.0 * (-2.0 + _sqrt2) * _cos2) *
+    _k1 =
+        -81.0 *
+            (-2.0 +
+                _sqrt2 +
+                4.0 * (-1.0 + _sqrt2) * _cos +
+                2.0 * (-2.0 + _sqrt2) * _cos2) *
             _cot -
         4.0 *
             _sin *
-            (-9.0 + 9.0 * _sqrt2 + _sqrt2 * sin3 + (-2.0 + _sqrt2) * _cos * (9.0 + _sin2));
-    _k2 = 9.0 *
+            (-9.0 +
+                9.0 * _sqrt2 +
+                _sqrt2 * sin3 +
+                (-2.0 + _sqrt2) * _cos * (9.0 + _sin2));
+    _k2 =
+        9.0 *
         (9.0 * (-4.0 + 3.0 * _sqrt2 + (-6.0 + 4.0 * _sqrt2) * _cos) * _cot +
             (-6.0 + 4.0 * _sqrt2) * _sin);
     _k3 = 27.0 * (10.0 - 7.0 * _sqrt2) * _cot;
@@ -100,8 +111,12 @@ class ContinuousCurvatureRoundedRectangleCornerBuilder {
   List<double> _buildEvenCornerBezierPoints([double t = 1.0]) {
     final double k = extendedFraction * t;
 
-    final double kappa =
-        _solveCubicSingle(_k3, _k2, _k1 + 8.0 * (-k) * _sin3 * _sin, _k0);
+    final double kappa = _solveCubicSingle(
+      _k3,
+      _k2,
+      _k1 + 8.0 * (-k) * _sin3 * _sin,
+      _k0,
+    );
 
     final double x3 = _frac1Sqrt2 + (-_frac1Sqrt2 + _sin) / kappa;
     final double y3 = 1.0 - _frac1Sqrt2 + (_frac1Sqrt2 - _cos) / kappa;
@@ -127,19 +142,48 @@ class ContinuousCurvatureRoundedRectangleCornerBuilder {
     final double y5 = y6 - lambda * _cos;
 
     return <double>[
-      x0, 0.0, x1, 0.0, x2, 0.0, x3, y3, x4, y4,
-      x5, y5, x6, y6, 1.0, y7, 1.0, y8, 1.0, y9,
+      x0,
+      0.0,
+      x1,
+      0.0,
+      x2,
+      0.0,
+      x3,
+      y3,
+      x4,
+      y4,
+      x5,
+      y5,
+      x6,
+      y6,
+      1.0,
+      y7,
+      1.0,
+      y8,
+      1.0,
+      y9,
     ];
   }
 
-  List<double> _buildUnevenCornerBezierPoints([double tH = 1.0, double tV = 1.0]) {
+  List<double> _buildUnevenCornerBezierPoints([
+    double tH = 1.0,
+    double tV = 1.0,
+  ]) {
     final double kH = extendedFraction * tH;
     final double kV = extendedFraction * tV;
 
-    final double kappa3 =
-        _solveCubicSingle(_k3, _k2, _k1 + 8.0 * (-kH) * _sin3 * _sin, _k0);
-    final double kappa6 =
-        _solveCubicSingle(_k3, _k2, _k1 + 8.0 * (-kV) * _sin3 * _sin, _k0);
+    final double kappa3 = _solveCubicSingle(
+      _k3,
+      _k2,
+      _k1 + 8.0 * (-kH) * _sin3 * _sin,
+      _k0,
+    );
+    final double kappa6 = _solveCubicSingle(
+      _k3,
+      _k2,
+      _k1 + 8.0 * (-kV) * _sin3 * _sin,
+      _k0,
+    );
 
     final double x3 = _frac1Sqrt2 + (-_frac1Sqrt2 + _sin) / kappa3;
     final double y3 = 1.0 - _frac1Sqrt2 + (_frac1Sqrt2 - _cos) / kappa3;
@@ -176,8 +220,26 @@ class ContinuousCurvatureRoundedRectangleCornerBuilder {
     final double y5 = y6 - lambda6 * _cos;
 
     return <double>[
-      x0, 0.0, x1, 0.0, x2, 0.0, x3, y3, x4, y4,
-      x5, y5, x6, y6, 1.0, y7, 1.0, y8, 1.0, y9,
+      x0,
+      0.0,
+      x1,
+      0.0,
+      x2,
+      0.0,
+      x3,
+      y3,
+      x4,
+      y4,
+      x5,
+      y5,
+      x6,
+      y6,
+      1.0,
+      y7,
+      1.0,
+      y8,
+      1.0,
+      y9,
     ];
   }
 }
@@ -193,7 +255,10 @@ double _cbrt(double x) {
 double _solveCubicSingle(double a, double b, double c, double d) {
   final double f = ((3.0 * c / a) - (b * b) / (a * a)) / 3.0;
   final double g =
-      ((2.0 * b * b * b) / (a * a * a) - (9.0 * b * c) / (a * a) + (27.0 * d) / a) / 27.0;
+      ((2.0 * b * b * b) / (a * a * a) -
+          (9.0 * b * c) / (a * a) +
+          (27.0 * d) / a) /
+      27.0;
   final double h = g * g / 4.0 + f * f * f / 27.0;
   final double sqrtH = math.sqrt(h);
   return _cbrt(-g / 2.0 + sqrtH) + _cbrt(-g / 2.0 - sqrtH) - b / (3.0 * a);

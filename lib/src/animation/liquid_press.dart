@@ -81,8 +81,11 @@ class LiquidPressDeformation {
     final double height = size.height;
     if (width == 0 || height == 0) return none;
 
-    final double scale =
-        lerpDouble(1.0, 1.0 + _pressSwellPixels / height, pressProgress)!;
+    final double scale = lerpDouble(
+      1.0,
+      1.0 + _pressSwellPixels / height,
+      pressProgress,
+    )!;
 
     final double maxTravel = size.shortestSide;
     final double dragStretch = _dragStretchPixels / height;
@@ -90,11 +93,13 @@ class LiquidPressDeformation {
     final double longest = size.longestSide;
 
     return LiquidPressDeformation(
-      scaleX: scale +
+      scaleX:
+          scale +
           dragStretch *
               (math.cos(angle) * offset.dx / longest).abs() *
               math.min(width / height, 1.0),
-      scaleY: scale +
+      scaleY:
+          scale +
           dragStretch *
               (math.sin(angle) * offset.dy / longest).abs() *
               math.min(height / width, 1.0),
@@ -142,7 +147,8 @@ class LiquidPressDeformation {
   int get hashCode => Object.hash(scaleX, scaleY, translationX, translationY);
 
   @override
-  String toString() => 'LiquidPressDeformation(scale: ($scaleX, $scaleY), '
+  String toString() =>
+      'LiquidPressDeformation(scale: ($scaleX, $scaleY), '
       'translation: ($translationX, $translationY))';
 }
 

@@ -12,7 +12,8 @@ class WrappedBackdrop extends Backdrop {
 
   final Backdrop backdrop;
 
-  final void Function(BackdropDrawContext context, void Function() drawBackdrop) onDraw;
+  final void Function(BackdropDrawContext context, void Function() drawBackdrop)
+  onDraw;
 
   @override
   bool get isCoordinatesDependent => backdrop.isCoordinatesDependent;
@@ -32,7 +33,9 @@ class WrappedBackdrop extends Backdrop {
 
   @override
   bool operator ==(Object other) =>
-      other is WrappedBackdrop && other.backdrop == backdrop && other.onDraw == onDraw;
+      other is WrappedBackdrop &&
+      other.backdrop == backdrop &&
+      other.onDraw == onDraw;
 
   @override
   int get hashCode => Object.hash(backdrop, onDraw);

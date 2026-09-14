@@ -10,7 +10,8 @@ int get platformProcessorCount => Platform.numberOfProcessors;
 /// is the part after the last underscore. Returns the empty string if that
 /// shape ever changes, which the classifier reads as "unknown".
 String get platformArchitecture {
-  final RegExpMatch? match =
-      RegExp(r'on "([a-z0-9]+)_([a-z0-9]+)"').firstMatch(Platform.version);
+  final RegExpMatch? match = RegExp(
+    r'on "([a-z0-9]+)_([a-z0-9]+)"',
+  ).firstMatch(Platform.version);
   return match?.group(2) ?? '';
 }

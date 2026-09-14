@@ -75,10 +75,9 @@ enum GlassQuality {
       index >= ceiling.index ? this : ceiling;
 
   /// One step cheaper, or null at the bottom.
-  GlassQuality? get next =>
-      index + 1 < GlassQuality.values.length
-          ? GlassQuality.values[index + 1]
-          : null;
+  GlassQuality? get next => index + 1 < GlassQuality.values.length
+      ? GlassQuality.values[index + 1]
+      : null;
 
   /// One step richer, or null at the top.
   GlassQuality? get previous =>

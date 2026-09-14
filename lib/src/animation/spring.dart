@@ -36,8 +36,8 @@ class SpringValue extends ChangeNotifier {
     required TickerProvider vsync,
     required double value,
     this.visibilityThreshold = 0.01,
-  })  : _value = value,
-        _target = value {
+  }) : _value = value,
+       _target = value {
     _ticker = vsync.createTicker(_onTick);
   }
 
@@ -81,7 +81,11 @@ class SpringValue extends ChangeNotifier {
   }
 
   /// Springs to [target], starting from the current value and velocity.
-  void animateTo(double target, SpringDescription spring, {double? withVelocity}) {
+  void animateTo(
+    double target,
+    SpringDescription spring, {
+    double? withVelocity,
+  }) {
     _target = target;
     if (withVelocity != null) _velocity = withVelocity;
     if (_value == target && _velocity == 0.0) {
@@ -104,7 +108,11 @@ class SpringValue extends ChangeNotifier {
   /// Animates to [target] over [duration] with [curve].
   ///
   /// The default matches Compose's `tween()`, whose easing is FastOutSlowIn.
-  void tweenTo(double target, Duration duration, {Curve curve = Curves.fastOutSlowIn}) {
+  void tweenTo(
+    double target,
+    Duration duration, {
+    Curve curve = Curves.fastOutSlowIn,
+  }) {
     _target = target;
     _simulation = _TweenSimulation(_value, target, duration, curve);
     _restart();
@@ -136,8 +144,8 @@ class SpringValue extends ChangeNotifier {
       _stop();
       return;
     }
-    final double t = (elapsed - _startTime!).inMicroseconds /
-        Duration.microsecondsPerSecond;
+    final double t =
+        (elapsed - _startTime!).inMicroseconds / Duration.microsecondsPerSecond;
     _value = simulation.x(t);
     _velocity = simulation.dx(t);
     if (simulation.isDone(t)) {
@@ -174,7 +182,7 @@ class SpringValue extends ChangeNotifier {
 
 class _TweenSimulation extends Simulation {
   _TweenSimulation(this.begin, this.end, Duration duration, this.curve)
-      : seconds = duration.inMicroseconds / Duration.microsecondsPerSecond;
+    : seconds = duration.inMicroseconds / Duration.microsecondsPerSecond;
 
   final double begin;
   final double end;
@@ -205,8 +213,16 @@ class SpringOffset extends ChangeNotifier {
     required TickerProvider vsync,
     required Offset value,
     double visibilityThreshold = 0.5,
-  })  : x = SpringValue(vsync: vsync, value: value.dx, visibilityThreshold: visibilityThreshold),
-        y = SpringValue(vsync: vsync, value: value.dy, visibilityThreshold: visibilityThreshold) {
+  }) : x = SpringValue(
+         vsync: vsync,
+         value: value.dx,
+         visibilityThreshold: visibilityThreshold,
+       ),
+       y = SpringValue(
+         vsync: vsync,
+         value: value.dy,
+         visibilityThreshold: visibilityThreshold,
+       ) {
     x.addListener(notifyListeners);
     y.addListener(notifyListeners);
   }
@@ -238,9 +254,13 @@ class SpringOffset extends ChangeNotifier {
 /// A tween-driven [Color], for the adaptive-luminance demo.
 class TweenColor extends ChangeNotifier {
   TweenColor({required TickerProvider vsync, required Color value})
-      : _begin = value,
-        _end = value,
-        _driver = SpringValue(vsync: vsync, value: 1.0, visibilityThreshold: 0.001) {
+    : _begin = value,
+      _end = value,
+      _driver = SpringValue(
+        vsync: vsync,
+        value: 1.0,
+        visibilityThreshold: 0.001,
+      ) {
     _driver.addListener(notifyListeners);
   }
 

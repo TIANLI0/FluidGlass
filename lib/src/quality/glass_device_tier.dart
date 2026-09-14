@@ -27,7 +27,8 @@ class GlassDeviceInfo {
   /// Reads the current device.
   factory GlassDeviceInfo.current() {
     final ui.PlatformDispatcher dispatcher = ui.PlatformDispatcher.instance;
-    final ui.FlutterView? view = dispatcher.implicitView ??
+    final ui.FlutterView? view =
+        dispatcher.implicitView ??
         (dispatcher.views.isEmpty ? null : dispatcher.views.first);
     return GlassDeviceInfo(
       supportsRuntimeShaders: ui.ImageFilter.isShaderFilterSupported,
@@ -78,7 +79,8 @@ class GlassDeviceInfo {
   bool get is32Bit => architecture == 'arm' || architecture == 'ia32';
 
   @override
-  String toString() => 'GlassDeviceInfo(shaders: $supportsRuntimeShaders, '
+  String toString() =>
+      'GlassDeviceInfo(shaders: $supportsRuntimeShaders, '
       'cores: $processorCount, arch: $architecture, platform: $platform, '
       'dpr: $devicePixelRatio, size: $physicalSize, hz: $refreshRate)';
 }

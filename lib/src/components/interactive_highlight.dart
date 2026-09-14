@@ -14,10 +14,16 @@ class InteractiveHighlight extends ChangeNotifier {
   InteractiveHighlight({
     required TickerProvider vsync,
     this.position = _defaultPosition,
-  })  : _pressProgressAnimation =
-            SpringValue(vsync: vsync, value: 0.0, visibilityThreshold: 0.001),
-        _positionAnimation =
-            SpringOffset(vsync: vsync, value: Offset.zero, visibilityThreshold: 0.5) {
+  }) : _pressProgressAnimation = SpringValue(
+         vsync: vsync,
+         value: 0.0,
+         visibilityThreshold: 0.001,
+       ),
+       _positionAnimation = SpringOffset(
+         vsync: vsync,
+         value: Offset.zero,
+         visibilityThreshold: 0.5,
+       ) {
     _pressProgressAnimation.addListener(notifyListeners);
     _positionAnimation.addListener(notifyListeners);
     FluidGlassPrograms.instance.addListener(notifyListeners);
@@ -104,7 +110,10 @@ class InteractiveHighlight extends ChangeNotifier {
 }
 
 class _InteractiveHighlightOverlay extends StatelessWidget {
-  const _InteractiveHighlightOverlay({required this.highlight, required this.child});
+  const _InteractiveHighlightOverlay({
+    required this.highlight,
+    required this.child,
+  });
 
   final InteractiveHighlight highlight;
   final Widget child;
@@ -123,15 +132,15 @@ class _InteractiveHighlightOverlay extends StatelessWidget {
 
 class _InteractiveHighlightPainter extends CustomPainter {
   _InteractiveHighlightPainter(this.highlight, this.pinnedQuality)
-      : super(
-          // The tier is read at paint time, so a change to it has to reach the
-          // paint that reads it — the same subscription every glass element
-          // makes.
-          repaint: Listenable.merge(<Listenable>[
-            highlight,
-            GlassDeviceTier.instance,
-          ]),
-        );
+    : super(
+        // The tier is read at paint time, so a change to it has to reach the
+        // paint that reads it — the same subscription every glass element
+        // makes.
+        repaint: Listenable.merge(<Listenable>[
+          highlight,
+          GlassDeviceTier.instance,
+        ]),
+      );
 
   final InteractiveHighlight highlight;
 
@@ -144,7 +153,8 @@ class _InteractiveHighlightPainter extends CustomPainter {
       _paintInteractiveHighlight(canvas, size, highlight, pinnedQuality);
 
   @override
-  bool shouldRepaint(covariant _InteractiveHighlightPainter oldDelegate) => true;
+  bool shouldRepaint(covariant _InteractiveHighlightPainter oldDelegate) =>
+      true;
 }
 
 /// One shader per program, reused across frames: uniforms are cheap to re-set,
@@ -168,10 +178,12 @@ void _paintInteractiveHighlight(
   if (progress <= 0.0) return;
 
   final GlassDeviceTier tier = GlassDeviceTier.instance;
-  final GlassQuality quality =
-      pinnedQuality == null ? tier.quality : pinnedQuality.atMost(tier.ceiling);
-  final ui.FragmentProgram? program =
-      quality.hasShaders ? FluidGlassPrograms.instance.interactiveHighlight : null;
+  final GlassQuality quality = pinnedQuality == null
+      ? tier.quality
+      : pinnedQuality.atMost(tier.ceiling);
+  final ui.FragmentProgram? program = quality.hasShaders
+      ? FluidGlassPrograms.instance.interactiveHighlight
+      : null;
   if (program == null) {
     // The flat fallback: for a backend with no runtime shaders, and equally
     // for the cheap tier, which is defined as running no fragment programs at
@@ -193,15 +205,17 @@ void _paintInteractiveHighlight(
       ..blendMode = BlendMode.plus,
   );
 
-  final Offset position =
-      highlight.position(size, highlight._positionAnimation.value);
+  final Offset position = highlight.position(
+    size,
+    highlight._positionAnimation.value,
+  );
   // White at 0.15 * progress, premultiplied: Skia premultiplies AGSL
   // layout(color) uniforms, and the shader's result has to stay a valid
   // premultiplied colour. Passing it un-premultiplied would add a full-white
   // disc under the finger instead of a soft glow.
   final double alpha = 0.15 * progress;
-  final ui.FragmentShader shader =
-      _highlightShaders[program] ??= program.fragmentShader();
+  final ui.FragmentShader shader = _highlightShaders[program] ??= program
+      .fragmentShader();
   shader
     ..setFloat(0, alpha)
     ..setFloat(1, alpha)

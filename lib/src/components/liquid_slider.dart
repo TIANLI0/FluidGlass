@@ -20,14 +20,17 @@ class _TrackFillPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final double width =
-        (size.width * animation.progress).roundToDouble().clamp(0.0, size.width);
+    final double width = (size.width * animation.progress)
+        .roundToDouble()
+        .clamp(0.0, size.width);
     if (width <= 0) return;
     final Rect rect = isLtr
         ? Rect.fromLTWH(0, 0, width, size.height)
         : Rect.fromLTWH(size.width - width, 0, width, size.height);
-    final GlassOutline outline =
-        const Capsule().createOutline(rect.size, TextDirection.ltr);
+    final GlassOutline outline = const Capsule().createOutline(
+      rect.size,
+      TextDirection.ltr,
+    );
     canvas.save();
     canvas.translate(rect.left, rect.top);
     outline.draw(canvas, Paint()..color = color);
@@ -63,7 +66,8 @@ class LiquidSlider extends StatefulWidget {
   State<LiquidSlider> createState() => _LiquidSliderState();
 }
 
-class _LiquidSliderState extends State<LiquidSlider> with TickerProviderStateMixin {
+class _LiquidSliderState extends State<LiquidSlider>
+    with TickerProviderStateMixin {
   static const double _thumbWidth = 40;
   static const double _thumbHeight = 24;
 
@@ -135,21 +139,28 @@ class _LiquidSliderState extends State<LiquidSlider> with TickerProviderStateMix
     if (_trackWidth == 0) return;
     final bool isLtr = Directionality.of(context) == TextDirection.ltr;
     final double delta = _span * (position.dx / _trackWidth);
-    final double target = (isLtr
-            ? widget.valueRange.start + delta
-            : widget.valueRange.end - delta)
-        .clamp(widget.valueRange.start, widget.valueRange.end);
+    final double target =
+        (isLtr
+                ? widget.valueRange.start + delta
+                : widget.valueRange.end - delta)
+            .clamp(widget.valueRange.start, widget.valueRange.end);
     _animation.animateToValue(target);
     widget.onValueChanged(target);
   }
 
   /// The track backdrop, squashed towards the thumb's centre while pressed.
-  void _drawScaledTrack(BackdropDrawContext context, void Function() drawBackdrop) {
+  void _drawScaledTrack(
+    BackdropDrawContext context,
+    void Function() drawBackdrop,
+  ) {
     final double progress = _animation.pressProgress;
     final double scaleX = lerpDouble(2 / 3, 1, progress)!;
     final double scaleY = lerpDouble(0, 1, progress)!;
     final Canvas canvas = context.canvas;
-    final Offset center = Offset(context.size.width / 2, context.size.height / 2);
+    final Offset center = Offset(
+      context.size.width / 2,
+      context.size.height / 2,
+    );
     canvas.save();
     canvas.translate(center.dx, center.dy);
     canvas.scale(scaleX, scaleY);
@@ -188,7 +199,9 @@ class _LiquidSliderState extends State<LiquidSlider> with TickerProviderStateMix
               BackdropLayer(
                 backdrop: _trackBackdrop,
                 child: Stack(
-                  alignment: isLtr ? Alignment.centerLeft : Alignment.centerRight,
+                  alignment: isLtr
+                      ? Alignment.centerLeft
+                      : Alignment.centerRight,
                   clipBehavior: Clip.none,
                   children: <Widget>[
                     GestureDetector(
@@ -225,11 +238,12 @@ class _LiquidSliderState extends State<LiquidSlider> with TickerProviderStateMix
                 listenable: _animation,
                 builder: (BuildContext context, Widget? _) {
                   final double translationX =
-                      (-_thumbWidth / 2 + _trackWidth * _animation.progress).clamp(
+                      (-_thumbWidth / 2 + _trackWidth * _animation.progress)
+                          .clamp(
                             -_thumbWidth / 4,
                             _trackWidth - _thumbWidth * 3 / 4,
                           ) *
-                          (isLtr ? 1 : -1);
+                      (isLtr ? 1 : -1);
                   return Transform.translate(
                     offset: Offset(translationX, 0),
                     child: _animation.wrapGestures(
@@ -240,8 +254,11 @@ class _LiquidSliderState extends State<LiquidSlider> with TickerProviderStateMix
                           final double progress = _animation.pressProgress;
                           scope
                             ..blur(8 * (1 - progress))
-                            ..lens(10 * progress, 14 * progress,
-                                chromaticAberration: true);
+                            ..lens(
+                              10 * progress,
+                              14 * progress,
+                              chromaticAberration: true,
+                            );
                         },
                         highlight: () {
                           final double progress = _animation.pressProgress;
@@ -253,7 +270,9 @@ class _LiquidSliderState extends State<LiquidSlider> with TickerProviderStateMix
                         },
                         shadow: () => GlassShadow(
                           radius: 4,
-                          color: const Color(0xFF000000).withValues(alpha: 0.05),
+                          color: const Color(
+                            0xFF000000,
+                          ).withValues(alpha: 0.05),
                         ),
                         innerShadow: () {
                           final double progress = _animation.pressProgress;
@@ -268,8 +287,9 @@ class _LiquidSliderState extends State<LiquidSlider> with TickerProviderStateMix
                           canvas.drawRect(
                             Offset.zero & size,
                             Paint()
-                              ..color = const Color(0xFFFFFFFF)
-                                  .withValues(alpha: 1 - progress),
+                              ..color = const Color(
+                                0xFFFFFFFF,
+                              ).withValues(alpha: 1 - progress),
                           );
                         },
                         // Src-over only, so the isolating save-layer is pure

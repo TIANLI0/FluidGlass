@@ -236,4 +236,34 @@ void main() {
 
     expect(tester.getBottomLeft(find.text('Okay')).dy, lessThan(restingBottom));
   });
+
+  testWidgets('type overrides re-letter the dialog without resizing it', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(
+      _bare(
+        const LiquidDialog(
+          backdrop: emptyBackdrop,
+          title: 'Titled',
+          message: 'Bodied',
+          actions: <LiquidDialogAction>[LiquidDialogAction(label: 'Okay')],
+          titleStyle: TextStyle(fontFamily: 'Brand'),
+          messageStyle: TextStyle(fontFamily: 'Brand'),
+          actionStyle: TextStyle(fontFamily: 'Brand'),
+        ),
+      ),
+    );
+
+    TextStyle styleOf(String text) =>
+        tester.widget<Text>(find.text(text)).style!;
+
+    // The family is taken; the built-in sizes and weights survive it.
+    expect(styleOf('Titled').fontFamily, 'Brand');
+    expect(styleOf('Titled').fontSize, 22);
+    expect(styleOf('Titled').fontWeight, FontWeight.w600);
+    expect(styleOf('Bodied').fontFamily, 'Brand');
+    expect(styleOf('Bodied').fontSize, 15);
+    expect(styleOf('Okay').fontFamily, 'Brand');
+    expect(styleOf('Okay').fontSize, 16);
+  });
 }

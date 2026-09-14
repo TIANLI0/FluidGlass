@@ -6,11 +6,8 @@ import '../internal/drag_deformation.dart';
 /// One tappable segment of a [LiquidButtonGroup].
 @immutable
 class LiquidGroupAction {
-  const LiquidGroupAction({
-    this.icon,
-    this.label,
-    required this.onPressed,
-  }) : assert(icon != null || label != null, 'an action needs a face');
+  const LiquidGroupAction({this.icon, this.label, required this.onPressed})
+    : assert(icon != null || label != null, 'an action needs a face');
 
   final IconData? icon;
   final String? label;
@@ -48,7 +45,9 @@ class _LiquidButtonGroupState extends State<LiquidButtonGroup>
   /// Drives the press glow, the swell, and — through [InteractiveHighlight.offset]
   /// — how far the capsule has been dragged. The offset is itself a spring, so
   /// releasing springs the glass home rather than snapping it.
-  late final InteractiveHighlight _highlight = InteractiveHighlight(vsync: this);
+  late final InteractiveHighlight _highlight = InteractiveHighlight(
+    vsync: this,
+  );
 
   @override
   void dispose() {
@@ -59,10 +58,10 @@ class _LiquidButtonGroupState extends State<LiquidButtonGroup>
   /// The same displacement law as `LiquidButton`: `tanh` keeps the travel
   /// bounded, and the stretch grows along whichever axis is being pulled.
   void _layerBlock(GlassLayer layer) => applyDragDeformation(
-        layer,
-        offset: _highlight.offset,
-        pressProgress: _highlight.pressProgress,
-      );
+    layer,
+    offset: _highlight.offset,
+    pressProgress: _highlight.pressProgress,
+  );
 
   @override
   Widget build(BuildContext context) {
@@ -79,10 +78,8 @@ class _LiquidButtonGroupState extends State<LiquidButtonGroup>
         ..blur(2)
         ..lens(12, 24),
       layerBlock: _layerBlock,
-      onDrawSurface: (Canvas canvas, Size size) => canvas.drawRect(
-        Offset.zero & size,
-        Paint()..color = containerColor,
-      ),
+      onDrawSurface: (Canvas canvas, Size size) =>
+          canvas.drawRect(Offset.zero & size, Paint()..color = containerColor),
       // Src-over only, so the isolating save-layer would be pure cost.
       isolateSurface: false,
       repaint: _highlight,
@@ -120,10 +117,7 @@ class _LiquidButtonGroupState extends State<LiquidButtonGroup>
 }
 
 class _GroupSegment extends StatelessWidget {
-  const _GroupSegment({
-    required this.action,
-    required this.contentColor,
-  });
+  const _GroupSegment({required this.action, required this.contentColor});
 
   final LiquidGroupAction action;
   final Color contentColor;
@@ -158,4 +152,3 @@ class _GroupSegment extends StatelessWidget {
     );
   }
 }
-

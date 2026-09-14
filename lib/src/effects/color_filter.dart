@@ -18,12 +18,14 @@ extension ColorBackdropEffects on BackdropEffectScope {
 
   /// Scales the backdrop's alpha by [alpha].
   void opacity(double alpha) {
-    colorFilterEffect(ui.ColorFilter.matrix(<double>[
-      1, 0, 0, 0, 0, //
-      0, 1, 0, 0, 0, //
-      0, 0, 1, 0, 0, //
-      0, 0, 0, alpha, 0, //
-    ]));
+    colorFilterEffect(
+      ui.ColorFilter.matrix(<double>[
+        1, 0, 0, 0, 0, //
+        0, 1, 0, 0, 0, //
+        0, 0, 1, 0, 0, //
+        0, 0, 0, alpha, 0, //
+      ]),
+    );
   }
 
   /// Adjusts brightness, contrast and saturation in one pass.
@@ -53,7 +55,9 @@ extension ColorBackdropEffects on BackdropEffectScope {
   }
 }
 
-final ui.ColorFilter _vibrantColorFilter = colorControlsColorFilter(saturation: 1.5);
+final ui.ColorFilter _vibrantColorFilter = colorControlsColorFilter(
+  saturation: 1.5,
+);
 
 /// Builds the brightness/contrast/saturation matrix used by
 /// [ColorBackdropEffects.colorControls].

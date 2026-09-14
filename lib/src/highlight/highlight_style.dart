@@ -59,15 +59,19 @@ class PlainHighlightStyle extends HighlightStyle {
     required RectangleCorners corners,
     required Offset origin,
     required FragmentShaderCache cache,
-  }) =>
-      null;
+  }) => null;
 
   PlainHighlightStyle copyWith({Color? color, BlendMode? blendMode}) =>
-      PlainHighlightStyle(color: color ?? this.color, blendMode: blendMode ?? this.blendMode);
+      PlainHighlightStyle(
+        color: color ?? this.color,
+        blendMode: blendMode ?? this.blendMode,
+      );
 
   @override
   bool operator ==(Object other) =>
-      other is PlainHighlightStyle && other.color == color && other.blendMode == blendMode;
+      other is PlainHighlightStyle &&
+      other.color == color &&
+      other.blendMode == blendMode;
 
   @override
   int get hashCode => Object.hash(color, blendMode);
@@ -103,8 +107,10 @@ class DefaultHighlightStyle extends HighlightStyle {
     required FragmentShaderCache cache,
   }) {
     if (!isRuntimeShaderSupported()) return null;
-    final ui.FragmentShader? shader =
-        cache.obtainOrNull('Default', FluidGlassPrograms.instance.highlightDefault);
+    final ui.FragmentShader? shader = cache.obtainOrNull(
+      'Default',
+      FluidGlassPrograms.instance.highlightDefault,
+    );
     if (shader == null) return null;
     shader
       ..setFloat(0, size.width)
@@ -129,13 +135,12 @@ class DefaultHighlightStyle extends HighlightStyle {
     BlendMode? blendMode,
     double? angle,
     double? falloff,
-  }) =>
-      DefaultHighlightStyle(
-        color: color ?? this.color,
-        blendMode: blendMode ?? this.blendMode,
-        angle: angle ?? this.angle,
-        falloff: falloff ?? this.falloff,
-      );
+  }) => DefaultHighlightStyle(
+    color: color ?? this.color,
+    blendMode: blendMode ?? this.blendMode,
+    angle: angle ?? this.angle,
+    falloff: falloff ?? this.falloff,
+  );
 
   @override
   bool operator ==(Object other) =>
@@ -171,8 +176,10 @@ class AmbientHighlightStyle extends HighlightStyle {
     required FragmentShaderCache cache,
   }) {
     if (!isRuntimeShaderSupported()) return null;
-    final ui.FragmentShader? shader =
-        cache.obtainOrNull('Ambient', FluidGlassPrograms.instance.highlightAmbient);
+    final ui.FragmentShader? shader = cache.obtainOrNull(
+      'Ambient',
+      FluidGlassPrograms.instance.highlightAmbient,
+    );
     if (shader == null) return null;
     shader
       ..setFloat(0, size.width)

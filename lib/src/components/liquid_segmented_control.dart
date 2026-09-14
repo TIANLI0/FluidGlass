@@ -83,8 +83,10 @@ class _LiquidSegmentedControlState extends State<LiquidSegmentedControl>
   /// The few pixels of give the capsule takes on when dragged past an end.
   double get _panelOffset {
     if (_maxWidth == 0) return 0;
-    final double fraction =
-        (_offsetAnimation.value / _maxWidth).clamp(-1.0, 1.0);
+    final double fraction = (_offsetAnimation.value / _maxWidth).clamp(
+      -1.0,
+      1.0,
+    );
     return 3.0 * fraction.sign * Curves.easeOut.transform(fraction.abs());
   }
 
@@ -100,8 +102,7 @@ class _LiquidSegmentedControlState extends State<LiquidSegmentedControl>
   }
 
   void _onDragStopped() {
-    final int targetIndex =
-        _animation.targetValue.round().clamp(0, _count - 1);
+    final int targetIndex = _animation.targetValue.round().clamp(0, _count - 1);
     _select(targetIndex);
     _animation.animateToValue(targetIndex.toDouble());
     _offsetAnimation.animateTo(0, springOf(1.0, 300.0));
@@ -190,14 +191,14 @@ class _LiquidSegmentedControlState extends State<LiquidSegmentedControl>
                   Positioned(
                     left: isLtr
                         ? _inset +
-                            _animation.value * _segmentWidth +
-                            panelOffset
+                              _animation.value * _segmentWidth +
+                              panelOffset
                         : null,
                     right: isLtr
                         ? null
                         : _inset +
-                            _animation.value * _segmentWidth -
-                            panelOffset,
+                              _animation.value * _segmentWidth -
+                              panelOffset,
                     top: _inset,
                     child: DragInspector(
                       onDragStart: (Offset position, Size size) =>
@@ -222,8 +223,7 @@ class _LiquidSegmentedControlState extends State<LiquidSegmentedControl>
                         ),
                         shadow: () => GlassShadow(
                           radius: 6,
-                          color:
-                              const Color(0xFF000000).withValues(alpha: 0.1),
+                          color: const Color(0xFF000000).withValues(alpha: 0.1),
                         ),
                         innerShadow: null,
                         layerBlock: _thumbLayerBlock,
@@ -268,8 +268,9 @@ class _LiquidSegmentedControlState extends State<LiquidSegmentedControl>
                                 Expanded(
                                   child: Center(
                                     child: AnimatedDefaultTextStyle(
-                                      duration:
-                                          const Duration(milliseconds: 160),
+                                      duration: const Duration(
+                                        milliseconds: 160,
+                                      ),
                                       curve: Curves.easeOut,
                                       style: TextStyle(
                                         color: contentColor,

@@ -37,7 +37,8 @@ class BackdropEffectGeometry {
 
   /// The size of the layer the effect filters.
   Size get layerSize =>
-      layerRect?.size ?? Size(size.width + padding * 2, size.height + padding * 2);
+      layerRect?.size ??
+      Size(size.width + padding * 2, size.height + padding * 2);
 
   /// The offset from layer space to element space: `(-padding, -padding)` for
   /// the whole layer, or [layerRect]'s top-left for a window onto it.
@@ -45,20 +46,18 @@ class BackdropEffectGeometry {
 }
 
 /// Configures a shader's uniforms once the layer geometry is known.
-typedef ShaderEffectConfigurator = void Function(
-  ui.FragmentShader shader,
-  BackdropEffectGeometry geometry,
-);
+typedef ShaderEffectConfigurator =
+    void Function(ui.FragmentShader shader, BackdropEffectGeometry geometry);
 
 /// One filter inside a stage.
 class _Item {
   _Item.filter(this.filter, {required this.expandsCoverage})
-      : shader = null,
-        configure = null;
+    : shader = null,
+      configure = null;
 
   _Item.shader(this.shader, this.configure)
-      : filter = null,
-        expandsCoverage = false;
+    : filter = null,
+      expandsCoverage = false;
 
   final ui.ImageFilter? filter;
   final ui.FragmentShader? shader;
@@ -128,7 +127,9 @@ class BackdropEffectScope {
   /// blur, a dilate — so a fragment shader added later gets its own layer and
   /// still sees the element's exact bounds.
   void addImageFilter(ui.ImageFilter filter, {bool expandsCoverage = true}) {
-    _currentStage().items.add(_Item.filter(filter, expandsCoverage: expandsCoverage));
+    _currentStage().items.add(
+      _Item.filter(filter, expandsCoverage: expandsCoverage),
+    );
   }
 
   /// Adds a fragment-shader stage to the chain.

@@ -14,10 +14,10 @@ class RectangleCornerRadii {
   });
 
   const RectangleCornerRadii.all(double radius)
-      : topStart = radius,
-        topEnd = radius,
-        bottomEnd = radius,
-        bottomStart = radius;
+    : topStart = radius,
+      topEnd = radius,
+      bottomEnd = radius,
+      bottomStart = radius;
 
   final double topStart;
   final double topEnd;
@@ -49,7 +49,8 @@ class RectangleCornerRadii {
   int get hashCode => Object.hash(topStart, topEnd, bottomEnd, bottomStart);
 
   @override
-  String toString() => 'RectangleCornerRadii($topStart, $topEnd, $bottomEnd, $bottomStart)';
+  String toString() =>
+      'RectangleCornerRadii($topStart, $topEnd, $bottomEnd, $bottomStart)';
 }
 
 /// The four resolved corner radii of a rounded rectangle, in logical pixels,
@@ -80,5 +81,6 @@ class RectangleCorners {
   int get hashCode => Object.hash(topLeft, topRight, bottomRight, bottomLeft);
 
   @override
-  String toString() => 'RectangleCorners($topLeft, $topRight, $bottomRight, $bottomLeft)';
+  String toString() =>
+      'RectangleCorners($topLeft, $topRight, $bottomRight, $bottomLeft)';
 }

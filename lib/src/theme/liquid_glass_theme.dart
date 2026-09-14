@@ -34,8 +34,8 @@ class LiquidGlassTheme extends InheritedWidget {
   /// [Theme]'s brightness, so this never returns null and a component never has
   /// to branch on whether the app themed it.
   static LiquidGlassColors of(BuildContext context) {
-    final LiquidGlassTheme? theme =
-        context.dependOnInheritedWidgetOfExactType<LiquidGlassTheme>();
+    final LiquidGlassTheme? theme = context
+        .dependOnInheritedWidgetOfExactType<LiquidGlassTheme>();
     if (theme != null) {
       return theme.colors;
     }

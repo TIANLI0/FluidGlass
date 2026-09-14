@@ -17,7 +17,8 @@ GlassOutline roundedRectangleOutline({
   if (radius == 0.0) {
     return GlassOutline.rect(Rect.fromLTWH(0, 0, width, height));
   }
-  if (style == RoundedCornerStyle.circular || (width == height && radius >= maxRadius)) {
+  if (style == RoundedCornerStyle.circular ||
+      (width == height && radius >= maxRadius)) {
     return GlassOutline.rrect(
       RRect.fromRectAndRadius(
         Rect.fromLTWH(0, 0, width, height),
@@ -25,7 +26,9 @@ GlassOutline roundedRectangleOutline({
       ),
     );
   }
-  return GlassOutline.path(_continuousCurvatureRoundedRectanglePath(size, radius));
+  return GlassOutline.path(
+    _continuousCurvatureRoundedRectanglePath(size, radius),
+  );
 }
 
 /// Builds the outline of a rounded rectangle with per-corner radii.
@@ -41,7 +44,10 @@ GlassOutline unevenRoundedRectangleOutline({
   final double height = size.height;
   final double maxRadius = size.shortestSide * 0.5;
 
-  if (topLeft == 0.0 && topRight == 0.0 && bottomRight == 0.0 && bottomLeft == 0.0) {
+  if (topLeft == 0.0 &&
+      topRight == 0.0 &&
+      bottomRight == 0.0 &&
+      bottomLeft == 0.0) {
     return GlassOutline.rect(Rect.fromLTWH(0, 0, width, height));
   }
   if (style == RoundedCornerStyle.circular ||
@@ -94,76 +100,112 @@ Path _continuousCurvatureRoundedRectanglePath(Size size, double radius) {
   double y = 0.0;
   path.moveTo(x + p[0] * r, y + p[1] * r);
   path.cubicTo(
-    x + p[2] * r, y + p[3] * r,
-    x + p[4] * r, y + p[5] * r,
-    x + p[6] * r, y + p[7] * r,
+    x + p[2] * r,
+    y + p[3] * r,
+    x + p[4] * r,
+    y + p[5] * r,
+    x + p[6] * r,
+    y + p[7] * r,
   );
   path.cubicTo(
-    x + p[8] * r, y + p[9] * r,
-    x + p[10] * r, y + p[11] * r,
-    x + p[12] * r, y + p[13] * r,
+    x + p[8] * r,
+    y + p[9] * r,
+    x + p[10] * r,
+    y + p[11] * r,
+    x + p[12] * r,
+    y + p[13] * r,
   );
   path.cubicTo(
-    x + p[14] * r, y + p[15] * r,
-    x + p[16] * r, y + p[17] * r,
-    x + p[18] * r, y + p[19] * r,
+    x + p[14] * r,
+    y + p[15] * r,
+    x + p[16] * r,
+    y + p[17] * r,
+    x + p[18] * r,
+    y + p[19] * r,
   );
 
   x = w - r;
   y = h;
   path.lineTo(x + p[18] * r, y - p[19] * r);
   path.cubicTo(
-    x + p[16] * r, y - p[17] * r,
-    x + p[14] * r, y - p[15] * r,
-    x + p[12] * r, y - p[13] * r,
+    x + p[16] * r,
+    y - p[17] * r,
+    x + p[14] * r,
+    y - p[15] * r,
+    x + p[12] * r,
+    y - p[13] * r,
   );
   path.cubicTo(
-    x + p[10] * r, y - p[11] * r,
-    x + p[8] * r, y - p[9] * r,
-    x + p[6] * r, y - p[7] * r,
+    x + p[10] * r,
+    y - p[11] * r,
+    x + p[8] * r,
+    y - p[9] * r,
+    x + p[6] * r,
+    y - p[7] * r,
   );
   path.cubicTo(
-    x + p[4] * r, y - p[5] * r,
-    x + p[2] * r, y - p[3] * r,
-    x + p[0] * r, y - p[1] * r,
+    x + p[4] * r,
+    y - p[5] * r,
+    x + p[2] * r,
+    y - p[3] * r,
+    x + p[0] * r,
+    y - p[1] * r,
   );
 
   x = r;
   y = h;
   path.lineTo(x - p[0] * r, y - p[1] * r);
   path.cubicTo(
-    x - p[2] * r, y - p[3] * r,
-    x - p[4] * r, y - p[5] * r,
-    x - p[6] * r, y - p[7] * r,
+    x - p[2] * r,
+    y - p[3] * r,
+    x - p[4] * r,
+    y - p[5] * r,
+    x - p[6] * r,
+    y - p[7] * r,
   );
   path.cubicTo(
-    x - p[8] * r, y - p[9] * r,
-    x - p[10] * r, y - p[11] * r,
-    x - p[12] * r, y - p[13] * r,
+    x - p[8] * r,
+    y - p[9] * r,
+    x - p[10] * r,
+    y - p[11] * r,
+    x - p[12] * r,
+    y - p[13] * r,
   );
   path.cubicTo(
-    x - p[14] * r, y - p[15] * r,
-    x - p[16] * r, y - p[17] * r,
-    x - p[18] * r, y - p[19] * r,
+    x - p[14] * r,
+    y - p[15] * r,
+    x - p[16] * r,
+    y - p[17] * r,
+    x - p[18] * r,
+    y - p[19] * r,
   );
 
   x = r;
   y = 0.0;
   path.lineTo(x - p[18] * r, y + p[19] * r);
   path.cubicTo(
-    x - p[16] * r, y + p[17] * r,
-    x - p[14] * r, y + p[15] * r,
-    x - p[12] * r, y + p[13] * r,
+    x - p[16] * r,
+    y + p[17] * r,
+    x - p[14] * r,
+    y + p[15] * r,
+    x - p[12] * r,
+    y + p[13] * r,
   );
   path.cubicTo(
-    x - p[10] * r, y + p[11] * r,
-    x - p[8] * r, y + p[9] * r,
-    x - p[6] * r, y + p[7] * r,
+    x - p[10] * r,
+    y + p[11] * r,
+    x - p[8] * r,
+    y + p[9] * r,
+    x - p[6] * r,
+    y + p[7] * r,
   );
   path.cubicTo(
-    x - p[4] * r, y + p[5] * r,
-    x - p[2] * r, y + p[3] * r,
-    x - p[0] * r, y + p[1] * r,
+    x - p[4] * r,
+    y + p[5] * r,
+    x - p[2] * r,
+    y + p[3] * r,
+    x - p[0] * r,
+    y + p[1] * r,
   );
 
   path.close();
@@ -196,19 +238,28 @@ Path _continuousCurvatureUnevenRoundedRectanglePath(
   double y = 0.0;
   path.moveTo(x + p[0] * r, y + p[1] * r);
   path.cubicTo(
-    x + p[2] * r, y + p[3] * r,
-    x + p[4] * r, y + p[5] * r,
-    x + p[6] * r, y + p[7] * r,
+    x + p[2] * r,
+    y + p[3] * r,
+    x + p[4] * r,
+    y + p[5] * r,
+    x + p[6] * r,
+    y + p[7] * r,
   );
   path.cubicTo(
-    x + p[8] * r, y + p[9] * r,
-    x + p[10] * r, y + p[11] * r,
-    x + p[12] * r, y + p[13] * r,
+    x + p[8] * r,
+    y + p[9] * r,
+    x + p[10] * r,
+    y + p[11] * r,
+    x + p[12] * r,
+    y + p[13] * r,
   );
   path.cubicTo(
-    x + p[14] * r, y + p[15] * r,
-    x + p[16] * r, y + p[17] * r,
-    x + p[18] * r, y + p[19] * r,
+    x + p[14] * r,
+    y + p[15] * r,
+    x + p[16] * r,
+    y + p[17] * r,
+    x + p[18] * r,
+    y + p[19] * r,
   );
 
   r = bottomRight;
@@ -221,19 +272,28 @@ Path _continuousCurvatureUnevenRoundedRectanglePath(
   y = h;
   path.lineTo(x + p[18] * r, y - p[19] * r);
   path.cubicTo(
-    x + p[16] * r, y - p[17] * r,
-    x + p[14] * r, y - p[15] * r,
-    x + p[12] * r, y - p[13] * r,
+    x + p[16] * r,
+    y - p[17] * r,
+    x + p[14] * r,
+    y - p[15] * r,
+    x + p[12] * r,
+    y - p[13] * r,
   );
   path.cubicTo(
-    x + p[10] * r, y - p[11] * r,
-    x + p[8] * r, y - p[9] * r,
-    x + p[6] * r, y - p[7] * r,
+    x + p[10] * r,
+    y - p[11] * r,
+    x + p[8] * r,
+    y - p[9] * r,
+    x + p[6] * r,
+    y - p[7] * r,
   );
   path.cubicTo(
-    x + p[4] * r, y - p[5] * r,
-    x + p[2] * r, y - p[3] * r,
-    x + p[0] * r, y - p[1] * r,
+    x + p[4] * r,
+    y - p[5] * r,
+    x + p[2] * r,
+    y - p[3] * r,
+    x + p[0] * r,
+    y - p[1] * r,
   );
 
   r = bottomLeft;
@@ -246,19 +306,28 @@ Path _continuousCurvatureUnevenRoundedRectanglePath(
   y = h;
   path.lineTo(x - p[0] * r, y - p[1] * r);
   path.cubicTo(
-    x - p[2] * r, y - p[3] * r,
-    x - p[4] * r, y - p[5] * r,
-    x - p[6] * r, y - p[7] * r,
+    x - p[2] * r,
+    y - p[3] * r,
+    x - p[4] * r,
+    y - p[5] * r,
+    x - p[6] * r,
+    y - p[7] * r,
   );
   path.cubicTo(
-    x - p[8] * r, y - p[9] * r,
-    x - p[10] * r, y - p[11] * r,
-    x - p[12] * r, y - p[13] * r,
+    x - p[8] * r,
+    y - p[9] * r,
+    x - p[10] * r,
+    y - p[11] * r,
+    x - p[12] * r,
+    y - p[13] * r,
   );
   path.cubicTo(
-    x - p[14] * r, y - p[15] * r,
-    x - p[16] * r, y - p[17] * r,
-    x - p[18] * r, y - p[19] * r,
+    x - p[14] * r,
+    y - p[15] * r,
+    x - p[16] * r,
+    y - p[17] * r,
+    x - p[18] * r,
+    y - p[19] * r,
   );
 
   r = topLeft;
@@ -271,19 +340,28 @@ Path _continuousCurvatureUnevenRoundedRectanglePath(
   y = 0.0;
   path.lineTo(x - p[18] * r, y + p[19] * r);
   path.cubicTo(
-    x - p[16] * r, y + p[17] * r,
-    x - p[14] * r, y + p[15] * r,
-    x - p[12] * r, y + p[13] * r,
+    x - p[16] * r,
+    y + p[17] * r,
+    x - p[14] * r,
+    y + p[15] * r,
+    x - p[12] * r,
+    y + p[13] * r,
   );
   path.cubicTo(
-    x - p[10] * r, y + p[11] * r,
-    x - p[8] * r, y + p[9] * r,
-    x - p[6] * r, y + p[7] * r,
+    x - p[10] * r,
+    y + p[11] * r,
+    x - p[8] * r,
+    y + p[9] * r,
+    x - p[6] * r,
+    y + p[7] * r,
   );
   path.cubicTo(
-    x - p[4] * r, y + p[5] * r,
-    x - p[2] * r, y + p[3] * r,
-    x - p[0] * r, y + p[1] * r,
+    x - p[4] * r,
+    y + p[5] * r,
+    x - p[2] * r,
+    y + p[3] * r,
+    x - p[0] * r,
+    y + p[1] * r,
   );
 
   path.close();

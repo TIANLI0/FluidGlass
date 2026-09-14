@@ -76,7 +76,8 @@ class GlassLayer {
     if (rotationZ == 0.0) {
       if (scaleX == 1.0 && scaleY == 1.0) return null;
       if (scaleX == 0.0 || scaleY == 0.0) return null;
-      return Matrix4.identity()..scaleByDouble(1.0 / scaleX, 1.0 / scaleY, 1.0, 1.0);
+      return Matrix4.identity()
+        ..scaleByDouble(1.0 / scaleX, 1.0 / scaleY, 1.0, 1.0);
     }
     if (scaleX == 0.0 || scaleY == 0.0) return null;
     // inverse(R(theta) * S) == S^-1 * R(-theta)

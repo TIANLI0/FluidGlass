@@ -22,7 +22,8 @@ class LiquidToggle extends StatefulWidget {
   State<LiquidToggle> createState() => _LiquidToggleState();
 }
 
-class _LiquidToggleState extends State<LiquidToggle> with TickerProviderStateMixin {
+class _LiquidToggleState extends State<LiquidToggle>
+    with TickerProviderStateMixin {
   static const double _dragWidth = 20;
   static const double _knobPadding = 2;
 
@@ -101,13 +102,18 @@ class _LiquidToggleState extends State<LiquidToggle> with TickerProviderStateMix
   }
 
   /// The track backdrop, squashed towards the knob's centre while pressed.
-  void _drawScaledTrack(BackdropDrawContext context, void Function() drawBackdrop) {
+  void _drawScaledTrack(
+    BackdropDrawContext context,
+    void Function() drawBackdrop,
+  ) {
     final double progress = _animation.pressProgress;
     final double scaleX = lerpDouble(2 / 3, 0.75, progress)!;
     final double scaleY = lerpDouble(0, 0.75, progress)!;
     final Canvas canvas = context.canvas;
-    final Offset center =
-        Offset(context.size.width / 2, context.size.height / 2);
+    final Offset center = Offset(
+      context.size.width / 2,
+      context.size.height / 2,
+    );
     canvas.save();
     canvas.translate(center.dx, center.dy);
     canvas.scale(scaleX, scaleY);
@@ -153,7 +159,11 @@ class _LiquidToggleState extends State<LiquidToggle> with TickerProviderStateMix
             final double fraction = _animation.value;
             final double translationX = isLtr
                 ? lerpDouble(_knobPadding, _knobPadding + _dragWidth, fraction)!
-                : lerpDouble(-_knobPadding, -(_knobPadding + _dragWidth), fraction)!;
+                : lerpDouble(
+                    -_knobPadding,
+                    -(_knobPadding + _dragWidth),
+                    fraction,
+                  )!;
             return Transform.translate(
               offset: Offset(translationX, 0),
               child: Semantics(
@@ -166,8 +176,11 @@ class _LiquidToggleState extends State<LiquidToggle> with TickerProviderStateMix
                       final double progress = _animation.pressProgress;
                       scope
                         ..blur(8 * (1 - progress))
-                        ..lens(5 * progress, 10 * progress,
-                            chromaticAberration: true);
+                        ..lens(
+                          5 * progress,
+                          10 * progress,
+                          chromaticAberration: true,
+                        );
                     },
                     highlight: () {
                       final double progress = _animation.pressProgress;
@@ -194,8 +207,9 @@ class _LiquidToggleState extends State<LiquidToggle> with TickerProviderStateMix
                       canvas.drawRect(
                         Offset.zero & size,
                         Paint()
-                          ..color = const Color(0xFFFFFFFF)
-                              .withValues(alpha: 1 - progress),
+                          ..color = const Color(
+                            0xFFFFFFFF,
+                          ).withValues(alpha: 1 - progress),
                       );
                     },
                     // Src-over only, so the isolating save-layer is pure cost.
@@ -215,7 +229,7 @@ class _LiquidToggleState extends State<LiquidToggle> with TickerProviderStateMix
 
 class _TrackPainter extends CustomPainter {
   _TrackPainter(this.animation, this.trackColor, this.accentColor)
-      : super(repaint: animation);
+    : super(repaint: animation);
 
   final DampedDragAnimation animation;
   final Color trackColor;
@@ -231,5 +245,6 @@ class _TrackPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _TrackPainter oldDelegate) =>
-      oldDelegate.trackColor != trackColor || oldDelegate.accentColor != accentColor;
+      oldDelegate.trackColor != trackColor ||
+      oldDelegate.accentColor != accentColor;
 }

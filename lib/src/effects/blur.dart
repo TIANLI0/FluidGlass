@@ -24,10 +24,16 @@ extension BlurBackdropEffect on BackdropEffectScope {
       }
     }
 
-    final double sigma =
-        blurRadiusToSigma(radius, devicePixelRatio: devicePixelRatio);
+    final double sigma = blurRadiusToSigma(
+      radius,
+      devicePixelRatio: devicePixelRatio,
+    );
     addImageFilter(
-      ui.ImageFilter.blur(sigmaX: sigma, sigmaY: sigma, tileMode: edgeTreatment),
+      ui.ImageFilter.blur(
+        sigmaX: sigma,
+        sigmaY: sigma,
+        tileMode: edgeTreatment,
+      ),
     );
   }
 }

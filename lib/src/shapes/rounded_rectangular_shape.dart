@@ -104,8 +104,13 @@ class RoundedRectangle extends RoundedRectangularShape {
   RoundedRectangle copyWithStyle(RoundedCornerStyle style) =>
       RoundedRectangle(cornerRadius, style: style);
 
-  RoundedRectangle copyWith({double? cornerRadius, RoundedCornerStyle? style}) =>
-      RoundedRectangle(cornerRadius ?? this.cornerRadius, style: style ?? this.style);
+  RoundedRectangle copyWith({
+    double? cornerRadius,
+    RoundedCornerStyle? style,
+  }) => RoundedRectangle(
+    cornerRadius ?? this.cornerRadius,
+    style: style ?? this.style,
+  );
 
   @override
   bool operator ==(Object other) =>
@@ -117,7 +122,8 @@ class RoundedRectangle extends RoundedRectangularShape {
   int get hashCode => Object.hash(cornerRadius, style);
 
   @override
-  String toString() => 'RoundedRectangle(cornerRadius: $cornerRadius, style: $style)';
+  String toString() =>
+      'RoundedRectangle(cornerRadius: $cornerRadius, style: $style)';
 }
 
 /// A rectangle rounded by half of its shortest side.
@@ -174,11 +180,11 @@ class UnevenRoundedRectangle extends RoundedRectangularShape {
     double bottomStart = 0.0,
     this.style = RoundedCornerStyle.continuous,
   }) : cornerRadii = RectangleCornerRadii(
-          topStart: topStart,
-          topEnd: topEnd,
-          bottomEnd: bottomEnd,
-          bottomStart: bottomStart,
-        );
+         topStart: topStart,
+         topEnd: topEnd,
+         bottomEnd: bottomEnd,
+         bottomStart: bottomStart,
+       );
 
   final RectangleCornerRadii cornerRadii;
 
@@ -233,8 +239,10 @@ class UnevenRoundedRectangle extends RoundedRectangularShape {
   UnevenRoundedRectangle copyWith({
     RectangleCornerRadii? cornerRadii,
     RoundedCornerStyle? style,
-  }) =>
-      UnevenRoundedRectangle(cornerRadii ?? this.cornerRadii, style: style ?? this.style);
+  }) => UnevenRoundedRectangle(
+    cornerRadii ?? this.cornerRadii,
+    style: style ?? this.style,
+  );
 
   @override
   bool operator ==(Object other) =>
@@ -246,7 +254,8 @@ class UnevenRoundedRectangle extends RoundedRectangularShape {
   int get hashCode => Object.hash(cornerRadii, style);
 
   @override
-  String toString() => 'UnevenRoundedRectangle(cornerRadii: $cornerRadii, style: $style)';
+  String toString() =>
+      'UnevenRoundedRectangle(cornerRadii: $cornerRadii, style: $style)';
 }
 
 /// Linearly interpolates between two [RoundedRectangle]s.

@@ -87,6 +87,9 @@ class LiquidDialog extends StatelessWidget {
       vertical: 24,
     ),
     this.maxWidth = 560,
+    this.titleStyle,
+    this.messageStyle,
+    this.actionStyle,
   });
 
   /// What the glass refracts.
@@ -133,6 +136,17 @@ class LiquidDialog extends StatelessWidget {
   /// a tablet instead of running the full width of the screen.
   final double maxWidth;
 
+  /// Merged over the built-in type, for an app whose design system owns its
+  /// typeface. Fields left null keep the default — so passing a `fontFamily`
+  /// alone re-letters the dialog without disturbing the sizes and weights.
+  final TextStyle? titleStyle;
+  final TextStyle? messageStyle;
+
+  /// Merged over the action labels' type. The colour and weight still follow
+  /// [LiquidDialogAction.isPrimary] and [LiquidDialogAction.isDestructive]
+  /// unless this overrides them.
+  final TextStyle? actionStyle;
+
   @override
   Widget build(BuildContext context) {
     final LiquidGlassColors colors = LiquidGlassTheme.of(context);
@@ -147,7 +161,7 @@ class LiquidDialog extends StatelessWidget {
           color: colors.content.withValues(alpha: 0.68),
           fontSize: 15,
           height: 1.45,
-        ),
+        ).merge(messageStyle),
       );
     }
     if (body != null) {
@@ -199,7 +213,7 @@ class LiquidDialog extends StatelessWidget {
                             color: colors.content,
                             fontSize: 22,
                             fontWeight: FontWeight.w600,
-                          ),
+                          ).merge(titleStyle),
                         ),
                       ),
                     if (body != null) Flexible(child: body),
@@ -215,6 +229,7 @@ class LiquidDialog extends StatelessWidget {
                           actions: actions,
                           axis: actionsAxis,
                           colors: colors,
+                          labelStyle: actionStyle,
                         ),
                       ),
                   ],
@@ -233,11 +248,13 @@ class _Actions extends StatelessWidget {
     required this.actions,
     required this.axis,
     required this.colors,
+    this.labelStyle,
   });
 
   final List<LiquidDialogAction> actions;
   final LiquidDialogActionsAxis axis;
   final LiquidGlassColors colors;
+  final TextStyle? labelStyle;
 
   @override
   Widget build(BuildContext context) {
@@ -249,7 +266,7 @@ class _Actions extends StatelessWidget {
 
     final List<Widget> buttons = <Widget>[
       for (final LiquidDialogAction action in actions)
-        _ActionButton(action: action, colors: colors),
+        _ActionButton(action: action, colors: colors, labelStyle: labelStyle),
     ];
 
     if (!horizontal) {
@@ -273,10 +290,15 @@ class _Actions extends StatelessWidget {
 }
 
 class _ActionButton extends StatelessWidget {
-  const _ActionButton({required this.action, required this.colors});
+  const _ActionButton({
+    required this.action,
+    required this.colors,
+    this.labelStyle,
+  });
 
   final LiquidDialogAction action;
   final LiquidGlassColors colors;
+  final TextStyle? labelStyle;
 
   @override
   Widget build(BuildContext context) {
@@ -316,7 +338,7 @@ class _ActionButton extends StatelessWidget {
                     fontWeight: action.isPrimary
                         ? FontWeight.w600
                         : FontWeight.w400,
-                  ),
+                  ).merge(labelStyle),
                 ),
               ),
             ),
@@ -347,6 +369,9 @@ Future<T?> showLiquidDialog<T>({
   double cornerRadius = 48,
   bool scrollable = false,
   bool useRootNavigator = true,
+  TextStyle? titleStyle,
+  TextStyle? messageStyle,
+  TextStyle? actionStyle,
 }) {
   return showDialog<T>(
     context: context,
@@ -362,6 +387,9 @@ Future<T?> showLiquidDialog<T>({
       surfaceColor: surfaceColor,
       cornerRadius: cornerRadius,
       scrollable: scrollable,
+      titleStyle: titleStyle,
+      messageStyle: messageStyle,
+      actionStyle: actionStyle,
       child: child,
     ),
   );

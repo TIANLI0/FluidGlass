@@ -15,7 +15,12 @@ import 'shader_programs.dart';
 Paint _layerPaint(double alpha, BlendMode blendMode) {
   return Paint()
     ..blendMode = blendMode
-    ..color = Color.fromARGB((alpha.clamp(0.0, 1.0) * 255).round(), 255, 255, 255);
+    ..color = Color.fromARGB(
+      (alpha.clamp(0.0, 1.0) * 255).round(),
+      255,
+      255,
+      255,
+    );
 }
 
 final Paint _clearPaint = Paint()..blendMode = BlendMode.clear;
@@ -177,13 +182,16 @@ void paintGlassShadow(
   if (shadow.alpha <= 0.0 || shadow.color.a <= 0.0) return;
 
   final double radius = shadow.radius;
-  final Rect localBounds = (Offset.zero & size)
-      .inflate(radius * 2.0 + shadow.offset.distance + 1.0);
+  final Rect localBounds = (Offset.zero & size).inflate(
+    radius * 2.0 + shadow.offset.distance + 1.0,
+  );
 
   void drawContent(Canvas canvas) {
     final Paint shadowPaint = Paint()..color = shadow.color;
-    final double sigma =
-        blurRadiusToSigma(radius, devicePixelRatio: devicePixelRatio);
+    final double sigma = blurRadiusToSigma(
+      radius,
+      devicePixelRatio: devicePixelRatio,
+    );
     if (sigma > 0.0) {
       shadowPaint.maskFilter = MaskFilter.blur(BlurStyle.normal, sigma);
     }
@@ -319,8 +327,10 @@ void paintGlassInnerShadow(
     canvas.save();
     outline.clip(canvas);
 
-    final double sigma =
-        blurRadiusToSigma(shadow.radius, devicePixelRatio: devicePixelRatio);
+    final double sigma = blurRadiusToSigma(
+      shadow.radius,
+      devicePixelRatio: devicePixelRatio,
+    );
     if (sigma > 0.0) {
       layerPaint.imageFilter = ui.ImageFilter.blur(
         sigmaX: sigma,

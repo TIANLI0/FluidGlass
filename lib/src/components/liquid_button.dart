@@ -53,8 +53,9 @@ class LiquidButton extends StatefulWidget {
 
 class _LiquidButtonState extends State<LiquidButton>
     with TickerProviderStateMixin {
-  late final InteractiveHighlight _interactiveHighlight =
-      InteractiveHighlight(vsync: this);
+  late final InteractiveHighlight _interactiveHighlight = InteractiveHighlight(
+    vsync: this,
+  );
 
   @override
   void dispose() {
@@ -63,16 +64,21 @@ class _LiquidButtonState extends State<LiquidButton>
   }
 
   void _layerBlock(GlassLayer layer) => applyDragDeformation(
-        layer,
-        offset: _interactiveHighlight.offset,
-        pressProgress: _interactiveHighlight.pressProgress,
-      );
+    layer,
+    offset: _interactiveHighlight.offset,
+    pressProgress: _interactiveHighlight.pressProgress,
+  );
 
   void _drawSurface(Canvas canvas, Size size) {
     final Rect rect = Offset.zero & size;
     final Color? tint = widget.tint;
     if (tint != null) {
-      canvas.drawRect(rect, Paint()..color = tint..blendMode = BlendMode.hue);
+      canvas.drawRect(
+        rect,
+        Paint()
+          ..color = tint
+          ..blendMode = BlendMode.hue,
+      );
       canvas.drawRect(rect, Paint()..color = tint.withValues(alpha: 0.75));
     }
     final Color? surfaceColor = widget.surfaceColor;
@@ -131,9 +137,9 @@ class _LiquidButtonState extends State<LiquidButton>
       effects: refractsNothing
           ? (BackdropEffectScope scope) {}
           : (BackdropEffectScope scope) => scope
-            ..vibrancy()
-            ..blur(2)
-            ..lens(12, 24),
+              ..vibrancy()
+              ..blur(2)
+              ..lens(12, 24),
       layerBlock: widget.isInteractive && isEnabled ? _layerBlock : null,
       onDrawSurface: _drawSurface,
       repaint: _interactiveHighlight,
@@ -141,4 +147,3 @@ class _LiquidButtonState extends State<LiquidButton>
     );
   }
 }
-

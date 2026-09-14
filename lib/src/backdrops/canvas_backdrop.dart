@@ -18,7 +18,8 @@ class CanvasBackdrop extends Backdrop {
   }
 
   @override
-  bool operator ==(Object other) => other is CanvasBackdrop && other.onDraw == onDraw;
+  bool operator ==(Object other) =>
+      other is CanvasBackdrop && other.onDraw == onDraw;
 
   @override
   int get hashCode => onDraw.hashCode;
