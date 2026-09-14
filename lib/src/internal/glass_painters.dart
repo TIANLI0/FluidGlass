@@ -93,6 +93,10 @@ class BakedDecoration {
       }
     }
 
+    // One repeated key is not enough to recover. Keep drawing directly until
+    // the full stability window has elapsed, including on cache-hit frames.
+    if (_thrashing) return false;
+
     if (_image == null || !keyHeld) {
       _image?.dispose();
       _image = null;

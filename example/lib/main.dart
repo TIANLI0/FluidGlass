@@ -117,9 +117,9 @@ Future<void> _measureFrames() async {
         'p50=${p50.toStringAsFixed(2)}ms p90=${p90.toStringAsFixed(2)}ms';
   }
 
-  stdout.writeln('PERF| screen=$_perfScreen frames=${build.length}');
-  stdout.writeln('PERF| ${stats("build ", build)}');
-  stdout.writeln('PERF| ${stats("raster", raster)}');
+  debugPrint('PERF| screen=$_perfScreen frames=${build.length}');
+  debugPrint('PERF| ${stats("build ", build)}');
+  debugPrint('PERF| ${stats("raster", raster)}');
   await stdout.flush();
   exit(0);
 }

@@ -10,6 +10,7 @@ import 'backdrops/layer_backdrop.dart';
 import 'glass_layer.dart';
 import 'highlight/highlight.dart';
 import 'internal/glass_painters.dart';
+import 'internal/sampling_layer.dart';
 import 'internal/shader_programs.dart';
 import 'quality/glass_device_tier.dart';
 import 'quality/glass_quality.dart';
@@ -700,14 +701,26 @@ class RenderDrawBackdrop extends RenderProxyBox {
   /// frame. Dropping the subscription is what makes the fallback actually free.
   bool _subscribedToBackdrop = false;
 
+  void _onBackdropChanged() {
+    if (_samplingLayer.layer != null && _usesSamplingLayer &&
+        SchedulerBinding.instance.schedulerPhase == SchedulerPhase.postFrameCallbacks) {
+      // Keep notifications from dirtying render objects after composition.
+      // Custom sources may have no revision, so invalidate the stored picture.
+      _samplingLayer.layer!.invalidate();
+      SchedulerBinding.instance.scheduleFrame();
+      return;
+    }
+    markNeedsPaint();
+  }
+
   void _syncBackdropSubscription() {
     final bool wanted = attached && !_usesNativeFilter;
     if (wanted == _subscribedToBackdrop) return;
     _subscribedToBackdrop = wanted;
     if (wanted) {
-      _backdrop.repaintNotifier?.addListener(markNeedsPaint);
+      _backdrop.repaintNotifier?.addListener(_onBackdropChanged);
     } else {
-      _backdrop.repaintNotifier?.removeListener(markNeedsPaint);
+      _backdrop.repaintNotifier?.removeListener(_onBackdropChanged);
     }
   }
 
@@ -719,7 +732,7 @@ class RenderDrawBackdrop extends RenderProxyBox {
   void _unsubscribeBackdrop() {
     if (!_subscribedToBackdrop) return;
     _subscribedToBackdrop = false;
-    _backdrop.repaintNotifier?.removeListener(markNeedsPaint);
+    _backdrop.repaintNotifier?.removeListener(_onBackdropChanged);
   }
 
   // ---------------------------------------------------------------------------
@@ -823,8 +836,14 @@ class RenderDrawBackdrop extends RenderProxyBox {
     markNeedsPaint();
   }
 
+  bool get _usesSamplingLayer => !_usesNativeFilter &&
+      !_isCaptured &&
+      hasLiveSamplingSource(_backdrop);
+
+  final LayerHandle<SamplingLayer> _samplingLayer = LayerHandle<SamplingLayer>();
+
   @override
-  bool get alwaysNeedsCompositing => _usesNativeFilter;
+  bool get alwaysNeedsCompositing => _usesNativeFilter || _usesSamplingLayer;
 
   @override
   void attach(PipelineOwner owner) {
@@ -858,6 +877,7 @@ class RenderDrawBackdrop extends RenderProxyBox {
     }
 
     final bool native = _usesNativeFilter;
+    if (native) _samplingLayer.layer = null;
     // Only a sampled backdrop cares where the element sits: the compositor
     // filters what is behind wherever the layer lands.
     if (_backdrop.isCoordinatesDependent && !native) {
@@ -933,28 +953,45 @@ class RenderDrawBackdrop extends RenderProxyBox {
       // Only a surface drawn *over* the backdrop needs isolating. `onDrawBehind`
       // paints under it, and src-over is associative, so wrapping the two in a
       // layer provably changes nothing.
-      final bool needsIsolation = _isolateSurface && _onDrawSurface != null;
-      canvas.save();
-      canvas.translate(offset.dx, offset.dy);
-      if (needsIsolation) {
-        canvas.saveLayer(Offset.zero & size, Paint());
-      }
-      _onDrawBehind?.call(canvas, size);
-      _paintBackdropStack(canvas, size, filters, padding);
-      _onDrawSurface?.call(canvas, size);
-      if (needsIsolation) {
+      void drawSurface(Canvas canvas) {
+        final bool needsIsolation = _isolateSurface && _onDrawSurface != null;
+        canvas.save();
+        canvas.translate(offset.dx, offset.dy);
+        if (needsIsolation) canvas.saveLayer(Offset.zero & size, Paint());
+        _onDrawBehind?.call(canvas, size);
+        _paintBackdropStack(canvas, size, filters, padding);
+        _onDrawSurface?.call(canvas, size);
+        if (_usesSamplingLayer) _exportBackdrop(size, filters, padding);
+        if (needsIsolation) canvas.restore();
         canvas.restore();
       }
-      canvas.restore();
+      if (_usesSamplingLayer) {
+        final SamplingLayer sampling = _samplingLayer.layer ??= SamplingLayer();
+        sampling.configure(
+          bounds: (offset & size).inflate(padding),
+          signature: () {
+            final int source = prepareSamplingSource(_backdrop);
+            _paintedTransform = getTransformTo(null);
+            return Object.hash(source, _paintedTransform);
+          },
+          draw: drawSurface,
+        );
+        context.addLayer(sampling);
+      } else {
+        _samplingLayer.layer = null;
+        drawSurface(canvas);
+      }
 
       super.paint(context, offset);
 
       final GlassDrawCallback? onDrawFront = _onDrawFront;
       if (onDrawFront != null) {
-        canvas.save();
-        canvas.translate(offset.dx, offset.dy);
-        onDrawFront(canvas, size);
-        canvas.restore();
+        // Adding a composited layer ends the previous canvas recording.
+        final Canvas frontCanvas = context.canvas;
+        frontCanvas.save();
+        frontCanvas.translate(offset.dx, offset.dy);
+        onDrawFront(frontCanvas, size);
+        frontCanvas.restore();
       }
     });
 
@@ -996,7 +1033,7 @@ class RenderDrawBackdrop extends RenderProxyBox {
       );
     }
 
-    _exportBackdrop(size, filters, padding);
+    if (!_usesSamplingLayer) _exportBackdrop(size, filters, padding);
   }
 
   void _paintClipped(
@@ -1247,6 +1284,7 @@ class RenderDrawBackdrop extends RenderProxyBox {
 
   @override
   void dispose() {
+    _samplingLayer.layer = null;
     _backdropFilterLayer.layer = null;
     _clipRectLayer.layer = null;
     _clipRRectLayer.layer = null;

@@ -1,5 +1,64 @@
 # Changelog
 
+## 0.1.14
+
+### Performance
+
+- Sampled glass records its pixels during composition rather than during
+  paint. A glass element used to redraw its whole stack — capture, blur, lens,
+  highlight — whenever anything told it its backdrop had changed, and it could
+  only be told once the frame that changed it had been drawn, so it also ran a
+  frame late. The element now keeps a composited layer that re-records only
+  when what it samples actually differs: the source's capture generation, or
+  where the element sits. Two things follow. A source that repaints behind a
+  repaint boundary is picked up in the *same* frame instead of the next one, so
+  `liveness` is no longer what closes that gap — it is left for custom
+  rendering state that changes without replacing a picture or a layer property,
+  and for glass that sits inside a captured source. And glass that is merely
+  marked dirty — by a sibling repainting, by an ancestor rebuilding — reuses
+  the pixels it already has.
+
+- Captures follow the regions consumers actually read, rather than one
+  rectangle drawn around all of them. A header and a footer over the same
+  source no longer force capturing everything between them: their requests stay
+  disjoint, both for choosing what to capture and for deciding whether a change
+  in the source is one the glass can see. Passing the region budget now takes
+  the combined envelope of the outstanding requests instead of the whole
+  source, and the choice is remembered so the next generation starts from one
+  image.
+
+- Glass that moves or grows across its source latches to a single whole-source
+  capture instead of paying a second `toImageSync` every frame. The envelope
+  predicted for a consumer comes from the previous generation's requests, so a
+  moving consumer outruns it, misses, and captures again — every frame, for as
+  long as the motion lasts. A miss that *overlaps* what is already held is now
+  read as exactly that, while a miss disjoint from everything held still keeps
+  its own small capture.
+
+### Fixed
+
+- The layer fingerprint — what notices a source changing behind a repaint
+  boundary — was blind to several kinds of change, and glass over them kept
+  drawing a frozen backdrop: an animating `ImageFilter` (which is what
+  `ImageFiltered`, and a `Transform` given a `filterQuality`, become — Android's
+  overscroll stretch is built from both), a `ShaderMask`, a `ClipPath` or a
+  clip behaviour that changes, a `CompositedTransformFollower` moving, and a
+  `BackdropFilter` inside the source. A `BackdropFilter` also reads pixels from
+  outside its children's bounds, so while one is present a change is never
+  dismissed for landing where no consumer reads.
+
+- Leaves are compared in order, so two retained layers swapping stacking order
+  counts as a change.
+
+- A change that lands outside every sampled region no longer leaves a wider
+  capture behind it. Held images covering the changed area are retired, so a
+  consumer that moves into that area later cannot draw stale pixels out of one.
+
+- The baked decoration cache rebuilt its image after a single repeated key once
+  it had started thrashing, instead of waiting out the window it uses to decide
+  the key has settled. A decoration alternating between two keys paid a
+  `toImageSync` every other frame rather than none.
+
 ## 0.1.13
 
 ### Added
