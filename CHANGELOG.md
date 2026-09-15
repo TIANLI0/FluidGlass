@@ -1,5 +1,34 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- A live backdrop no longer freezes while an Android overscroll springs back.
+  On every Impeller backend Flutter's `StretchEffect` stretches with
+  `ImageFilter.shader`, and a fragment shader reads the size of the texture the
+  pass rasterised it into. Capturing one strip of the source — which is what
+  "capture only what is read" has done since 0.1.14 — evaluated that shader
+  against the strip's extent, so a bar pinned over a list showed a page
+  stretched by some other amount for the whole spring-back. A shader filter
+  found in the captured layer tree now takes the whole source for that
+  generation; a blur, a matrix or a dilate still take a strip, since Impeller
+  can invert those to work out what they read. The cost is paid only on the
+  frames such a filter is actually on screen, which for an overscroll is the
+  overscroll. `flutter_test` runs on Skia, where `StretchEffect` falls back to
+  a plain `Transform` and `ImageFilter.shader` cannot be constructed at all,
+  which is why every widget test passed throughout; the end-to-end measurement
+  is `example/lib/probe_stretch_capture.dart`.
+- `LiquidBottomTabs`' selection pill no longer wears a ring of half-blurred,
+  darkened backdrop. The pill declared only `lens(...)` as its effect, and
+  `lens` lowers the sampled margin rather than raising it, so the element
+  sampled exactly its own bounds — while its backdrop blurs the page by 8
+  logical pixels *inside* that layer. The blur ran out of pixels at the
+  border. It is most visible at rest, when the pill's own refraction is off and
+  nothing covers for it. Measured over hard stripes on Impeller, the surviving
+  unblurred contrast in the ring dropped from 69/255 to a flat 18, which is the
+  capsule's own anti-aliased edge.
+
 ## 0.1.16
 
 ### Added

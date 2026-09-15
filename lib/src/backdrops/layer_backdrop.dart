@@ -912,6 +912,58 @@ class RenderBackdropLayer extends RenderProxyBox
   // Without its engine-computed input bounds, spatial pruning is unsafe.
   bool _hasBackdropDependency = false;
 
+  /// Whether the captured layer tree holds a fragment-shader image filter.
+  ///
+  /// Impeller can invert a blur, a matrix or a dilate to work out how much of
+  /// the input a given piece of output needs, so capturing one strip of the
+  /// source still hands those filters the pixels they read. A fragment shader
+  /// it cannot invert: the shader is given whatever texture the pass
+  /// rasterised into and reads that texture's size out of its first `vec2`
+  /// uniform. Capture a strip and the shader is evaluated against the strip's
+  /// extent, and draws something the screen never showed.
+  ///
+  /// Android's overscroll stretch is one of these on every Impeller backend
+  /// (`StretchEffect` picks `ImageFilter.shader` whenever
+  /// `ImageFilter.isShaderFilterSupported`), which is why a bar pinned over a
+  /// list showed a differently-stretched page while the list sprang back.
+  bool _hasShaderFilter = false;
+
+  /// One-entry memo for [_isShaderFilter]. A static `ImageFiltered` hands the
+  /// walk the same filter object every frame, so it is classified once; an
+  /// animated one allocates a new filter per frame, and one short string per
+  /// frame is the price of the frames it is actually animating.
+  ui.ImageFilter? _classifiedFilter;
+  bool _classifiedIsShader = false;
+
+  /// Whether [filter] is, or composes, a fragment shader.
+  ///
+  /// `debugShortDescription` is the only public thing that names one: dart:ui
+  /// gives `ImageFilter.shader` no type of its own, and a composed filter
+  /// reports the descriptions of the filters it wraps, so this sees a shader
+  /// nested inside an `ImageFilter.compose` as well as a bare one.
+  @visibleForTesting
+  static bool debugImageFilterReadsExtent(ui.ImageFilter filter) =>
+      filter.debugShortDescription.contains('shader');
+
+  /// Test seam for [debugImageFilterReadsExtent].
+  ///
+  /// `flutter_test` runs on Skia, where `ImageFilter.shader` throws rather than
+  /// being constructed, so the only way for a test to reach the capture path a
+  /// shader filter takes is to say that an ordinary filter is one.
+  @visibleForTesting
+  static bool Function(ui.ImageFilter filter)? debugImageFilterClassifier;
+
+  bool _isShaderFilter(ui.ImageFilter filter) {
+    final bool Function(ui.ImageFilter)? classifier =
+        debugImageFilterClassifier;
+    if (classifier != null) return classifier(filter);
+    if (identical(filter, _classifiedFilter)) return _classifiedIsShader;
+    final bool isShader = debugImageFilterReadsExtent(filter);
+    _classifiedFilter = filter;
+    _classifiedIsShader = isShader;
+    return isShader;
+  }
+
   /// Whether something already told the consumers about this frame.
   ///
   /// A scroll notification, a [BackdropLayer.liveness] tick or this render
@@ -975,6 +1027,7 @@ class RenderBackdropLayer extends RenderProxyBox
     final List<double> nextBounds = _nextBounds..clear();
     final bool hadBackdropDependency = _hasBackdropDependency;
     _hasBackdropDependency = false;
+    _hasShaderFilter = false;
     for (
       Layer? child = layer?.firstChild;
       child != null;
@@ -1027,6 +1080,7 @@ class RenderBackdropLayer extends RenderProxyBox
         return true;
       }());
     }
+
 
     if (relevantChange && !alreadyHandled) {
       if (beforeComposition) {
@@ -1207,6 +1261,9 @@ class RenderBackdropLayer extends RenderProxyBox
           :final Offset offset,
         ):
           hash = Object.hash(hash, imageFilter, offset);
+          if (imageFilter != null && _isShaderFilter(imageFilter)) {
+            _hasShaderFilter = true;
+          }
           childDx += offset.dx;
           childDy += offset.dy;
           // Arbitrary image filters can move or spread pixels beyond the
@@ -1519,9 +1576,15 @@ class RenderBackdropLayer extends RenderProxyBox
     final Rect bounds = Offset.zero & size;
 
     // What is needed, and what will be captured if nothing held covers it.
+    // A shader filter in the source has to be rasterised against the source's
+    // own extent, so this generation takes the whole thing: asking for a strip
+    // would draw the shader wrong, and reusing a strip already held would show
+    // the same wrong pixels. Quoting the whole source as what is *needed* also
+    // stops the spatial pruning below, which is the same conclusion — a shader
+    // can move a pixel anywhere, so no change in the source is irrelevant.
     Rect needed = bounds;
     Rect wanted = bounds;
-    if (region != null) {
+    if (region != null && !_hasShaderFilter) {
       final Rect clipped = region.intersect(bounds);
       if (clipped.isEmpty) return null;
       needed = clipped;

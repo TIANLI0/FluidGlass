@@ -427,6 +427,15 @@ class _LiquidBottomTabsState extends State<LiquidBottomTabs>
                         14 * progress,
                         chromaticAberration: true,
                       );
+                      // The pill's own backdrop blurs the page by
+                      // [_AccentGlassBackdrop.blurRadius] *inside this
+                      // element's layer*, so that blur's reach has to be part
+                      // of what the element samples. Without it the blur runs
+                      // out of pixels at the pill's border and the pill wears
+                      // a ring of half-blurred, darkened backdrop.
+                      if (scope.padding < _AccentGlassBackdrop.blurRadius) {
+                        scope.padding = _AccentGlassBackdrop.blurRadius;
+                      }
                     },
                     highlight: () => Highlight.standard.copyWith(
                       alpha: _animation.pressProgress,
