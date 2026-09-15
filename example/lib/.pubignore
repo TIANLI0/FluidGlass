@@ -1,4 +1,4 @@
-﻿# Throwaway harnesses used to drive gestures and capture frames while
+# Throwaway harnesses used to drive gestures and capture frames while
 # investigating rendering and performance. They are committed so the
 # measurements can be reproduced, but they are not part of the demo and have
 # no business in the published archive.
@@ -6,9 +6,8 @@
 # Scoped to this directory on purpose: a .pubignore REPLACES the .gitignore in
 # the same directory, so putting this at the repo root silently pulled build/
 # and .dart_tool/ into the archive and took it from 726 KB to 56 MB.
+#
+# A glob rather than a list: the list had already gone stale — probe_tabs_perf
+# was shipping in the archive because nobody remembered to add it.
+probe_*.dart
 probe.dart
-probe_perf.dart
-probe_menu.dart
-probe_device_signals.dart
-probe_live_perf.dart
-probe_sampling_device.dart
