@@ -1,3 +1,5 @@
+import 'dart:ui' as ui;
+
 import 'package:flutter/material.dart';
 
 import '../../fluid_glass.dart';
@@ -65,6 +67,8 @@ class LiquidSheet extends StatelessWidget {
     this.showDragHandle = true,
     this.cornerRadius = 28,
     this.rowHeight = 56,
+    this.plain = false,
+    this.blurSigma = 24,
   });
 
   /// What the glass refracts.
@@ -109,70 +113,110 @@ class LiquidSheet extends StatelessWidget {
 
   final double rowHeight;
 
+  /// Drops the glass and blurs with Flutter's own `BackdropFilter` instead.
+  ///
+  /// The panel's rim, lens and shadow are what make a small element read as a
+  /// bead of glass. A sheet is not small: it is a half-screen slab carrying
+  /// rows of text, and it wants a heavy tint for those rows to stay readable
+  /// over whatever it happens to cover. Behind such a tint there is nothing
+  /// left for a lens to bend, so the rim is the only part of the glass still
+  /// visible — a bright seam along the top edge, which on a half-screen sheet
+  /// reads as a misplaced highlight rather than as material.
+  ///
+  /// This variant keeps everything else — the handle, the title, the rows, the
+  /// selection mark — and replaces only the surface: a Gaussian blur behind
+  /// [surfaceColor], clipped to the same rounded top corners.
+  final bool plain;
+
+  /// The blur behind a [plain] surface, in logical pixels. Ignored otherwise.
+  ///
+  /// Larger than a glass panel's: with no refraction to carry the sense of
+  /// depth, the blur is the only thing saying there is a page behind the sheet,
+  /// and a light one just reads as a smudge.
+  final double blurSigma;
+
   @override
   Widget build(BuildContext context) {
     final LiquidGlassColors colors = LiquidGlassTheme.of(context);
-    return LiquidPanel(
-      backdrop: backdrop,
-      surfaceColor: surfaceColor ?? colors.container,
-      shape: UnevenRoundedRectangle.only(
-        topStart: cornerRadius,
-        topEnd: cornerRadius,
+    final Widget content = _content(colors);
+    if (!plain) {
+      return LiquidPanel(
+        backdrop: backdrop,
+        surfaceColor: surfaceColor ?? colors.container,
+        shape: UnevenRoundedRectangle.only(
+          topStart: cornerRadius,
+          topEnd: cornerRadius,
+        ),
+        child: content,
+      );
+    }
+    final BorderRadius radius = BorderRadius.vertical(
+      top: Radius.circular(cornerRadius),
+    );
+    return ClipRRect(
+      borderRadius: radius,
+      child: BackdropFilter(
+        filter: ui.ImageFilter.blur(sigmaX: blurSigma, sigmaY: blurSigma),
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            color: surfaceColor ?? colors.container,
+            borderRadius: radius,
+          ),
+          child: content,
+        ),
       ),
-      child: SafeArea(
-        top: false,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: <Widget>[
-            if (showDragHandle) _Handle(color: colors.content),
-            if (title case final String heading)
-              Padding(
-                padding: EdgeInsets.fromLTRB(
-                  20,
-                  showDragHandle ? 4 : 20,
-                  20,
-                  8,
-                ),
-                child: SizedBox(
-                  width: double.infinity,
-                  child: Text(
-                    heading,
-                    style: TextStyle(
-                      color: colors.content,
-                      fontSize: 17,
-                      fontWeight: FontWeight.w600,
-                    ),
+    );
+  }
+
+  Widget _content(LiquidGlassColors colors) {
+    return SafeArea(
+      top: false,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: <Widget>[
+          if (showDragHandle) _Handle(color: colors.content),
+          if (title case final String heading)
+            Padding(
+              padding: EdgeInsets.fromLTRB(20, showDragHandle ? 4 : 20, 20, 8),
+              child: SizedBox(
+                width: double.infinity,
+                child: Text(
+                  heading,
+                  style: TextStyle(
+                    color: colors.content,
+                    fontSize: 17,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
               ),
-            Flexible(
-              child:
-                  child ??
-                  SingleChildScrollView(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: <Widget>[
-                        for (final LiquidSheetItem item in items)
-                          _SheetRow(
-                            item: item,
-                            height: rowHeight,
-                            contentColor: item.isDestructive
-                                ? colors.destructive
-                                : colors.content,
-                            accentColor: colors.accent,
-                            washColor: colors.content.withValues(alpha: 0.08),
-                            onSelected: (LiquidSheetItem chosen) {
-                              chosen.onSelected?.call();
-                              onSelected?.call(chosen);
-                            },
-                          ),
-                      ],
-                    ),
-                  ),
             ),
-            const SizedBox(height: 8),
-          ],
-        ),
+          Flexible(
+            child:
+                child ??
+                SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: <Widget>[
+                      for (final LiquidSheetItem item in items)
+                        _SheetRow(
+                          item: item,
+                          height: rowHeight,
+                          contentColor: item.isDestructive
+                              ? colors.destructive
+                              : colors.content,
+                          accentColor: colors.accent,
+                          washColor: colors.content.withValues(alpha: 0.08),
+                          onSelected: (LiquidSheetItem chosen) {
+                            chosen.onSelected?.call();
+                            onSelected?.call(chosen);
+                          },
+                        ),
+                    ],
+                  ),
+                ),
+          ),
+          const SizedBox(height: 8),
+        ],
       ),
     );
   }
@@ -325,6 +369,8 @@ Future<T?> showLiquidSheet<T>({
   double cornerRadius = 28,
   double rowHeight = 56,
   bool useRootNavigator = true,
+  bool plain = false,
+  double blurSigma = 24,
 }) {
   return showModalBottomSheet<T>(
     context: context,
@@ -347,6 +393,8 @@ Future<T?> showLiquidSheet<T>({
       showDragHandle: showDragHandle,
       cornerRadius: cornerRadius,
       rowHeight: rowHeight,
+      plain: plain,
+      blurSigma: blurSigma,
       onSelected: (LiquidSheetItem _) => Navigator.of(sheetContext).pop(),
       child: child,
     ),

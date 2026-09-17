@@ -296,13 +296,21 @@ class _LiquidSliderState extends State<LiquidSlider>
                         shape: () => const Capsule(),
                         effects: (BackdropEffectScope scope) {
                           final double progress = _animation.pressProgress;
+                          final double blurRadius = 8 * (1 - progress);
                           scope
-                            ..blur(8 * (1 - progress))
+                            ..blur(blurRadius)
                             ..lens(
                               10 * progress,
                               14 * progress,
                               chromaticAberration: true,
                             );
+                          // Same as the toggle's knob: the thumb refracts a scaled copy of its
+                          // track, which does not fill the layer, so the clamped blur has to be
+                          // given room to read — otherwise it clamps against the layer's straight
+                          // edges and squares off the thumb's sampling.
+                          if (scope.padding < blurRadius) {
+                            scope.padding = blurRadius;
+                          }
                         },
                         highlight: () {
                           final double progress = _animation.pressProgress;

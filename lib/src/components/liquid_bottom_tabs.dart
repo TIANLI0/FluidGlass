@@ -613,7 +613,12 @@ class _AccentGlassBackdrop extends Backdrop {
     // scaled about its own centre by the press, as `LiquidBottomTabScale` used
     // to scale it in the tree.
     canvas.drawRect(window, Paint()..color = owner._containerColor);
-    owner._interactiveHighlight.paintOverlay(canvas, rowSize, quality: quality);
+    // **No press glow in the copy.** The bar paints one itself, and the pill
+    // already fades in its own `Highlight` with the press — drawing a third
+    // here puts it *inside what the lens magnifies*, so at full press the pill
+    // fills with a sheet of white and the blurred page the rest of the bar
+    // shows disappears from under it. The glow belongs on the bar, not in the
+    // thing being looked at through a lens.
 
     final double scale = ui.lerpDouble(1.0, 1.2, progress)!;
     final double tabWidth = owner._tabWidth;

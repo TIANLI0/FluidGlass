@@ -1,5 +1,32 @@
 # Changelog
 
+## 0.1.19
+
+### Added
+
+- `LiquidSheet.plain` and `LiquidSheet.blurSigma` — drops the glass and blurs
+  with Flutter's own `BackdropFilter` instead, keeping the handle, title, rows
+  and selection mark. The rim, lens and shadow are what make a *small* element
+  read as a bead of glass; a half-screen sheet carrying rows of text needs a
+  heavy tint for those rows to stay readable over whatever it covers, and
+  behind such a tint there is nothing left for a lens to bend — the rim is then
+  the only glass still visible, a bright seam along the top edge that reads as
+  a misplaced highlight rather than as material.
+
+### Fixed
+
+- The bottom tabs' selection pill no longer fills with white at full press. The
+  captured accent copy painted the press glow a third time — after the bar's
+  own and the pill's own — and that copy is *what the lens magnifies*, so the
+  glow was blown up with it and the blurred page the rest of the bar shows
+  vanished from under the pill.
+- The toggle's knob and the slider's thumb no longer square off their sampling.
+  Both refract a scaled copy of their own track, which does not fill the
+  element's layer; a clamped blur that starts the chain is given no extra room
+  — the right call when the layer is full of the thing being blurred, wrong
+  here, because it clamps against the layer's straight edges. The bottom-tabs
+  pill already raised its padding for the same reason.
+
 ## 0.1.18
 
 ### Added
