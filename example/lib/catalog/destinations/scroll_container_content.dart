@@ -13,25 +13,29 @@ class ScrollContainerContent extends StatelessWidget {
         return <Widget>[
           Positioned.fill(
             child: SingleChildScrollView(
-          padding: const EdgeInsets.all(16) +
-              EdgeInsets.only(
-                top: MediaQuery.paddingOf(context).top,
-                bottom: MediaQuery.paddingOf(context).bottom,
+              padding:
+                  const EdgeInsets.all(16) +
+                  EdgeInsets.only(
+                    top: MediaQuery.paddingOf(context).top,
+                    bottom: MediaQuery.paddingOf(context).bottom,
+                  ),
+              child: Column(
+                spacing: 16,
+                children: <Widget>[
+                  for (int i = 0; i < 20; i++)
+                    DrawBackdrop(
+                      backdrop: backdrop,
+                      shape: () => const RoundedRectangle(32),
+                      effects: (BackdropEffectScope scope) => scope
+                        ..vibrancy()
+                        ..lens(16, 32),
+                      child: const SizedBox(
+                        height: 160,
+                        width: double.infinity,
+                      ),
+                    ),
+                ],
               ),
-          child: Column(
-            spacing: 16,
-            children: <Widget>[
-              for (int i = 0; i < 20; i++)
-                DrawBackdrop(
-                  backdrop: backdrop,
-                  shape: () => const RoundedRectangle(32),
-                  effects: (BackdropEffectScope scope) => scope
-                    ..vibrancy()
-                    ..lens(16, 32),
-                  child: const SizedBox(height: 160, width: double.infinity),
-                ),
-            ],
-          ),
             ),
           ),
         ];

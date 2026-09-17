@@ -27,12 +27,12 @@ class _Probe extends StatelessWidget {
 }
 
 Widget _host(Widget child) => Directionality(
-      textDirection: TextDirection.ltr,
-      child: MediaQuery(
-        data: const MediaQueryData(),
-        child: Center(child: child),
-      ),
-    );
+  textDirection: TextDirection.ltr,
+  child: MediaQuery(
+    data: const MediaQueryData(),
+    child: Center(child: child),
+  ),
+);
 
 GlassDeviceInfo _info({
   bool shaders = true,
@@ -57,8 +57,10 @@ void main() {
 
   group('GlassQuality', () {
     test('there are exactly two tiers, cheapest last', () {
-      expect(GlassQuality.values,
-          <GlassQuality>[GlassQuality.liquid, GlassQuality.plain]);
+      expect(GlassQuality.values, <GlassQuality>[
+        GlassQuality.liquid,
+        GlassQuality.plain,
+      ]);
       expect(GlassQuality.liquid.index, lessThan(GlassQuality.plain.index));
     });
 
@@ -71,11 +73,17 @@ void main() {
 
     test('atMost takes the cheaper of the two', () {
       expect(
-          GlassQuality.liquid.atMost(GlassQuality.plain), GlassQuality.plain);
+        GlassQuality.liquid.atMost(GlassQuality.plain),
+        GlassQuality.plain,
+      );
       expect(
-          GlassQuality.plain.atMost(GlassQuality.liquid), GlassQuality.plain);
+        GlassQuality.plain.atMost(GlassQuality.liquid),
+        GlassQuality.plain,
+      );
       expect(
-          GlassQuality.liquid.atMost(GlassQuality.liquid), GlassQuality.liquid);
+        GlassQuality.liquid.atMost(GlassQuality.liquid),
+        GlassQuality.liquid,
+      );
     });
   });
 
@@ -99,11 +107,13 @@ void main() {
     test('too few cores gets plain', () {
       expect(classify(_info(cores: 4)), GlassQuality.plain);
       expect(
-          classify(
-              _info(cores: GlassDeviceTier.minimumProcessorCount - 1)),
-          GlassQuality.plain);
-      expect(classify(_info(cores: GlassDeviceTier.minimumProcessorCount)),
-          GlassQuality.liquid);
+        classify(_info(cores: GlassDeviceTier.minimumProcessorCount - 1)),
+        GlassQuality.plain,
+      );
+      expect(
+        classify(_info(cores: GlassDeviceTier.minimumProcessorCount)),
+        GlassQuality.liquid,
+      );
     });
 
     test('an unknown core count is not held against the device', () {
@@ -159,16 +169,18 @@ void main() {
       expect(notifications, 0, reason: 'already drawing at liquid');
     });
 
-    test('a custom classifier replaces the decision and takes effect at once',
-        () {
-      final GlassDeviceTier t = tier();
-      expect(t.quality, GlassQuality.liquid);
-      int notifications = 0;
-      t.addListener(() => notifications++);
-      t.classifier = (GlassDeviceInfo info) => GlassQuality.plain;
-      expect(t.quality, GlassQuality.plain);
-      expect(notifications, 1);
-    });
+    test(
+      'a custom classifier replaces the decision and takes effect at once',
+      () {
+        final GlassDeviceTier t = tier();
+        expect(t.quality, GlassQuality.liquid);
+        int notifications = 0;
+        t.addListener(() => notifications++);
+        t.classifier = (GlassDeviceInfo info) => GlassQuality.plain;
+        expect(t.quality, GlassQuality.plain);
+        expect(notifications, 1);
+      },
+    );
 
     test('a custom classifier sees the real device facts', () {
       GlassDeviceInfo? seen;
@@ -177,31 +189,44 @@ void main() {
         seen = info;
         return GlassQuality.liquid;
       };
-      expect(t.quality, GlassQuality.liquid,
-          reason: 'a classifier may overrule what the built-in rules say');
+      expect(
+        t.quality,
+        GlassQuality.liquid,
+        reason: 'a classifier may overrule what the built-in rules say',
+      );
       expect(seen!.processorCount, 3);
       expect(seen!.architecture, 'arm');
     });
 
     test('the backend ceiling clamps the classification and any pin', () {
       final GlassDeviceTier t = tier()..debugCeiling = GlassQuality.plain;
-      expect(t.deviceQuality, GlassQuality.liquid,
-          reason: 'the device itself is capable');
-      expect(t.quality, GlassQuality.plain,
-          reason: 'but this backend has no runtime shaders');
+      expect(
+        t.deviceQuality,
+        GlassQuality.liquid,
+        reason: 'the device itself is capable',
+      );
+      expect(
+        t.quality,
+        GlassQuality.plain,
+        reason: 'but this backend has no runtime shaders',
+      );
       t.pinnedQuality = GlassQuality.liquid;
-      expect(t.quality, GlassQuality.plain,
-          reason: 'pinning cannot conjure a shader the backend has not got');
+      expect(
+        t.quality,
+        GlassQuality.plain,
+        reason: 'pinning cannot conjure a shader the backend has not got',
+      );
     });
 
     test('describe explains the verdict', () {
       expect(tier().describe(), contains('liquid'));
-      expect(tier(info: _info(shaders: false)).describe(),
-          contains('no runtime shaders'));
+      expect(
+        tier(info: _info(shaders: false)).describe(),
+        contains('no runtime shaders'),
+      );
       expect(tier(info: _info(arch: 'arm')).describe(), contains('32-bit'));
       expect(tier(info: _info(cores: 2)).describe(), contains('cores'));
-      final GlassDeviceTier pinned = tier()
-        ..pinnedQuality = GlassQuality.plain;
+      final GlassDeviceTier pinned = tier()..pinnedQuality = GlassQuality.plain;
       expect(pinned.describe(), contains('pinned'));
     });
 
@@ -209,15 +234,20 @@ void main() {
       final GlassDeviceInfo info = _info();
       // 1080 x 2400 at 120 Hz.
       expect(info.fillDemandMegapixelsPerSecond, closeTo(311.04, 0.01));
-      expect(GlassDeviceTier.classifyDevice(info), GlassQuality.liquid,
-          reason: 'a big high-refresh screen usually means a fast device, so '
-              'judging by demand would downgrade exactly the wrong ones');
+      expect(
+        GlassDeviceTier.classifyDevice(info),
+        GlassQuality.liquid,
+        reason:
+            'a big high-refresh screen usually means a fast device, so '
+            'judging by demand would downgrade exactly the wrong ones',
+      );
     });
   });
 
   group('resolution', () {
-    testWidgets('an element follows the device tier by default',
-        (WidgetTester tester) async {
+    testWidgets('an element follows the device tier by default', (
+      WidgetTester tester,
+    ) async {
       final GlassDeviceTier t = GlassDeviceTier()
         ..debugCeiling = GlassQuality.liquid
         ..debugInfo = _info();
@@ -235,50 +265,65 @@ void main() {
       seen.clear();
       t.pinnedQuality = GlassQuality.plain;
       await tester.pump();
-      expect(seen, isNotEmpty,
-          reason: 'changing the tier must repaint the element');
+      expect(
+        seen,
+        isNotEmpty,
+        reason: 'changing the tier must repaint the element',
+      );
       expect(seen.last, GlassQuality.plain);
     });
 
-    testWidgets('a scope overrides the device tier', (WidgetTester tester) async {
+    testWidgets('a scope overrides the device tier', (
+      WidgetTester tester,
+    ) async {
       final List<GlassQuality> seen = <GlassQuality>[];
-      await tester.pumpWidget(_host(
-        GlassQualityScope(
-          quality: GlassQuality.plain,
-          child: _Probe(sink: seen),
+      await tester.pumpWidget(
+        _host(
+          GlassQualityScope(
+            quality: GlassQuality.plain,
+            child: _Probe(sink: seen),
+          ),
         ),
-      ));
+      );
       expect(seen.last, GlassQuality.plain);
     });
 
-    testWidgets('the element itself wins over the scope',
-        (WidgetTester tester) async {
+    testWidgets('the element itself wins over the scope', (
+      WidgetTester tester,
+    ) async {
       final List<GlassQuality> seen = <GlassQuality>[];
-      await tester.pumpWidget(_host(
-        GlassQualityScope(
-          quality: GlassQuality.plain,
-          child: _Probe(sink: seen, quality: GlassQuality.liquid),
+      await tester.pumpWidget(
+        _host(
+          GlassQualityScope(
+            quality: GlassQuality.plain,
+            child: _Probe(sink: seen, quality: GlassQuality.liquid),
+          ),
         ),
-      ));
-      expect(seen.last,
-          GlassQuality.liquid.atMost(GlassDeviceTier.instance.ceiling));
+      );
+      expect(
+        seen.last,
+        GlassQuality.liquid.atMost(GlassDeviceTier.instance.ceiling),
+      );
     });
 
-    testWidgets('a scope change repaints the elements under it',
-        (WidgetTester tester) async {
+    testWidgets('a scope change repaints the elements under it', (
+      WidgetTester tester,
+    ) async {
       final List<GlassQuality> seen = <GlassQuality>[];
       Widget build(GlassQuality quality) => _host(
-            GlassQualityScope(
-              quality: quality,
-              child: _Probe(sink: seen),
-            ),
-          );
+        GlassQualityScope(
+          quality: quality,
+          child: _Probe(sink: seen),
+        ),
+      );
 
       await tester.pumpWidget(build(GlassQuality.plain));
       seen.clear();
       await tester.pumpWidget(build(GlassQuality.liquid));
-      expect(seen.last,
-          GlassQuality.liquid.atMost(GlassDeviceTier.instance.ceiling));
+      expect(
+        seen.last,
+        GlassQuality.liquid.atMost(GlassDeviceTier.instance.ceiling),
+      );
     });
   });
 
@@ -289,8 +334,9 @@ void main() {
     // program had loaded, never on the tier, so a device that gave up the
     // refraction to keep its frame budget still paid a shader pass on every
     // press.
-    testWidgets('no paint carries a shader, pressed or not',
-        (WidgetTester tester) async {
+    testWidgets('no paint carries a shader, pressed or not', (
+      WidgetTester tester,
+    ) async {
       final GlassDeviceTier t = GlassDeviceTier.instance
         ..debugCeiling = GlassQuality.liquid
         ..pinnedQuality = GlassQuality.plain;
@@ -299,21 +345,24 @@ void main() {
       final LayerBackdrop backdrop = LayerBackdrop();
       addTearDown(backdrop.dispose);
 
-      await tester.pumpWidget(_host(
-        SizedBox(
-          height: 56,
-          child: LiquidButton(
-            onPressed: () {},
-            backdrop: backdrop,
-            children: const <Widget>[Text('press me')],
+      await tester.pumpWidget(
+        _host(
+          SizedBox(
+            height: 56,
+            child: LiquidButton(
+              onPressed: () {},
+              backdrop: backdrop,
+              children: const <Widget>[Text('press me')],
+            ),
           ),
         ),
-      ));
+      );
       await tester.pump();
 
       // Hold the press so the glow is at full strength.
-      final TestGesture gesture =
-          await tester.startGesture(tester.getCenter(find.text('press me')));
+      final TestGesture gesture = await tester.startGesture(
+        tester.getCenter(find.text('press me')),
+      );
       await tester.pump(const Duration(milliseconds: 120));
       await tester.pump(const Duration(milliseconds: 120));
 

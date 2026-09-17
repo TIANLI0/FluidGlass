@@ -45,7 +45,8 @@ double _spread(Uint8List p, Rect box) {
   }
   final double mean =
       values.reduce((double a, double b) => a + b) / values.length;
-  final double variance = values
+  final double variance =
+      values
           .map((double v) => (v - mean) * (v - mean))
           .reduce((double a, double b) => a + b) /
       values.length;
@@ -136,8 +137,9 @@ void main() {
   tearDown(() => GlassDeviceTier.instance.reset());
 
   for (final GlassQuality quality in GlassQuality.values) {
-    testWidgets('the selection pill filters its backdrop at rest on $quality',
-        (WidgetTester tester) async {
+    testWidgets('the selection pill filters its backdrop at rest on $quality', (
+      WidgetTester tester,
+    ) async {
       GlassDeviceTier.instance
         ..debugCeiling = quality
         ..pinnedQuality = quality;
@@ -172,7 +174,8 @@ void main() {
       expect(
         pill,
         lessThan(panel * 3),
-        reason: 'the pill is showing the raw source: spread $pill against '
+        reason:
+            'the pill is showing the raw source: spread $pill against '
             'the panel of $panel',
       );
     });

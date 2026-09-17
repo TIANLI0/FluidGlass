@@ -107,10 +107,14 @@ void _report(ByteData raw, int w) {
 
   debugPrint('stripe peak-to-peak (255 = untouched)');
   debugPrint('  raw page above the bar : ${rawPage.pp.toStringAsFixed(1)}');
-  debugPrint('  bar beside the pill    : ${left.pp.toStringAsFixed(1)}'
-      '  mean ${left.mean.toStringAsFixed(1)}');
-  debugPrint('  inside the pill        : ${pill.pp.toStringAsFixed(1)}'
-      '  mean ${pill.mean.toStringAsFixed(1)}');
+  debugPrint(
+    '  bar beside the pill    : ${left.pp.toStringAsFixed(1)}'
+    '  mean ${left.mean.toStringAsFixed(1)}',
+  );
+  debugPrint(
+    '  inside the pill        : ${pill.pp.toStringAsFixed(1)}'
+    '  mean ${pill.mean.toStringAsFixed(1)}',
+  );
 
   // How much stripe survives, as a map. `pp` over one stripe period at each
   // point: 0 is a working blur, 255 is none at all. Walked across and down the
@@ -130,9 +134,11 @@ void _report(ByteData raw, int w) {
     }
     debugPrint(line.toString());
   }
-  debugPrint('pill spans x ${pillLeft.toStringAsFixed(0)}..'
-      '${pillRight.toStringAsFixed(0)}, bar y ${barTop.toStringAsFixed(0)}..'
-      '${(barTop + _barH).toStringAsFixed(0)}');
+  debugPrint(
+    'pill spans x ${pillLeft.toStringAsFixed(0)}..'
+    '${pillRight.toStringAsFixed(0)}, bar y ${barTop.toStringAsFixed(0)}..'
+    '${(barTop + _barH).toStringAsFixed(0)}',
+  );
 }
 
 class _App extends StatefulWidget {
@@ -185,8 +191,11 @@ class _AppState extends State<_App> {
                           LiquidBottomTab(
                             onPressed: () {},
                             children: const <Widget>[
-                              Icon(Icons.circle,
-                                  size: 20, color: Color(0xFFFFFFFF)),
+                              Icon(
+                                Icons.circle,
+                                size: 20,
+                                color: Color(0xFFFFFFFF),
+                              ),
                             ],
                           ),
                       ],
@@ -207,7 +216,10 @@ class _Stripes extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    canvas.drawRect(Offset.zero & size, Paint()..color = const Color(0xFFFFFFFF));
+    canvas.drawRect(
+      Offset.zero & size,
+      Paint()..color = const Color(0xFFFFFFFF),
+    );
     final Paint black = Paint()..color = const Color(0xFF000000);
     for (double x = 0; x < size.width; x += _stripe * 2) {
       canvas.drawRect(Rect.fromLTWH(x, 0, _stripe, size.height), black);

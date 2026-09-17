@@ -23,8 +23,8 @@ Future<void> _report() async {
   await Future<void>.delayed(const Duration(milliseconds: 1500));
 
   final ui.PlatformDispatcher d = ui.PlatformDispatcher.instance;
-  final ui.FlutterView? view = d.implicitView ??
-      (d.views.isEmpty ? null : d.views.first);
+  final ui.FlutterView? view =
+      d.implicitView ?? (d.views.isEmpty ? null : d.views.first);
 
   void p(String k, Object? v) => debugPrint('SIG| $k = $v');
 
@@ -41,26 +41,28 @@ Future<void> _report() async {
   if (view != null) {
     p('physicalSize', view.physicalSize);
     p('devicePixelRatio', view.devicePixelRatio);
-    p('logicalSize',
-        '${view.physicalSize.width / view.devicePixelRatio}x'
-        '${view.physicalSize.height / view.devicePixelRatio}');
+    p(
+      'logicalSize',
+      '${view.physicalSize.width / view.devicePixelRatio}x'
+          '${view.physicalSize.height / view.devicePixelRatio}',
+    );
     p('display.refreshRate', view.display.refreshRate);
     p('display.size', view.display.size);
     p('display.devicePixelRatio', view.display.devicePixelRatio);
     final double mpx =
         view.physicalSize.width * view.physicalSize.height / 1000000;
     p('megapixels', mpx.toStringAsFixed(2));
-    p('fill demand Mpx/s',
-        (mpx * view.display.refreshRate).toStringAsFixed(0));
+    p('fill demand Mpx/s', (mpx * view.display.refreshRate).toStringAsFixed(0));
   } else {
     p('view', 'none');
   }
 
   p('displays', d.displays.length);
-  p('accessibilityFeatures.reduceMotion',
-      d.accessibilityFeatures.reduceMotion);
-  p('accessibilityFeatures.disableAnimations',
-      d.accessibilityFeatures.disableAnimations);
+  p('accessibilityFeatures.reduceMotion', d.accessibilityFeatures.reduceMotion);
+  p(
+    'accessibilityFeatures.disableAnimations',
+    d.accessibilityFeatures.disableAnimations,
+  );
 
   // Android exposes a lot through the environment on some ROMs; worth a look.
   final Map<String, String> env = Platform.environment;

@@ -23,8 +23,9 @@ class _MenuContentState extends State<MenuContent> {
   @override
   Widget build(BuildContext context) {
     final bool isLight = Theme.of(context).brightness == Brightness.light;
-    final Color contentColor =
-        isLight ? const Color(0xFF000000) : const Color(0xFFFFFFFF);
+    final Color contentColor = isLight
+        ? const Color(0xFF000000)
+        : const Color(0xFFFFFFFF);
 
     return BackdropDemoScaffold(
       builder: (BuildContext context, LayerBackdrop backdrop) {

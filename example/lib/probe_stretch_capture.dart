@@ -70,8 +70,10 @@ Future<void> main() async {
 
 Future<void> _drive() async {
   await _settle(30);
-  debugPrint('tier: ${GlassDeviceTier.instance.quality}   '
-      'shader filters: ${ui.ImageFilter.isShaderFilterSupported}');
+  debugPrint(
+    'tier: ${GlassDeviceTier.instance.quality}   '
+    'shader filters: ${ui.ImageFilter.isShaderFilterSupported}',
+  );
   for (final _Wrap wrap in _Wrap.values) {
     _wrap.value = wrap;
     _amount.value = 0;
@@ -115,9 +117,11 @@ Future<void> _run(_Wrap wrap) async {
   final double live = spread(native);
   final double saw = spread(glass);
   debugPrint('--- ${wrap.label}');
-  debugPrint('  native moved ${live.toStringAsFixed(1)}   '
-      'FluidGlass moved ${saw.toStringAsFixed(1)}   '
-      '${live > 12 && saw < live / 4 ? '<<< FROZEN' : 'tracking'}');
+  debugPrint(
+    '  native moved ${live.toStringAsFixed(1)}   '
+    'FluidGlass moved ${saw.toStringAsFixed(1)}   '
+    '${live > 12 && saw < live / 4 ? '<<< FROZEN' : 'tracking'}',
+  );
   debugPrint('  glass : ${glass.map((double v) => v.round()).join(' ')}');
   debugPrint('  native: ${native.map((double v) => v.round()).join(' ')}');
 }
@@ -186,8 +190,9 @@ class _AppState extends State<_App> {
                       backdrop: _backdrop,
                       child: ValueListenableBuilder<_Wrap>(
                         valueListenable: _wrap,
-                        builder: (BuildContext context, _Wrap wrap, Widget? _) =>
-                            _Wrapped(wrap: wrap, child: const _Teeth()),
+                        builder:
+                            (BuildContext context, _Wrap wrap, Widget? _) =>
+                                _Wrapped(wrap: wrap, child: const _Teeth()),
                       ),
                     ),
                   ),

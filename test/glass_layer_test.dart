@@ -4,7 +4,8 @@ import 'package:fluid_glass/fluid_glass.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-Offset _apply(Matrix4 matrix, Offset point) => MatrixUtils.transformPoint(matrix, point);
+Offset _apply(Matrix4 matrix, Offset point) =>
+    MatrixUtils.transformPoint(matrix, point);
 
 void main() {
   group('GlassLayer', () {
@@ -62,16 +63,21 @@ void main() {
         final GlassLayer layer = GlassLayer()..reset(const Size(10, 10));
         expect(layer.inverseLinearTransformAtTopLeft(), isNull);
         layer.translationX = 20;
-        expect(layer.inverseLinearTransformAtTopLeft(), isNull,
-            reason: 'translation is handled by the element position');
+        expect(
+          layer.inverseLinearTransformAtTopLeft(),
+          isNull,
+          reason: 'translation is handled by the element position',
+        );
       });
 
       test('undoes a scale about the origin', () {
         final GlassLayer layer = GlassLayer()..reset(const Size(100, 50));
         layer.scaleX = 2;
         layer.scaleY = 4;
-        final Offset point =
-            _apply(layer.inverseLinearTransformAtTopLeft()!, const Offset(20, 20));
+        final Offset point = _apply(
+          layer.inverseLinearTransformAtTopLeft()!,
+          const Offset(20, 20),
+        );
         expect(point.dx, closeTo(10, 1e-6));
         expect(point.dy, closeTo(5, 1e-6));
       });
@@ -89,8 +95,10 @@ void main() {
           ..scaleByDouble(2, 3, 1, 1);
 
         const Offset point = Offset(7, -11);
-        final Offset roundTrip =
-            _apply(layer.inverseLinearTransformAtTopLeft()!, _apply(forward, point));
+        final Offset roundTrip = _apply(
+          layer.inverseLinearTransformAtTopLeft()!,
+          _apply(forward, point),
+        );
         expect(roundTrip.dx, closeTo(point.dx, 1e-6));
         expect(roundTrip.dy, closeTo(point.dy, 1e-6));
       });

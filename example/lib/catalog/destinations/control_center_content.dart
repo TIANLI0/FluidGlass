@@ -34,14 +34,23 @@ class _ControlCenterContentState extends State<ControlCenterContent>
   static const Color _dimColor = Color(0x66000000); // black, alpha 0.4
   static const Color _inactiveItemColor = Color(0x33FFFFFF); // white, alpha 0.2
 
-  late final SpringValue _enterProgress =
-      SpringValue(vsync: this, value: 1, visibilityThreshold: 0.5 / _maxDragHeight);
-  late final SpringValue _safeEnterProgress =
-      SpringValue(vsync: this, value: 1, visibilityThreshold: 0.01);
+  late final SpringValue _enterProgress = SpringValue(
+    vsync: this,
+    value: 1,
+    visibilityThreshold: 0.5 / _maxDragHeight,
+  );
+  late final SpringValue _safeEnterProgress = SpringValue(
+    vsync: this,
+    value: 1,
+    visibilityThreshold: 0.01,
+  );
   final UISensor _uiSensor = UISensor();
 
-  late final Listenable _repaint =
-      Listenable.merge(<Listenable>[_enterProgress, _safeEnterProgress, _uiSensor]);
+  late final Listenable _repaint = Listenable.merge(<Listenable>[
+    _enterProgress,
+    _safeEnterProgress,
+    _uiSensor,
+  ]);
 
   @override
   void initState() {
@@ -69,7 +78,8 @@ class _ControlCenterContentState extends State<ControlCenterContent>
   double get _overshoot => math.max(0.0, _progress - 1);
 
   void _onDragUpdate(DragUpdateDetails details) {
-    final double target = _enterProgress.value + details.delta.dy / _maxDragHeight;
+    final double target =
+        _enterProgress.value + details.delta.dy / _maxDragHeight;
     _enterProgress.snapTo(target);
     _safeEnterProgress.snapTo(target.clamp(0.0, 1.0));
   }
@@ -158,7 +168,10 @@ class _ControlCenterContentState extends State<ControlCenterContent>
           height: _innerItemSize,
           child: Transform.scale(
             scale: _innerItemIconScale,
-            child: const FlightIcon(size: _innerItemSize, color: Color(0xFFFFFFFF)),
+            child: const FlightIcon(
+              size: _innerItemSize,
+              color: Color(0xFFFFFFFF),
+            ),
           ),
         ),
       ),
@@ -177,8 +190,9 @@ class _ControlCenterContentState extends State<ControlCenterContent>
   @override
   Widget build(BuildContext context) {
     final bool isLight = Theme.of(context).brightness == Brightness.light;
-    final Color accentColor =
-        isLight ? const Color(0xFF0088FF) : const Color(0xFF0091FF);
+    final Color accentColor = isLight
+        ? const Color(0xFF0088FF)
+        : const Color(0xFF0091FF);
     final EdgeInsets insets = MediaQuery.paddingOf(context);
 
     return BackdropDemoScaffold(
@@ -337,9 +351,7 @@ class _ControlCenterContentState extends State<ControlCenterContent>
                             mainAxisSize: MainAxisSize.min,
                             crossAxisAlignment: CrossAxisAlignment.center,
                             spacing: _itemSpacing,
-                            children: <Widget>[
-                              _iconTile(backdrop: backdrop),
-                            ],
+                            children: <Widget>[_iconTile(backdrop: backdrop)],
                           ),
                         ],
                       ),

@@ -17,6 +17,7 @@ class LiquidSegmentedControl extends StatefulWidget {
     required this.backdrop,
     required this.segments,
     this.height = 40,
+    this.thumbColor,
   });
 
   final int selectedIndex;
@@ -24,6 +25,19 @@ class LiquidSegmentedControl extends StatefulWidget {
   final Backdrop backdrop;
   final List<Widget> segments;
   final double height;
+
+  /// The wash painted over the thumb's refraction.
+  ///
+  /// Null keeps the white this control has always drawn — the iOS look, which
+  /// reads as *raised* on any track without claiming a colour of its own.
+  ///
+  /// Give a colour when the design system marks a selection with one. A palette
+  /// whose panel is already near-white leaves a white thumb with nothing to
+  /// separate it from the track it rides on, and the control then says nothing
+  /// about which segment is selected — the one thing it exists to say. The
+  /// colour's own alpha is its resting alpha, and pressing thins it by the same
+  /// amount it always did, so more of the refraction shows under the finger.
+  final Color? thumbColor;
 
   @override
   State<LiquidSegmentedControl> createState() => _LiquidSegmentedControlState();
@@ -229,13 +243,22 @@ class _LiquidSegmentedControlState extends State<LiquidSegmentedControl>
                         layerBlock: _thumbLayerBlock,
                         onDrawSurface: (Canvas canvas, Size size) {
                           final double progress = _animation.pressProgress;
+                          // Written as a subtraction from a resting alpha, not
+                          // a multiplication, so that the default path stays
+                          // bit-identical to the alphas this control shipped
+                          // with. A supplied colour brings its own resting
+                          // alpha and is thinned by the same amount.
+                          final Color wash =
+                              widget.thumbColor ?? const Color(0xFFFFFFFF);
+                          final double restingAlpha =
+                              widget.thumbColor?.a ?? (isLight ? 0.85 : 0.18);
                           canvas.drawRect(
                             Offset.zero & size,
                             Paint()
-                              ..color = const Color(0xFFFFFFFF).withValues(
-                                alpha: isLight
-                                    ? 0.85 - 0.45 * progress
-                                    : 0.18 - 0.06 * progress,
+                              ..color = wash.withValues(
+                                alpha:
+                                    restingAlpha -
+                                    (isLight ? 0.45 : 0.06) * progress,
                               ),
                           );
                         },

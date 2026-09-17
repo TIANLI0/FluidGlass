@@ -78,7 +78,10 @@ class _VectorPath {
   void reflectiveQuadTo(double x, double y) {
     final Offset control = _lastControl == null
         ? _current
-        : Offset(2 * _current.dx - _lastControl!.dx, 2 * _current.dy - _lastControl!.dy);
+        : Offset(
+            2 * _current.dx - _lastControl!.dx,
+            2 * _current.dy - _lastControl!.dy,
+          );
     path.quadraticBezierTo(control.dx, control.dy, x, y);
     _current = Offset(x, y);
     _lastControl = control;

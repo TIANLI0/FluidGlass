@@ -23,15 +23,15 @@ Widget _host({
           items: items,
           anchorBuilder:
               (BuildContext context, bool isOpen, VoidCallback toggle) {
-            return GestureDetector(
-              onTap: toggle,
-              child: SizedBox(
-                width: 120,
-                height: 48,
-                child: Center(child: Text(isOpen ? 'Open' : 'Closed')),
-              ),
-            );
-          },
+                return GestureDetector(
+                  onTap: toggle,
+                  child: SizedBox(
+                    width: 120,
+                    height: 48,
+                    child: Center(child: Text(isOpen ? 'Open' : 'Closed')),
+                  ),
+                );
+              },
         ),
       ),
     ),
@@ -39,8 +39,9 @@ Widget _host({
 }
 
 void main() {
-  testWidgets('the menu opens, reports a selection and closes',
-      (WidgetTester tester) async {
+  testWidgets('the menu opens, reports a selection and closes', (
+    WidgetTester tester,
+  ) async {
     final List<String> picked = <String>[];
     await tester.pumpWidget(
       _host(
@@ -53,8 +54,11 @@ void main() {
     await tester.pump();
 
     expect(find.text('Closed'), findsOneWidget);
-    expect(find.text('One'), findsNothing,
-        reason: 'the panel must not be mounted while closed');
+    expect(
+      find.text('One'),
+      findsNothing,
+      reason: 'the panel must not be mounted while closed',
+    );
 
     await tester.tap(find.text('Closed'));
     await tester.pump();
@@ -75,8 +79,9 @@ void main() {
     expect(find.text('Closed'), findsOneWidget);
   });
 
-  testWidgets('a row cannot be hit while the panel is still flying open',
-      (WidgetTester tester) async {
+  testWidgets('a row cannot be hit while the panel is still flying open', (
+    WidgetTester tester,
+  ) async {
     // Not a geometry guard — `RenderGlassTransform` inverts its own matrix
     // when hit-testing, so a row is always live exactly where it is drawn.
     // It is an intent guard: a panel that has been on screen for one frame,
@@ -128,8 +133,9 @@ void main() {
     expect(find.text('Closed'), findsOneWidget);
   });
 
-  testWidgets('rapidly toggling the anchor never eats a tap',
-      (WidgetTester tester) async {
+  testWidgets('rapidly toggling the anchor never eats a tap', (
+    WidgetTester tester,
+  ) async {
     // Regression: the outside-tap barrier used to stay interactive for the
     // whole closing spring (~450ms), so the tap meant to reopen the menu hit
     // the barrier instead — quick toggling made the menu pop open and shut
@@ -159,16 +165,23 @@ void main() {
     // swallowed by a lingering barrier.
     await tester.tap(find.text('Closed'), warnIfMissed: false);
     await tester.pump(const Duration(milliseconds: 50));
-    expect(find.text('Open'), findsOneWidget,
-        reason: 'a tap during the closing animation must reach the anchor');
+    expect(
+      find.text('Open'),
+      findsOneWidget,
+      reason: 'a tap during the closing animation must reach the anchor',
+    );
 
     await tester.pump(const Duration(seconds: 1));
-    expect(find.text('One'), findsOneWidget,
-        reason: 'the reopened menu must stay open');
+    expect(
+      find.text('One'),
+      findsOneWidget,
+      reason: 'the reopened menu must stay open',
+    );
   });
 
-  testWidgets('reopening during the closing spring never remounts the panel',
-      (WidgetTester tester) async {
+  testWidgets('reopening during the closing spring never remounts the panel', (
+    WidgetTester tester,
+  ) async {
     // Regression: _show() used to call OverlayPortalController.show()
     // unconditionally. show() assigns a fresh z-order slot even when the
     // portal is already showing, which re-grafts the overlay child — the
@@ -202,17 +215,21 @@ void main() {
     await tester.pump(const Duration(milliseconds: 50));
 
     final Element panelAfter = tester.element(find.text('One'));
-    expect(identical(panelBefore, panelAfter), isTrue,
-        reason: 'the overlay child must survive a reopen — a remount is what '
-            'made the bloom flash and replay');
+    expect(
+      identical(panelBefore, panelAfter),
+      isTrue,
+      reason:
+          'the overlay child must survive a reopen — a remount is what '
+          'made the bloom flash and replay',
+    );
 
     await tester.pump(const Duration(seconds: 1));
     expect(find.text('One'), findsOneWidget);
   });
 
-
-  testWidgets('a row on a closing panel is dead to taps',
-      (WidgetTester tester) async {
+  testWidgets('a row on a closing panel is dead to taps', (
+    WidgetTester tester,
+  ) async {
     // The panel keeps its full-size hit box for as long as the closing spring
     // runs, and the barrier stops intercepting the moment the close starts —
     // so a tap aimed at whatever the menu was covering used to land on a row
@@ -236,8 +253,11 @@ void main() {
     await tester.tapAt(const Offset(20, 20));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 40));
-    expect(find.text('One'), findsOneWidget,
-        reason: 'the panel should still be mounted, animating out');
+    expect(
+      find.text('One'),
+      findsOneWidget,
+      reason: 'the panel should still be mounted, animating out',
+    );
 
     await tester.tap(find.text('One'), warnIfMissed: false);
     await tester.pump();
@@ -246,8 +266,9 @@ void main() {
     await tester.pump(const Duration(seconds: 1));
   });
 
-  testWidgets('one tap switches from one menu to another',
-      (WidgetTester tester) async {
+  testWidgets('one tap switches from one menu to another', (
+    WidgetTester tester,
+  ) async {
     // The dismiss barrier is opaque, so the tap that closes menu A never
     // reached menu B's anchor and switching cost two taps. The barrier now
     // resolves a press on a sibling anchor itself.
@@ -264,22 +285,19 @@ void main() {
                 LiquidMenu(
                   backdrop: emptyBackdrop,
                   items: <LiquidMenuItem>[LiquidMenuItem(label: 'row $tag')],
-                  anchorBuilder: (
-                    BuildContext context,
-                    bool isOpen,
-                    VoidCallback toggle,
-                  ) {
-                    return GestureDetector(
-                      onTap: toggle,
-                      child: SizedBox(
-                        width: 120,
-                        height: 48,
-                        child: Center(
-                          child: Text('$tag ${isOpen ? "open" : "shut"}'),
-                        ),
-                      ),
-                    );
-                  },
+                  anchorBuilder:
+                      (BuildContext context, bool isOpen, VoidCallback toggle) {
+                        return GestureDetector(
+                          onTap: toggle,
+                          child: SizedBox(
+                            width: 120,
+                            height: 48,
+                            child: Center(
+                              child: Text('$tag ${isOpen ? "open" : "shut"}'),
+                            ),
+                          ),
+                        );
+                      },
                 ),
             ],
           ),
@@ -297,16 +315,20 @@ void main() {
     await tester.tap(find.text('B shut'), warnIfMissed: false);
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 400));
-    expect(find.text('B open'), findsOneWidget,
-        reason: 'the tap that dismissed A must also open B');
+    expect(
+      find.text('B open'),
+      findsOneWidget,
+      reason: 'the tap that dismissed A must also open B',
+    );
     expect(find.text('A shut'), findsOneWidget);
     expect(find.text('row B'), findsOneWidget);
     expect(find.text('row A'), findsNothing);
 
     await tester.pump(const Duration(seconds: 1));
   });
-  testWidgets('an upward menu lays out above its anchor',
-      (WidgetTester tester) async {
+  testWidgets('an upward menu lays out above its anchor', (
+    WidgetTester tester,
+  ) async {
     await tester.pumpWidget(
       _host(
         side: LiquidMenuSide.above,
@@ -324,8 +346,11 @@ void main() {
 
     final Rect anchor = tester.getRect(find.text('Open'));
     final Rect row = tester.getRect(find.text('One'));
-    expect(row.bottom, lessThanOrEqualTo(anchor.top),
-        reason: 'the panel must sit above the anchor');
+    expect(
+      row.bottom,
+      lessThanOrEqualTo(anchor.top),
+      reason: 'the panel must sit above the anchor',
+    );
 
     await tester.pump(const Duration(seconds: 1));
   });
@@ -341,19 +366,23 @@ void main() {
       await tester.pumpAndSettle();
     }
 
-    testWidgets('an anchor at the bottom asked to open below opens above',
-        (WidgetTester tester) async {
+    testWidgets('an anchor at the bottom asked to open below opens above', (
+      WidgetTester tester,
+    ) async {
       await tester.pumpWidget(
         _host(items: three, anchorAlignment: Alignment.bottomCenter),
       );
       await open(tester);
 
-      expect(tester.getRect(find.text('Two')).center.dy,
-          lessThan(tester.getRect(find.text('Open')).center.dy));
+      expect(
+        tester.getRect(find.text('Two')).center.dy,
+        lessThan(tester.getRect(find.text('Open')).center.dy),
+      );
     });
 
-    testWidgets('an anchor at the top asked to open above opens below',
-        (WidgetTester tester) async {
+    testWidgets('an anchor at the top asked to open above opens below', (
+      WidgetTester tester,
+    ) async {
       await tester.pumpWidget(
         _host(
           items: three,
@@ -363,12 +392,15 @@ void main() {
       );
       await open(tester);
 
-      expect(tester.getRect(find.text('Two')).center.dy,
-          greaterThan(tester.getRect(find.text('Open')).center.dy));
+      expect(
+        tester.getRect(find.text('Two')).center.dy,
+        greaterThan(tester.getRect(find.text('Open')).center.dy),
+      );
     });
 
-    testWidgets('a margin that eats the space below flips it too',
-        (WidgetTester tester) async {
+    testWidgets('a margin that eats the space below flips it too', (
+      WidgetTester tester,
+    ) async {
       await tester.pumpWidget(
         _host(
           items: three,
@@ -377,12 +409,15 @@ void main() {
       );
       await open(tester);
 
-      expect(tester.getRect(find.text('Two')).center.dy,
-          lessThan(tester.getRect(find.text('Open')).center.dy));
+      expect(
+        tester.getRect(find.text('Two')).center.dy,
+        lessThan(tester.getRect(find.text('Open')).center.dy),
+      );
     });
 
-    testWidgets('the preference is kept when neither side fits',
-        (WidgetTester tester) async {
+    testWidgets('the preference is kept when neither side fits', (
+      WidgetTester tester,
+    ) async {
       // A margin taller than the overlay: flipping cannot rescue it, so the
       // result must at least stay predictable.
       await tester.pumpWidget(
@@ -393,13 +428,16 @@ void main() {
       );
       await open(tester);
 
-      expect(tester.getRect(find.text('Two')).center.dy,
-          greaterThan(tester.getRect(find.text('Open')).center.dy));
+      expect(
+        tester.getRect(find.text('Two')).center.dy,
+        greaterThan(tester.getRect(find.text('Open')).center.dy),
+      );
     });
   });
 
-  testWidgets('rootOverlay puts the panel over a sibling of the navigator',
-      (WidgetTester tester) async {
+  testWidgets('rootOverlay puts the panel over a sibling of the navigator', (
+    WidgetTester tester,
+  ) async {
     // The bar is a sibling of the Navigator, so it paints over anything in the
     // navigator's own overlay — which is what rootOverlay exists to escape.
     const Key bar = Key('bar');
@@ -423,13 +461,15 @@ void main() {
               anchorBuilder:
                   (BuildContext context, bool isOpen, VoidCallback toggle) =>
                       GestureDetector(
-                onTap: toggle,
-                child: SizedBox(
-                  width: 120,
-                  height: 48,
-                  child: Center(child: Text(isOpen ? 'Open' : 'Closed')),
-                ),
-              ),
+                        onTap: toggle,
+                        child: SizedBox(
+                          width: 120,
+                          height: 48,
+                          child: Center(
+                            child: Text(isOpen ? 'Open' : 'Closed'),
+                          ),
+                        ),
+                      ),
             ),
           ),
         ),

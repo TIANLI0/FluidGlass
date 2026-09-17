@@ -13,7 +13,6 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 
-
 final String _dir = Platform.environment['PROBE_DIR'] ?? 'probe_menu_out';
 
 // The boundary wraps the whole app, not the route: OverlayPortal puts the
@@ -53,8 +52,10 @@ class _ProbeAppState extends State<_ProbeApp> {
                 child: BackdropLayer(
                   backdrop: _backdrop,
                   child: SizedBox.expand(
-                    child: Image.asset('assets/wallpaper_light.webp',
-                        fit: BoxFit.cover),
+                    child: Image.asset(
+                      'assets/wallpaper_light.webp',
+                      fit: BoxFit.cover,
+                    ),
                   ),
                 ),
               ),
@@ -62,38 +63,35 @@ class _ProbeAppState extends State<_ProbeApp> {
                 child: LiquidMenu(
                   backdrop: _backdrop,
                   panelWidth: 260,
-                  anchorBuilder: (
-                    BuildContext context,
-                    bool isOpen,
-                    VoidCallback toggle,
-                  ) {
-                    return SizedBox(
-                      key: _anchorKey,
-                      child: LiquidButton(
-                        onPressed: toggle,
-                        backdrop: _backdrop,
-                        tint: isOpen ? const Color(0xFF0088FF) : null,
-                        children: <Widget>[
-                          Text(
-                            'Sort by',
-                            style: TextStyle(
-                              color: isOpen
-                                  ? const Color(0xFFFFFFFF)
-                                  : const Color(0xFF000000),
-                              fontSize: 16,
-                            ),
+                  anchorBuilder:
+                      (BuildContext context, bool isOpen, VoidCallback toggle) {
+                        return SizedBox(
+                          key: _anchorKey,
+                          child: LiquidButton(
+                            onPressed: toggle,
+                            backdrop: _backdrop,
+                            tint: isOpen ? const Color(0xFF0088FF) : null,
+                            children: <Widget>[
+                              Text(
+                                'Sort by',
+                                style: TextStyle(
+                                  color: isOpen
+                                      ? const Color(0xFFFFFFFF)
+                                      : const Color(0xFF000000),
+                                  fontSize: 16,
+                                ),
+                              ),
+                              Icon(
+                                Icons.expand_more,
+                                size: 20,
+                                color: isOpen
+                                    ? const Color(0xFFFFFFFF)
+                                    : const Color(0xFF000000),
+                              ),
+                            ],
                           ),
-                          Icon(
-                            Icons.expand_more,
-                            size: 20,
-                            color: isOpen
-                                ? const Color(0xFFFFFFFF)
-                                : const Color(0xFF000000),
-                          ),
-                        ],
-                      ),
-                    );
-                  },
+                        );
+                      },
                   items: <LiquidMenuItem>[
                     LiquidMenuItem(
                       label: 'Name',
@@ -139,11 +137,18 @@ Offset _anchorCentre() {
 Future<void> _tap(Offset p) async {
   GestureBinding.instance.handlePointerEvent(
     PointerDownEvent(
-        pointer: ++_pointer, position: p, kind: PointerDeviceKind.touch),
+      pointer: ++_pointer,
+      position: p,
+      kind: PointerDeviceKind.touch,
+    ),
   );
   await _settle(40);
   GestureBinding.instance.handlePointerEvent(
-    PointerUpEvent(pointer: _pointer, position: p, kind: PointerDeviceKind.touch),
+    PointerUpEvent(
+      pointer: _pointer,
+      position: p,
+      kind: PointerDeviceKind.touch,
+    ),
   );
 }
 
@@ -170,34 +175,49 @@ Future<void> _drive() async {
   // rectangle, clear of the panel's corners.
   final RenderBox anchor =
       _anchorKey.currentContext!.findRenderObject()! as RenderBox;
-  final Offset anchorBottomLeft =
-      anchor.localToGlobal(Offset(0, anchor.size.height));
-  final Offset secondRow = anchorBottomLeft + const Offset(120, 8 + 6 + 44 + 22);
+  final Offset anchorBottomLeft = anchor.localToGlobal(
+    Offset(0, anchor.size.height),
+  );
+  final Offset secondRow =
+      anchorBottomLeft + const Offset(120, 8 + 6 + 44 + 22);
   GestureBinding.instance.handlePointerEvent(
     PointerDownEvent(
-        pointer: ++_pointer, position: secondRow, kind: PointerDeviceKind.touch),
+      pointer: ++_pointer,
+      position: secondRow,
+      kind: PointerDeviceKind.touch,
+    ),
   );
   await _settle(300);
   await _shoot('03_row_pressed');
   GestureBinding.instance.handlePointerEvent(
     PointerUpEvent(
-        pointer: _pointer, position: secondRow, kind: PointerDeviceKind.touch),
+      pointer: _pointer,
+      position: secondRow,
+      kind: PointerDeviceKind.touch,
+    ),
   );
   await _settle(400);
 
   // And on the LAST row: the wash must not collide with the bottom corners.
   await _tap(_anchorCentre());
   await _settle(900);
-  final Offset lastRow = anchorBottomLeft + const Offset(120, 8 + 6 + 44 * 3 + 22);
+  final Offset lastRow =
+      anchorBottomLeft + const Offset(120, 8 + 6 + 44 * 3 + 22);
   GestureBinding.instance.handlePointerEvent(
     PointerDownEvent(
-        pointer: ++_pointer, position: lastRow, kind: PointerDeviceKind.touch),
+      pointer: ++_pointer,
+      position: lastRow,
+      kind: PointerDeviceKind.touch,
+    ),
   );
   await _settle(300);
   await _shoot('04_last_row_pressed');
   GestureBinding.instance.handlePointerEvent(
     PointerUpEvent(
-        pointer: _pointer, position: lastRow, kind: PointerDeviceKind.touch),
+      pointer: _pointer,
+      position: lastRow,
+      kind: PointerDeviceKind.touch,
+    ),
   );
   await _settle(300);
 

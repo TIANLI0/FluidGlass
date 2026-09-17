@@ -20,9 +20,11 @@ bool _hasBackdropFilterLayer(Layer? layer) {
   if (layer == null) return false;
   if (layer is BackdropFilterLayer) return true;
   if (layer is! ContainerLayer) return false;
-  for (Layer? child = layer.firstChild;
-      child != null;
-      child = child.nextSibling) {
+  for (
+    Layer? child = layer.firstChild;
+    child != null;
+    child = child.nextSibling
+  ) {
     if (_hasBackdropFilterLayer(child)) return true;
   }
   return false;

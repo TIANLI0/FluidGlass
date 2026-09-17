@@ -91,8 +91,9 @@ class _AppChromeContentState extends State<AppChromeContent> {
   @override
   Widget build(BuildContext context) {
     final bool isLight = Theme.of(context).brightness == Brightness.light;
-    final Color contentColor =
-        isLight ? const Color(0xFF000000) : const Color(0xFFFFFFFF);
+    final Color contentColor = isLight
+        ? const Color(0xFF000000)
+        : const Color(0xFFFFFFFF);
     final EdgeInsets viewPadding = MediaQuery.paddingOf(context);
 
     return Stack(
@@ -149,18 +150,19 @@ class _AppChromeContentState extends State<AppChromeContent> {
             backdrop: _backdrop,
             tabsCount: 3,
             children: <Widget>[
-              for (final (IconData icon, String label) tab in const <(
-                IconData,
-                String
-              )>[
-                (Icons.photo_library_outlined, 'Feed'),
-                (Icons.search, 'Search'),
-                (Icons.person_outline, 'You'),
-              ])
+              for (final (IconData icon, String label) tab
+                  in const <(IconData, String)>[
+                    (Icons.photo_library_outlined, 'Feed'),
+                    (Icons.search, 'Search'),
+                    (Icons.person_outline, 'You'),
+                  ])
                 LiquidBottomTab(
                   onPressed: () => setState(
-                    () => _tab = <String>['Feed', 'Search', 'You']
-                        .indexOf(tab.$2),
+                    () => _tab = <String>[
+                      'Feed',
+                      'Search',
+                      'You',
+                    ].indexOf(tab.$2),
                   ),
                   children: <Widget>[
                     Icon(tab.$1, size: 26, color: contentColor),
@@ -250,8 +252,9 @@ class _Row extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final bool isLight = Theme.of(context).brightness == Brightness.light;
-    final Color ink =
-        isLight ? const Color(0xFF101010) : const Color(0xFFF2F2F2);
+    final Color ink = isLight
+        ? const Color(0xFF101010)
+        : const Color(0xFFF2F2F2);
     return DecoratedBox(
       decoration: BoxDecoration(
         color: isLight ? const Color(0xFFFFFFFF) : const Color(0xFF101014),
@@ -361,7 +364,12 @@ class _Header extends StatelessWidget {
         ),
       ),
       child: Padding(
-        padding: EdgeInsets.only(top: topInset, left: 20, right: 12, bottom: 14),
+        padding: EdgeInsets.only(
+          top: topInset,
+          left: 20,
+          right: 12,
+          bottom: 14,
+        ),
         child: Row(
           children: <Widget>[
             Expanded(
@@ -401,8 +409,9 @@ class _Readout extends StatelessWidget {
   Widget build(BuildContext context) {
     final GlassDeviceTier tier = GlassDeviceTier.instance;
     final double refreshRate = tier.info.refreshRate;
-    final int budget =
-        refreshRate > 0 ? (1000000 / refreshRate).round() : 16667;
+    final int budget = refreshRate > 0
+        ? (1000000 / refreshRate).round()
+        : 16667;
 
     return LiquidPanel(
       backdrop: backdrop,
@@ -425,7 +434,7 @@ class _Readout extends StatelessWidget {
               p90Micros == 0
                   ? 'scroll to measure'
                   : 'raster p90 ${(p90Micros / 1000).toStringAsFixed(1)} / '
-                      '${(budget / 1000).toStringAsFixed(1)} ms',
+                        '${(budget / 1000).toStringAsFixed(1)} ms',
               style: TextStyle(
                 color: contentColor.withValues(alpha: 0.7),
                 fontSize: 12,
@@ -442,11 +451,12 @@ class _Readout extends StatelessWidget {
             Row(
               mainAxisSize: MainAxisSize.min,
               children: <Widget>[
-                for (final (double?, String) option in const <(double?, String)>[
-                  (null, 'full'),
-                  (0.5, '½'),
-                  (0.25, '¼'),
-                ])
+                for (final (double?, String) option
+                    in const <(double?, String)>[
+                      (null, 'full'),
+                      (0.5, '½'),
+                      (0.25, '¼'),
+                    ])
                   GestureDetector(
                     behavior: HitTestBehavior.opaque,
                     onTap: () => onCaptureRatio(option.$1),

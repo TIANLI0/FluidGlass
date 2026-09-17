@@ -20,7 +20,8 @@ const String _shotDefine = String.fromEnvironment('FLUID_GLASS_SHOT');
 /// The pixel ratio the screens are rendered at. 1.0 keeps a capture directly
 /// comparable to a reference screenshot; raise it for presentable images.
 final double _shotScale =
-    double.tryParse(const String.fromEnvironment('FLUID_GLASS_SHOT_SCALE')) ?? 1.0;
+    double.tryParse(const String.fromEnvironment('FLUID_GLASS_SHOT_SCALE')) ??
+    1.0;
 final String? _shotDir = _shotDefine.isNotEmpty
     ? _shotDefine
     : Platform.environment['FLUID_GLASS_SHOT'];
@@ -49,8 +50,9 @@ Future<void> main() async {
     unawaited(_openDestination());
   }
   if (_pinnedQuality.isNotEmpty) {
-    GlassDeviceTier.instance.pinnedQuality = GlassQuality.values
-        .firstWhere((GlassQuality q) => q.name == _pinnedQuality);
+    GlassDeviceTier.instance.pinnedQuality = GlassQuality.values.firstWhere(
+      (GlassQuality q) => q.name == _pinnedQuality,
+    );
   }
 }
 
@@ -75,8 +77,9 @@ final String _openScreen = _openDefine.isNotEmpty
 
 Future<void> _openDestination() async {
   await Future<void>.delayed(const Duration(milliseconds: 900));
-  final CatalogDestination target = CatalogDestination.values
-      .firstWhere((CatalogDestination d) => d.name == _openScreen);
+  final CatalogDestination target = CatalogDestination.values.firstWhere(
+    (CatalogDestination d) => d.name == _openScreen,
+  );
   catalogDebugNavigate?.call(target);
 }
 
@@ -89,8 +92,9 @@ final String _perfScreen = _perfDefine.isNotEmpty
 
 Future<void> _measureFrames() async {
   await Future<void>.delayed(const Duration(milliseconds: 1500));
-  final CatalogDestination target = CatalogDestination.values
-      .firstWhere((CatalogDestination d) => d.name == _perfScreen);
+  final CatalogDestination target = CatalogDestination.values.firstWhere(
+    (CatalogDestination d) => d.name == _perfScreen,
+  );
   catalogDebugNavigate?.call(target);
   await Future<void>.delayed(const Duration(milliseconds: 2000));
 
@@ -112,7 +116,8 @@ Future<void> _measureFrames() async {
     xs.sort();
     final double mean = xs.reduce((int a, int b) => a + b) / xs.length / 1000;
     final double p50 = xs[xs.length ~/ 2] / 1000;
-    final double p90 = xs[(xs.length * 0.9).floor().clamp(0, xs.length - 1)] / 1000;
+    final double p90 =
+        xs[(xs.length * 0.9).floor().clamp(0, xs.length - 1)] / 1000;
     return '$label mean=${mean.toStringAsFixed(2)}ms '
         'p50=${p50.toStringAsFixed(2)}ms p90=${p90.toStringAsFixed(2)}ms';
   }
@@ -165,7 +170,9 @@ Future<void> _captureAll() async {
     if (destination == CatalogDestination.home) continue;
     catalogDebugNavigate?.call(destination);
     await Future<void>.delayed(const Duration(milliseconds: 1500));
-    await _shoot('${destination.index.toString().padLeft(2, '0')}_${destination.name}');
+    await _shoot(
+      '${destination.index.toString().padLeft(2, '0')}_${destination.name}',
+    );
   }
   stdout.writeln('SHOT| done');
   await stdout.flush();

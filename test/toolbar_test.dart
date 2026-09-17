@@ -4,8 +4,9 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  testWidgets('a button-group action fires even after the finger wanders',
-      (WidgetTester tester) async {
+  testWidgets('a button-group action fires even after the finger wanders', (
+    WidgetTester tester,
+  ) async {
     final List<String> pressed = <String>[];
     await tester.pumpWidget(
       MaterialApp(
@@ -36,8 +37,9 @@ void main() {
     expect(pressed, <String>['share']);
 
     // A press that drifts well past the touch slop must still fire.
-    final TestGesture gesture = await tester
-        .startGesture(tester.getCenter(find.byIcon(Icons.arrow_back_ios_new)));
+    final TestGesture gesture = await tester.startGesture(
+      tester.getCenter(find.byIcon(Icons.arrow_back_ios_new)),
+    );
     for (int i = 0; i < 5; i++) {
       await gesture.moveBy(const Offset(6, 4));
       await tester.pump(const Duration(milliseconds: 16));
@@ -49,8 +51,9 @@ void main() {
     await tester.pump(const Duration(seconds: 1));
   });
 
-  testWidgets('the button group drags with the finger and springs back',
-      (WidgetTester tester) async {
+  testWidgets('the button group drags with the finger and springs back', (
+    WidgetTester tester,
+  ) async {
     // The capsule must carry the same physics as LiquidButton: follow the
     // finger through a bounded tanh, stretch along the travel, and spring
     // home on release.
@@ -71,8 +74,9 @@ void main() {
     );
     await tester.pump();
 
-    final RenderObject box =
-        tester.renderObject(find.byType(LiquidButtonGroup));
+    final RenderObject box = tester.renderObject(
+      find.byType(LiquidButtonGroup),
+    );
     Matrix4 transformOf(RenderObject node) {
       final Matrix4 m = Matrix4.identity();
       node.applyPaintTransform(
@@ -89,8 +93,9 @@ void main() {
     // translation also carries the scale-about-centre term
     // (pivotX * (1 - scaleX)), so this pressed-but-undragged reading is the
     // baseline that isolates the drag.
-    final TestGesture gesture =
-        await tester.startGesture(tester.getCenter(find.text('One')));
+    final TestGesture gesture = await tester.startGesture(
+      tester.getCenter(find.text('One')),
+    );
     await tester.pump(const Duration(milliseconds: 16));
     await tester.pump(const Duration(milliseconds: 600));
     final double pressedOnly = transformOf(box).getTranslation().x;
@@ -104,18 +109,27 @@ void main() {
     final double dragged = transformOf(box).getTranslation().x;
 
     final double groupTravel = dragged - pressedOnly;
-    expect(groupTravel, greaterThan(0.5),
-        reason: 'the glass must follow the finger');
-    expect(groupTravel, lessThan(120.0),
-        reason: 'tanh must bound the travel well under the drag distance');
+    expect(
+      groupTravel,
+      greaterThan(0.5),
+      reason: 'the glass must follow the finger',
+    );
+    expect(
+      groupTravel,
+      lessThan(120.0),
+      reason: 'tanh must bound the travel well under the drag distance',
+    );
 
     // Release: it springs home to an untransformed capsule.
     await gesture.up();
     await tester.pump(const Duration(milliseconds: 16));
     await tester.pump(const Duration(seconds: 2));
 
-    expect(transformOf(box).getTranslation().x, closeTo(0, 0.5),
-        reason: 'releasing must spring the glass back');
+    expect(
+      transformOf(box).getTranslation().x,
+      closeTo(0, 0.5),
+      reason: 'releasing must spring the glass back',
+    );
 
     // The same gesture on a LiquidButton must move its glass by the same
     // amount: the group is meant to be a faithful reproduction of that feel.
@@ -134,10 +148,12 @@ void main() {
     );
     await tester.pump();
 
-    final RenderObject buttonBox =
-        tester.renderObject(find.byType(LiquidButton));
-    final TestGesture g2 =
-        await tester.startGesture(tester.getCenter(find.text('One')));
+    final RenderObject buttonBox = tester.renderObject(
+      find.byType(LiquidButton),
+    );
+    final TestGesture g2 = await tester.startGesture(
+      tester.getCenter(find.text('One')),
+    );
     await tester.pump(const Duration(milliseconds: 16));
     await tester.pump(const Duration(milliseconds: 600));
     final double buttonPressed = transformOf(buttonBox).getTranslation().x;
@@ -149,71 +165,78 @@ void main() {
     final double buttonTravel =
         transformOf(buttonBox).getTranslation().x - buttonPressed;
 
-    expect(groupTravel, closeTo(buttonTravel, buttonTravel.abs() * 0.25 + 0.5),
-        reason: 'the group must drag like a LiquidButton');
+    expect(
+      groupTravel,
+      closeTo(buttonTravel, buttonTravel.abs() * 0.25 + 0.5),
+      reason: 'the group must drag like a LiquidButton',
+    );
 
     await g2.up();
     await tester.pump(const Duration(seconds: 2));
   });
 
-  testWidgets('the segmented control selects by tap and by dragging the thumb',
-      (WidgetTester tester) async {
-    final List<int> reported = <int>[];
-    int selected = 0;
-    await tester.pumpWidget(
-      MaterialApp(
-        home: Scaffold(
-          body: Center(
-            child: SizedBox(
-              width: 300,
-              child: StatefulBuilder(
-                builder: (BuildContext context, StateSetter setState) {
-                  return LiquidSegmentedControl(
-                    selectedIndex: selected,
-                    onSelected: (int index) {
-                      reported.add(index);
-                      setState(() => selected = index);
-                    },
-                    backdrop: emptyBackdrop,
-                    segments: const <Widget>[
-                      Text('Day'),
-                      Text('Week'),
-                      Text('Month'),
-                    ],
-                  );
-                },
+  testWidgets(
+    'the segmented control selects by tap and by dragging the thumb',
+    (WidgetTester tester) async {
+      final List<int> reported = <int>[];
+      int selected = 0;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Center(
+              child: SizedBox(
+                width: 300,
+                child: StatefulBuilder(
+                  builder: (BuildContext context, StateSetter setState) {
+                    return LiquidSegmentedControl(
+                      selectedIndex: selected,
+                      onSelected: (int index) {
+                        reported.add(index);
+                        setState(() => selected = index);
+                      },
+                      backdrop: emptyBackdrop,
+                      segments: const <Widget>[
+                        Text('Day'),
+                        Text('Week'),
+                        Text('Month'),
+                      ],
+                    );
+                  },
+                ),
               ),
             ),
           ),
         ),
-      ),
-    );
-    await tester.pump();
+      );
+      await tester.pump();
 
-    await tester.tap(find.text('Month'));
-    await tester.pump(const Duration(milliseconds: 16));
-    await tester.pump(const Duration(seconds: 1));
-    expect(reported, <int>[2]);
-
-    // Drag the thumb from the last segment back to the first.
-    final Offset controlTopLeft =
-        tester.getTopLeft(find.byType(LiquidSegmentedControl));
-    const double segmentWidth = (300 - 6) / 3;
-    final Offset onThumb =
-        controlTopLeft + Offset(3 + segmentWidth * 2.5, 20);
-    final TestGesture gesture = await tester.startGesture(onThumb);
-    for (int i = 0; i < 14; i++) {
-      await gesture.moveBy(const Offset(-16, 0));
+      await tester.tap(find.text('Month'));
       await tester.pump(const Duration(milliseconds: 16));
-    }
-    await gesture.up();
-    await tester.pump(const Duration(milliseconds: 16));
-    await tester.pump(const Duration(seconds: 1));
-    expect(reported, <int>[2, 0]);
-  });
+      await tester.pump(const Duration(seconds: 1));
+      expect(reported, <int>[2]);
 
-  testWidgets('re-selecting the same segment reports nothing',
-      (WidgetTester tester) async {
+      // Drag the thumb from the last segment back to the first.
+      final Offset controlTopLeft = tester.getTopLeft(
+        find.byType(LiquidSegmentedControl),
+      );
+      const double segmentWidth = (300 - 6) / 3;
+      final Offset onThumb =
+          controlTopLeft + Offset(3 + segmentWidth * 2.5, 20);
+      final TestGesture gesture = await tester.startGesture(onThumb);
+      for (int i = 0; i < 14; i++) {
+        await gesture.moveBy(const Offset(-16, 0));
+        await tester.pump(const Duration(milliseconds: 16));
+      }
+      await gesture.up();
+      await tester.pump(const Duration(milliseconds: 16));
+      await tester.pump(const Duration(seconds: 1));
+      expect(reported, <int>[2, 0]);
+    },
+  );
+
+  testWidgets('re-selecting the same segment reports nothing', (
+    WidgetTester tester,
+  ) async {
     final List<int> reported = <int>[];
     await tester.pumpWidget(
       MaterialApp(
@@ -246,8 +269,9 @@ void main() {
     expect(reported, isEmpty);
   });
 
-  testWidgets('LiquidPanel hosts a child and reads its reveal at paint time',
-      (WidgetTester tester) async {
+  testWidgets('LiquidPanel hosts a child and reads its reveal at paint time', (
+    WidgetTester tester,
+  ) async {
     double reveal = 0.0;
     int reads = 0;
     await tester.pumpWidget(
@@ -273,8 +297,11 @@ void main() {
     await tester.pump();
 
     expect(find.text('Panel'), findsOneWidget);
-    expect(reads, greaterThan(0),
-        reason: 'the reveal getter must drive the paint');
+    expect(
+      reads,
+      greaterThan(0),
+      reason: 'the reveal getter must drive the paint',
+    );
 
     reveal = 1.0;
     await tester.pump();

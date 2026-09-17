@@ -96,15 +96,21 @@ class _AppState extends State<_App> {
                     child: DecoratedBox(
                       decoration: BoxDecoration(
                         borderRadius: BorderRadius.circular(16),
-                        gradient: LinearGradient(colors: <Color>[
-                          Color(0xFF000000 | (i * 3719 % 0xFFFFFF)),
-                          Color(0xFF000000 | (i * 8231 % 0xFFFFFF)),
-                        ]),
+                        gradient: LinearGradient(
+                          colors: <Color>[
+                            Color(0xFF000000 | (i * 3719 % 0xFFFFFF)),
+                            Color(0xFF000000 | (i * 8231 % 0xFFFFFF)),
+                          ],
+                        ),
                       ),
                       child: Center(
-                        child: Text('Row $i',
-                            style: const TextStyle(
-                                color: Color(0xFFFFFFFF), fontSize: 22)),
+                        child: Text(
+                          'Row $i',
+                          style: const TextStyle(
+                            color: Color(0xFFFFFFFF),
+                            fontSize: 22,
+                          ),
+                        ),
                       ),
                     ),
                   ),
@@ -119,8 +125,9 @@ class _AppState extends State<_App> {
                 child: LiquidPanel(
                   backdrop: _backdrop,
                   shape: const RoundedRectangle(0),
-                  layerBlock:
-                      _config.wholeSourceCapture ? (GlassLayer l) {} : null,
+                  layerBlock: _config.wholeSourceCapture
+                      ? (GlassLayer l) {}
+                      : null,
                   child: const SizedBox(height: 96, width: double.infinity),
                 ),
               ),
@@ -131,8 +138,9 @@ class _AppState extends State<_App> {
                 child: LiquidPanel(
                   backdrop: _backdrop,
                   shape: const RoundedRectangle(28),
-                  layerBlock:
-                      _config.wholeSourceCapture ? (GlassLayer l) {} : null,
+                  layerBlock: _config.wholeSourceCapture
+                      ? (GlassLayer l) {}
+                      : null,
                   child: const SizedBox(height: 72, width: double.infinity),
                 ),
               ),
@@ -159,35 +167,47 @@ void _onTimings(List<FrameTiming> timings) {
   }
 }
 
-Future<void> _settle(int ms) => Future<void>.delayed(Duration(milliseconds: ms));
+Future<void> _settle(int ms) =>
+    Future<void>.delayed(Duration(milliseconds: ms));
 
 Future<void> _fling(Size screen) async {
   final double x = screen.width / 2;
   final double from = screen.height * 0.8;
   final double to = screen.height * 0.2;
-  GestureBinding.instance.handlePointerEvent(PointerDownEvent(
+  GestureBinding.instance.handlePointerEvent(
+    PointerDownEvent(
       pointer: ++_pointer,
       position: Offset(x, from),
-      kind: PointerDeviceKind.touch));
+      kind: PointerDeviceKind.touch,
+    ),
+  );
   Offset last = Offset(x, from);
   for (int i = 1; i <= 14; i++) {
     final Offset next = Offset(x, from + (to - from) * i / 14);
-    GestureBinding.instance.handlePointerEvent(PointerMoveEvent(
-      pointer: _pointer,
-      position: next,
-      delta: next - last,
-      kind: PointerDeviceKind.touch,
-    ));
+    GestureBinding.instance.handlePointerEvent(
+      PointerMoveEvent(
+        pointer: _pointer,
+        position: next,
+        delta: next - last,
+        kind: PointerDeviceKind.touch,
+      ),
+    );
     last = next;
     await _settle(8);
   }
-  GestureBinding.instance.handlePointerEvent(PointerUpEvent(
-      pointer: _pointer, position: last, kind: PointerDeviceKind.touch));
+  GestureBinding.instance.handlePointerEvent(
+    PointerUpEvent(
+      pointer: _pointer,
+      position: last,
+      kind: PointerDeviceKind.touch,
+    ),
+  );
 }
 
 String _one(String name, List<int> src) {
   final List<int> x = List<int>.of(src)..sort();
-  double at(double f) => x[(x.length * f).floor().clamp(0, x.length - 1)] / 1000;
+  double at(double f) =>
+      x[(x.length * f).floor().clamp(0, x.length - 1)] / 1000;
   final double mean = x.reduce((int a, int b) => a + b) / x.length / 1000;
   return '$name mean=${mean.toStringAsFixed(2)} '
       'p90=${at(0.9).toStringAsFixed(2)} max=${(x.last / 1000).toStringAsFixed(2)}';
@@ -220,8 +240,10 @@ Future<void> _drive() async {
   final ui.FlutterView view =
       WidgetsBinding.instance.platformDispatcher.views.first;
   final Size screen = view.physicalSize / view.devicePixelRatio;
-  debugPrint('LIVE| screen=${screen.width}x${screen.height} '
-      'dpr=${view.devicePixelRatio} hz=${view.display.refreshRate}');
+  debugPrint(
+    'LIVE| screen=${screen.width}x${screen.height} '
+    'dpr=${view.devicePixelRatio} hz=${view.display.refreshRate}',
+  );
 
   // Two passes. The first is warm-up — on a software-rendered emulator the
   // first phase measured came out worst regardless of what it was — so only

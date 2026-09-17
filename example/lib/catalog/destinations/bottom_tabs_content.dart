@@ -18,8 +18,9 @@ class _BottomTabsContentState extends State<BottomTabsContent> {
   @override
   Widget build(BuildContext context) {
     final bool isLight = Theme.of(context).brightness == Brightness.light;
-    final Color contentColor =
-        isLight ? const Color(0xFF000000) : const Color(0xFFFFFFFF);
+    final Color contentColor = isLight
+        ? const Color(0xFF000000)
+        : const Color(0xFFFFFFFF);
 
     List<Widget> tabs(int count, ValueChanged<int> onSelect) {
       return <Widget>[
@@ -41,30 +42,35 @@ class _BottomTabsContentState extends State<BottomTabsContent> {
       builder: (BuildContext context, LayerBackdrop backdrop) {
         return <Widget>[
           Column(
-          mainAxisSize: MainAxisSize.min,
-          spacing: 32,
-          children: <Widget>[
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 36),
-              child: LiquidBottomTabs(
-                selectedTabIndex: _firstIndex,
-                onTabSelected: (int index) => setState(() => _firstIndex = index),
-                backdrop: backdrop,
-                tabsCount: 3,
-                children: tabs(3, (int i) => setState(() => _firstIndex = i)),
+            mainAxisSize: MainAxisSize.min,
+            spacing: 32,
+            children: <Widget>[
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 36),
+                child: LiquidBottomTabs(
+                  selectedTabIndex: _firstIndex,
+                  onTabSelected: (int index) =>
+                      setState(() => _firstIndex = index),
+                  backdrop: backdrop,
+                  tabsCount: 3,
+                  children: tabs(3, (int i) => setState(() => _firstIndex = i)),
+                ),
               ),
-            ),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 36),
-              child: LiquidBottomTabs(
-                selectedTabIndex: _secondIndex,
-                onTabSelected: (int index) => setState(() => _secondIndex = index),
-                backdrop: backdrop,
-                tabsCount: 4,
-                children: tabs(4, (int i) => setState(() => _secondIndex = i)),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 36),
+                child: LiquidBottomTabs(
+                  selectedTabIndex: _secondIndex,
+                  onTabSelected: (int index) =>
+                      setState(() => _secondIndex = index),
+                  backdrop: backdrop,
+                  tabsCount: 4,
+                  children: tabs(
+                    4,
+                    (int i) => setState(() => _secondIndex = i),
+                  ),
+                ),
               ),
-            ),
-          ],
+            ],
           ),
         ];
       },

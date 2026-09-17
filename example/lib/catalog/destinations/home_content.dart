@@ -11,8 +11,9 @@ class HomeContent extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final bool isLight = Theme.of(context).brightness == Brightness.light;
-    final Color contentColor =
-        isLight ? const Color(0xFF000000) : const Color(0xFFFFFFFF);
+    final Color contentColor = isLight
+        ? const Color(0xFF000000)
+        : const Color(0xFFFFFFFF);
 
     return SingleChildScrollView(
       child: SafeArea(
@@ -153,8 +154,9 @@ class _ListItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final bool isLight = Theme.of(context).brightness == Brightness.light;
-    final Color contentColor =
-        isLight ? const Color(0xFF000000) : const Color(0xFFFFFFFF);
+    final Color contentColor = isLight
+        ? const Color(0xFF000000)
+        : const Color(0xFFFFFFFF);
     return InkWell(
       onTap: onTap,
       child: Padding(

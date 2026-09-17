@@ -37,35 +37,35 @@ double _meanRed(Uint8List p, Rect box) {
 }
 
 Widget _frame(Widget child) => Directionality(
-      textDirection: TextDirection.ltr,
-      child: MediaQuery(
-        data: const MediaQueryData(),
-        child: RepaintBoundary(
-          key: _boundary,
-          child: SizedBox(
-            width: _w.toDouble(),
-            height: _h.toDouble(),
-            child: child,
-          ),
-        ),
+  textDirection: TextDirection.ltr,
+  child: MediaQuery(
+    data: const MediaQueryData(),
+    child: RepaintBoundary(
+      key: _boundary,
+      child: SizedBox(
+        width: _w.toDouble(),
+        height: _h.toDouble(),
+        child: child,
       ),
-    );
+    ),
+  ),
+);
 
 /// Alternating 40px bands, so "which part of the source is the glass showing"
 /// is a question about brightness.
 Widget get _bands => Column(
-      mainAxisSize: MainAxisSize.min,
-      children: <Widget>[
-        for (int i = 0; i < 6; i++)
-          SizedBox(
-            height: 40,
-            width: _w.toDouble(),
-            child: ColoredBox(
-              color: i.isEven ? const Color(0xFF000000) : const Color(0xFFFFFFFF),
-            ),
-          ),
-      ],
-    );
+  mainAxisSize: MainAxisSize.min,
+  children: <Widget>[
+    for (int i = 0; i < 6; i++)
+      SizedBox(
+        height: 40,
+        width: _w.toDouble(),
+        child: ColoredBox(
+          color: i.isEven ? const Color(0xFF000000) : const Color(0xFFFFFFFF),
+        ),
+      ),
+  ],
+);
 
 /// Counts how often the capture is actually retaken.
 class _CountingSource implements LayerBackdropSource {
@@ -81,10 +81,17 @@ class _CountingSource implements LayerBackdropSource {
   @override
   bool get hasContent => inner.hasContent;
   @override
-  void drawSource(Canvas canvas, double devicePixelRatio,
-          {double clampMargin = 0.0, Rect? region}) =>
-      inner.drawSource(canvas, devicePixelRatio,
-          clampMargin: clampMargin, region: region);
+  void drawSource(
+    Canvas canvas,
+    double devicePixelRatio, {
+    double clampMargin = 0.0,
+    Rect? region,
+  }) => inner.drawSource(
+    canvas,
+    devicePixelRatio,
+    clampMargin: clampMargin,
+    region: region,
+  );
   @override
   void invalidateSnapshot() {
     invalidations += 1;
@@ -107,74 +114,91 @@ void main() {
   });
   tearDown(() => GlassDeviceTier.instance.reset());
 
-  testWidgets('glass tracks an animation that repaints behind a RepaintBoundary',
-      (WidgetTester tester) async {
-    // The half of "live backdrop" that scroll notifications do not cover.
-    // `markNeedsPaint` stops at the nearest repaint boundary, so a background
-    // that animates inside one of its own repaints while `RenderBackdropLayer`
-    // sleeps through it — and the glass was left showing a frozen capture of a
-    // moving background. Nothing here scrolls and nothing passes `liveness`;
-    // the source's layers are watched instead.
-    tester.view.physicalSize = Size(_w.toDouble(), _h.toDouble());
-    tester.view.devicePixelRatio = 1.0;
-    addTearDown(tester.view.reset);
+  testWidgets(
+    'glass tracks an animation that repaints behind a RepaintBoundary',
+    (WidgetTester tester) async {
+      // The half of "live backdrop" that scroll notifications do not cover.
+      // `markNeedsPaint` stops at the nearest repaint boundary, so a background
+      // that animates inside one of its own repaints while `RenderBackdropLayer`
+      // sleeps through it — and the glass was left showing a frozen capture of a
+      // moving background. Nothing here scrolls and nothing passes `liveness`;
+      // the source's layers are watched instead.
+      tester.view.physicalSize = Size(_w.toDouble(), _h.toDouble());
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
 
-    final LayerBackdrop backdrop = LayerBackdrop();
-    addTearDown(backdrop.dispose);
-    final ValueNotifier<double> t = ValueNotifier<double>(0);
-    addTearDown(t.dispose);
+      final LayerBackdrop backdrop = LayerBackdrop();
+      addTearDown(backdrop.dispose);
+      final ValueNotifier<double> t = ValueNotifier<double>(0);
+      addTearDown(t.dispose);
 
-    await tester.pumpWidget(_frame(Stack(
-      clipBehavior: Clip.none,
-      children: <Widget>[
-        Positioned.fill(
-          child: BackdropLayer(
-            backdrop: backdrop,
-            child: RepaintBoundary(
-              child: ValueListenableBuilder<double>(
-                valueListenable: t,
-                builder: (BuildContext context, double v, Widget? _) => ColoredBox(
-                  color: Color.lerp(
-                      const Color(0xFF000000), const Color(0xFFFFFFFF), v)!,
+      await tester.pumpWidget(
+        _frame(
+          Stack(
+            clipBehavior: Clip.none,
+            children: <Widget>[
+              Positioned.fill(
+                child: BackdropLayer(
+                  backdrop: backdrop,
+                  child: RepaintBoundary(
+                    child: ValueListenableBuilder<double>(
+                      valueListenable: t,
+                      builder: (BuildContext context, double v, Widget? _) =>
+                          ColoredBox(
+                            color: Color.lerp(
+                              const Color(0xFF000000),
+                              const Color(0xFFFFFFFF),
+                              v,
+                            )!,
+                          ),
+                    ),
+                  ),
                 ),
               ),
-            ),
+              Positioned(
+                left: 0,
+                right: 0,
+                top: 0,
+                child: DrawBackdrop.plain(
+                  backdrop: backdrop,
+                  shape: () => const Rectangle(),
+                  effects: (BackdropEffectScope scope) => scope.blur(2),
+                  child: const SizedBox(height: 60, width: double.infinity),
+                ),
+              ),
+            ],
           ),
         ),
-        Positioned(
-          left: 0,
-          right: 0,
-          top: 0,
-          child: DrawBackdrop.plain(
-            backdrop: backdrop,
-            shape: () => const Rectangle(),
-            effects: (BackdropEffectScope scope) => scope.blur(2),
-            child: const SizedBox(height: 60, width: double.infinity),
-          ),
-        ),
-      ],
-    )));
-    await tester.pump();
-    await tester.pump();
-
-    const Rect inside = Rect.fromLTWH(20, 10, 200, 40);
-    final List<double> samples = <double>[_meanRed(await _pixels(tester), inside)];
-    for (int i = 1; i <= 4; i++) {
-      t.value = i / 4;
-      // Two frames: one for the background to repaint, one for the glass to
-      // notice and re-sample it.
+      );
       await tester.pump();
       await tester.pump();
-      samples.add(_meanRed(await _pixels(tester), inside));
-    }
 
-    expect(samples.last - samples.first, greaterThan(150.0),
-        reason: 'the glass must follow the background it covers, but its '
-            'brightness only moved across $samples');
-  });
+      const Rect inside = Rect.fromLTWH(20, 10, 200, 40);
+      final List<double> samples = <double>[
+        _meanRed(await _pixels(tester), inside),
+      ];
+      for (int i = 1; i <= 4; i++) {
+        t.value = i / 4;
+        // Two frames: one for the background to repaint, one for the glass to
+        // notice and re-sample it.
+        await tester.pump();
+        await tester.pump();
+        samples.add(_meanRed(await _pixels(tester), inside));
+      }
 
-  testWidgets('a source that only moves is re-placed, not re-captured',
-      (WidgetTester tester) async {
+      expect(
+        samples.last - samples.first,
+        greaterThan(150.0),
+        reason:
+            'the glass must follow the background it covers, but its '
+            'brightness only moved across $samples',
+      );
+    },
+  );
+
+  testWidgets('a source that only moves is re-placed, not re-captured', (
+    WidgetTester tester,
+  ) async {
     // A background sliding under pinned glass — a page transition, an
     // `InteractiveViewer` being panned. Nothing inside the source repaints, so
     // its capture stays valid; what changes is where the glass has to read it,
@@ -189,32 +213,39 @@ void main() {
     final ValueNotifier<double> dy = ValueNotifier<double>(0);
     addTearDown(dy.dispose);
 
-    await tester.pumpWidget(_frame(Stack(
-      clipBehavior: Clip.none,
-      children: <Widget>[
-        Positioned.fill(
-          child: AnimatedBuilder(
-            animation: dy,
-            builder: (BuildContext context, Widget? child) =>
-                Transform.translate(offset: Offset(0, dy.value), child: child),
-            child: BackdropLayer(backdrop: backdrop, child: _bands),
-          ),
-        ),
-        Positioned(
-          left: 0,
-          right: 0,
-          top: 0,
-          child: RepaintBoundary(
-            child: DrawBackdrop.plain(
-              backdrop: backdrop,
-              shape: () => const Rectangle(),
-              effects: (BackdropEffectScope scope) {},
-              child: const SizedBox(height: 40, width: double.infinity),
+    await tester.pumpWidget(
+      _frame(
+        Stack(
+          clipBehavior: Clip.none,
+          children: <Widget>[
+            Positioned.fill(
+              child: AnimatedBuilder(
+                animation: dy,
+                builder: (BuildContext context, Widget? child) =>
+                    Transform.translate(
+                      offset: Offset(0, dy.value),
+                      child: child,
+                    ),
+                child: BackdropLayer(backdrop: backdrop, child: _bands),
+              ),
             ),
-          ),
+            Positioned(
+              left: 0,
+              right: 0,
+              top: 0,
+              child: RepaintBoundary(
+                child: DrawBackdrop.plain(
+                  backdrop: backdrop,
+                  shape: () => const Rectangle(),
+                  effects: (BackdropEffectScope scope) {},
+                  child: const SizedBox(height: 40, width: double.infinity),
+                ),
+              ),
+            ),
+          ],
         ),
-      ],
-    )));
+      ),
+    );
     await tester.pump();
     await tester.pump();
 
@@ -227,7 +258,9 @@ void main() {
     counting.invalidations = 0;
 
     const Rect inside = Rect.fromLTWH(20, 5, 200, 30);
-    final List<double> samples = <double>[_meanRed(await _pixels(tester), inside)];
+    final List<double> samples = <double>[
+      _meanRed(await _pixels(tester), inside),
+    ];
     for (int i = 1; i <= 4; i++) {
       dy.value = -i * 20.0;
       await tester.pump();
@@ -237,16 +270,25 @@ void main() {
 
     final double min = samples.reduce((double a, double b) => a < b ? a : b);
     final double max = samples.reduce((double a, double b) => a > b ? a : b);
-    expect(max - min, greaterThan(100.0),
-        reason: 'the glass must follow the source sliding under it, but its '
-            'brightness only moved between $min and $max across $samples');
-    expect(counting.invalidations, 0,
-        reason: 'the source did not repaint, so its capture was still good; '
-            'only where to read it changed');
+    expect(
+      max - min,
+      greaterThan(100.0),
+      reason:
+          'the glass must follow the source sliding under it, but its '
+          'brightness only moved between $min and $max across $samples',
+    );
+    expect(
+      counting.invalidations,
+      0,
+      reason:
+          'the source did not repaint, so its capture was still good; '
+          'only where to read it changed',
+    );
   });
 
-  testWidgets('glass over a scaled source samples the same pixels it covers',
-      (WidgetTester tester) async {
+  testWidgets('glass over a scaled source samples the same pixels it covers', (
+    WidgetTester tester,
+  ) async {
     // The capture is taken in the source's own coordinates, so placing it takes
     // the whole transform between the two — not the offset between their
     // origins, which is right up until an ancestor scales, rotates or zooms
@@ -259,31 +301,33 @@ void main() {
     final LayerBackdrop backdrop = LayerBackdrop();
     addTearDown(backdrop.dispose);
 
-    Widget host({required bool withGlass}) => _frame(Stack(
-          clipBehavior: Clip.none,
-          children: <Widget>[
-            Positioned.fill(
-              child: ClipRect(
-                child: Transform.scale(
-                  scale: 2.0,
-                  alignment: Alignment.topLeft,
-                  child: BackdropLayer(backdrop: backdrop, child: _bands),
-                ),
+    Widget host({required bool withGlass}) => _frame(
+      Stack(
+        clipBehavior: Clip.none,
+        children: <Widget>[
+          Positioned.fill(
+            child: ClipRect(
+              child: Transform.scale(
+                scale: 2.0,
+                alignment: Alignment.topLeft,
+                child: BackdropLayer(backdrop: backdrop, child: _bands),
               ),
             ),
-            if (withGlass)
-              Positioned(
-                left: 40,
-                top: 40,
-                child: DrawBackdrop.plain(
-                  backdrop: backdrop,
-                  shape: () => const Rectangle(),
-                  effects: (BackdropEffectScope scope) {},
-                  child: const SizedBox(width: 160, height: 160),
-                ),
+          ),
+          if (withGlass)
+            Positioned(
+              left: 40,
+              top: 40,
+              child: DrawBackdrop.plain(
+                backdrop: backdrop,
+                shape: () => const Rectangle(),
+                effects: (BackdropEffectScope scope) {},
+                child: const SizedBox(width: 160, height: 160),
               ),
-          ],
-        ));
+            ),
+        ],
+      ),
+    );
 
     await tester.pumpWidget(host(withGlass: false));
     await tester.pump();
@@ -303,14 +347,19 @@ void main() {
       const Rect.fromLTWH(60, 170, 120, 20),
     ];
     for (final Rect probe in probes) {
-      expect((_meanRed(glazed, probe) - _meanRed(bare, probe)).abs(), lessThan(8.0),
-          reason: 'at $probe the glass showed ${_meanRed(glazed, probe)} where '
-              'the source itself shows ${_meanRed(bare, probe)}');
+      expect(
+        (_meanRed(glazed, probe) - _meanRed(bare, probe)).abs(),
+        lessThan(8.0),
+        reason:
+            'at $probe the glass showed ${_meanRed(glazed, probe)} where '
+            'the source itself shows ${_meanRed(bare, probe)}',
+      );
     }
   });
 
-  testWidgets('glass inside its own source is reported, and does not spin',
-      (WidgetTester tester) async {
+  testWidgets('glass inside its own source is reported, and does not spin', (
+    WidgetTester tester,
+  ) async {
     // `BackdropLayer(child: everything)` with the glass in `everything` is the
     // natural thing to write and cannot work: the capture is taken while the
     // source is halfway through painting, and the two mark each other dirty
@@ -323,25 +372,31 @@ void main() {
     final LayerBackdrop backdrop = LayerBackdrop();
     addTearDown(backdrop.dispose);
 
-    await tester.pumpWidget(_frame(BackdropLayer(
-      backdrop: backdrop,
-      child: Stack(
-        clipBehavior: Clip.none,
-        children: <Widget>[
-          const Positioned.fill(child: ColoredBox(color: Color(0xFF808080))),
-          Positioned(
-            left: 0,
-            top: 0,
-            child: DrawBackdrop.plain(
-              backdrop: backdrop,
-              shape: () => const Rectangle(),
-              effects: (BackdropEffectScope scope) => scope.blur(2),
-              child: const SizedBox(width: 100, height: 60),
-            ),
+    await tester.pumpWidget(
+      _frame(
+        BackdropLayer(
+          backdrop: backdrop,
+          child: Stack(
+            clipBehavior: Clip.none,
+            children: <Widget>[
+              const Positioned.fill(
+                child: ColoredBox(color: Color(0xFF808080)),
+              ),
+              Positioned(
+                left: 0,
+                top: 0,
+                child: DrawBackdrop.plain(
+                  backdrop: backdrop,
+                  shape: () => const Rectangle(),
+                  effects: (BackdropEffectScope scope) => scope.blur(2),
+                  child: const SizedBox(width: 100, height: 60),
+                ),
+              ),
+            ],
           ),
-        ],
+        ),
       ),
-    )));
+    );
     for (int i = 0; i < 6; i++) {
       await tester.pump(const Duration(milliseconds: 16));
     }
@@ -350,12 +405,16 @@ void main() {
     expect(error, isFlutterError);
     expect(error.toString(), contains('inside of'));
 
-    expect(SchedulerBinding.instance.hasScheduledFrame, isFalse,
-        reason: 'the source and its consumer are still repainting each other');
+    expect(
+      SchedulerBinding.instance.hasScheduledFrame,
+      isFalse,
+      reason: 'the source and its consumer are still repainting each other',
+    );
   });
 
-  testWidgets('a scrolling source is captured once per glass strip per frame',
-      (WidgetTester tester) async {
+  testWidgets('a scrolling source is captured once per glass strip per frame', (
+    WidgetTester tester,
+  ) async {
     // What a live backdrop actually costs. Each capture is an
     // `OffsetLayer.toImageSync`, a synchronous rasterisation that flushes the
     // pipeline mid-frame; the number of them per frame is the number worth
@@ -371,37 +430,43 @@ void main() {
     addTearDown(controller.dispose);
 
     Widget bar(double top) => Positioned(
-          left: 0,
-          right: 0,
-          top: top,
-          child: DrawBackdrop.plain(
-            backdrop: backdrop,
-            shape: () => const Rectangle(),
-            effects: (BackdropEffectScope scope) => scope.blur(2),
-            child: const SizedBox(height: 40, width: double.infinity),
-          ),
-        );
+      left: 0,
+      right: 0,
+      top: top,
+      child: DrawBackdrop.plain(
+        backdrop: backdrop,
+        shape: () => const Rectangle(),
+        effects: (BackdropEffectScope scope) => scope.blur(2),
+        child: const SizedBox(height: 40, width: double.infinity),
+      ),
+    );
 
-    await tester.pumpWidget(_frame(Stack(
-      clipBehavior: Clip.none,
-      children: <Widget>[
-        Positioned.fill(
-          child: BackdropLayer(
-            backdrop: backdrop,
-            child: ListView.builder(
-              controller: controller,
-              itemExtent: 40,
-              itemCount: 60,
-              itemBuilder: (BuildContext context, int i) => ColoredBox(
-                color: i.isEven ? const Color(0xFF000000) : const Color(0xFFFFFFFF),
+    await tester.pumpWidget(
+      _frame(
+        Stack(
+          clipBehavior: Clip.none,
+          children: <Widget>[
+            Positioned.fill(
+              child: BackdropLayer(
+                backdrop: backdrop,
+                child: ListView.builder(
+                  controller: controller,
+                  itemExtent: 40,
+                  itemCount: 60,
+                  itemBuilder: (BuildContext context, int i) => ColoredBox(
+                    color: i.isEven
+                        ? const Color(0xFF000000)
+                        : const Color(0xFFFFFFFF),
+                  ),
+                ),
               ),
             ),
-          ),
+            bar(0),
+            bar(_h - 40.0),
+          ],
         ),
-        bar(0),
-        bar(_h - 40.0),
-      ],
-    )));
+      ),
+    );
     await tester.pump();
     await tester.pump();
 
@@ -412,8 +477,11 @@ void main() {
     source.debugCaptureCount = 0;
     await tester.pump();
     await tester.pump();
-    expect(source.debugCaptureCount, 0,
-        reason: 'a still source must not be re-captured');
+    expect(
+      source.debugCaptureCount,
+      0,
+      reason: 'a still source must not be re-captured',
+    );
 
     // Scrolling: two bars, two strips, one capture each per frame. Not three,
     // and not one per bar per mechanism that noticed the scroll.
@@ -422,23 +490,34 @@ void main() {
       controller.jumpTo(i * 13.0);
       await tester.pump();
     }
-    expect(source.debugCaptureCount, lessThanOrEqualTo(2 * frames),
-        reason: 'two glass bars over $frames scrolled frames should cost two '
-            'captures a frame, not ${source.debugCaptureCount}');
-    expect(source.debugCaptureCount, greaterThanOrEqualTo(frames),
-        reason: 'the bars did not re-sample the scrolling list at all');
+    expect(
+      source.debugCaptureCount,
+      lessThanOrEqualTo(2 * frames),
+      reason:
+          'two glass bars over $frames scrolled frames should cost two '
+          'captures a frame, not ${source.debugCaptureCount}',
+    );
+    expect(
+      source.debugCaptureCount,
+      greaterThanOrEqualTo(frames),
+      reason: 'the bars did not re-sample the scrolling list at all',
+    );
 
     // And it settles: once the scroll stops, so does the capturing.
     await tester.pumpAndSettle();
     source.debugCaptureCount = 0;
     await tester.pump();
     await tester.pump();
-    expect(source.debugCaptureCount, 0,
-        reason: 'the source went still, so the captures must stop');
+    expect(
+      source.debugCaptureCount,
+      0,
+      reason: 'the source went still, so the captures must stop',
+    );
   });
 
-  testWidgets('glass tracks a fade between two repaint boundaries',
-      (WidgetTester tester) async {
+  testWidgets('glass tracks a fade between two repaint boundaries', (
+    WidgetTester tester,
+  ) async {
     // The case pictures alone do not catch. A repaint boundary that repaints
     // hands `pushOpacity` back the layer it used last time, so a fade sitting
     // between two boundaries changes the `OpacityLayer`'s alpha while every
@@ -453,45 +532,51 @@ void main() {
     final ValueNotifier<double> fade = ValueNotifier<double>(0.15);
     addTearDown(fade.dispose);
 
-    await tester.pumpWidget(_frame(Stack(
-      clipBehavior: Clip.none,
-      children: <Widget>[
-        Positioned.fill(
-          child: BackdropLayer(
-            backdrop: backdrop,
-            child: Stack(
-              children: <Widget>[
-                const Positioned.fill(
-                    child: ColoredBox(color: Color(0xFF000000))),
-                Positioned.fill(
-                  child: RepaintBoundary(
-                    child: ValueListenableBuilder<double>(
-                      valueListenable: fade,
-                      builder: (BuildContext context, double v, Widget? child) =>
-                          Opacity(opacity: v, child: child),
-                      child: const RepaintBoundary(
-                        child: ColoredBox(color: Color(0xFFFFFFFF)),
+    await tester.pumpWidget(
+      _frame(
+        Stack(
+          clipBehavior: Clip.none,
+          children: <Widget>[
+            Positioned.fill(
+              child: BackdropLayer(
+                backdrop: backdrop,
+                child: Stack(
+                  children: <Widget>[
+                    const Positioned.fill(
+                      child: ColoredBox(color: Color(0xFF000000)),
+                    ),
+                    Positioned.fill(
+                      child: RepaintBoundary(
+                        child: ValueListenableBuilder<double>(
+                          valueListenable: fade,
+                          builder:
+                              (BuildContext context, double v, Widget? child) =>
+                                  Opacity(opacity: v, child: child),
+                          child: const RepaintBoundary(
+                            child: ColoredBox(color: Color(0xFFFFFFFF)),
+                          ),
+                        ),
                       ),
                     ),
-                  ),
+                  ],
                 ),
-              ],
+              ),
             ),
-          ),
+            Positioned(
+              left: 0,
+              right: 0,
+              top: 0,
+              child: DrawBackdrop.plain(
+                backdrop: backdrop,
+                shape: () => const Rectangle(),
+                effects: (BackdropEffectScope scope) {},
+                child: const SizedBox(height: 60, width: double.infinity),
+              ),
+            ),
+          ],
         ),
-        Positioned(
-          left: 0,
-          right: 0,
-          top: 0,
-          child: DrawBackdrop.plain(
-            backdrop: backdrop,
-            shape: () => const Rectangle(),
-            effects: (BackdropEffectScope scope) {},
-            child: const SizedBox(height: 60, width: double.infinity),
-          ),
-        ),
-      ],
-    )));
+      ),
+    );
     await tester.pump();
     await tester.pump();
 
@@ -504,8 +589,12 @@ void main() {
     await tester.pump();
     final double light = _meanRed(await _pixels(tester), inside);
 
-    expect(light - dark, greaterThan(150.0),
-        reason: 'the glass showed $dark then $light while the background under '
-            'it faded from black to white');
+    expect(
+      light - dark,
+      greaterThan(150.0),
+      reason:
+          'the glass showed $dark then $light while the background under '
+          'it faded from black to white',
+    );
   });
 }

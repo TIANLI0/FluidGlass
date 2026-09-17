@@ -5,12 +5,11 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 BackdropEffectScope _scope({Size size = const Size(200, 100)}) {
-  return BackdropEffectScope()
-    ..beginUpdate(
-      size: size,
-      textDirection: TextDirection.ltr,
-      shape: const RoundedRectangle(24),
-    );
+  return BackdropEffectScope()..beginUpdate(
+    size: size,
+    textDirection: TextDirection.ltr,
+    shape: const RoundedRectangle(24),
+  );
 }
 
 void main() {
@@ -94,8 +93,9 @@ void main() {
     test('builds the saturation colour matrix', () {
       // saturation 1.5, no brightness or contrast change.
       const double saturation = 1.5;
-      final ui.ColorFilter filter =
-          colorControlsColorFilter(saturation: saturation);
+      final ui.ColorFilter filter = colorControlsColorFilter(
+        saturation: saturation,
+      );
       const double invSat = 1 - saturation;
       final String expected = ui.ColorFilter.matrix(<double>[
         0.213 * invSat + saturation, 0.715 * invSat, 0.072 * invSat, 0, 0, //
@@ -108,8 +108,10 @@ void main() {
 
     test('brightness and contrast land in the translation column', () {
       // t = (0.5 - c * 0.5 + brightness) * 255
-      final ui.ColorFilter filter =
-          colorControlsColorFilter(brightness: 0.2, contrast: 0.5);
+      final ui.ColorFilter filter = colorControlsColorFilter(
+        brightness: 0.2,
+        contrast: 0.5,
+      );
       expect(filter.toString(), contains('${(0.5 - 0.25 + 0.2) * 255.0}'));
     });
   });
@@ -133,8 +135,10 @@ void main() {
 
   group('BackdropEffectGeometry', () {
     test('derives the padded layer from the element', () {
-      const BackdropEffectGeometry geometry =
-          BackdropEffectGeometry(size: Size(100, 60), padding: 8);
+      const BackdropEffectGeometry geometry = BackdropEffectGeometry(
+        size: Size(100, 60),
+        padding: 8,
+      );
       expect(geometry.layerSize, const Size(116, 76));
       expect(geometry.offset, const Offset(-8, -8));
     });

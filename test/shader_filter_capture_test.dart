@@ -36,11 +36,7 @@ Widget _frame(Widget child) => Directionality(
   textDirection: TextDirection.ltr,
   child: MediaQuery(
     data: const MediaQueryData(),
-    child: SizedBox(
-      width: _w.toDouble(),
-      height: _h.toDouble(),
-      child: child,
-    ),
+    child: SizedBox(width: _w.toDouble(), height: _h.toDouble(), child: child),
   ),
 );
 
@@ -61,7 +57,11 @@ Widget _page(ValueNotifier<double> t, {required bool filtered}) =>
       valueListenable: t,
       builder: (BuildContext context, double v, Widget? child) {
         final Widget page = ColoredBox(
-          color: Color.lerp(const Color(0xFF000000), const Color(0xFFFFFFFF), v)!,
+          color: Color.lerp(
+            const Color(0xFF000000),
+            const Color(0xFFFFFFFF),
+            v,
+          )!,
           child: const SizedBox.expand(),
         );
         if (!filtered) return page;
@@ -114,10 +114,7 @@ void main() {
     expect(reads(ui.ImageFilter.erode(radiusX: 2, radiusY: 2)), isFalse);
     // A composed filter reports the descriptions of both halves, which is how a
     // shader hidden inside one is still seen.
-    expect(
-      reads(ui.ImageFilter.compose(outer: blur, inner: matrix)),
-      isFalse,
-    );
+    expect(reads(ui.ImageFilter.compose(outer: blur, inner: matrix)), isFalse);
   });
 
   testWidgets('an ordinary image filter in the source still captures a strip', (
@@ -167,57 +164,59 @@ void main() {
     );
   });
 
-  testWidgets('a shader filter in the source makes the capture the whole source', (
-    WidgetTester tester,
-  ) async {
-    tester.view.physicalSize = Size(_w.toDouble(), _h.toDouble());
-    tester.view.devicePixelRatio = 1.0;
-    addTearDown(tester.view.reset);
+  testWidgets(
+    'a shader filter in the source makes the capture the whole source',
+    (WidgetTester tester) async {
+      tester.view.physicalSize = Size(_w.toDouble(), _h.toDouble());
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
 
-    final LayerBackdrop backdrop = LayerBackdrop();
-    addTearDown(backdrop.dispose);
-    final ValueNotifier<double> t = ValueNotifier<double>(0);
-    addTearDown(t.dispose);
+      final LayerBackdrop backdrop = LayerBackdrop();
+      addTearDown(backdrop.dispose);
+      final ValueNotifier<double> t = ValueNotifier<double>(0);
+      addTearDown(t.dispose);
 
-    await tester.pumpWidget(
-      _frame(
-        Stack(
-          clipBehavior: Clip.none,
-          children: <Widget>[
-            Positioned.fill(
-              child: BackdropLayer(
-                backdrop: backdrop,
-                child: _page(t, filtered: true),
+      await tester.pumpWidget(
+        _frame(
+          Stack(
+            clipBehavior: Clip.none,
+            children: <Widget>[
+              Positioned.fill(
+                child: BackdropLayer(
+                  backdrop: backdrop,
+                  child: _page(t, filtered: true),
+                ),
               ),
-            ),
-            _bar(backdrop),
-          ],
+              _bar(backdrop),
+            ],
+          ),
         ),
-      ),
-    );
-    await tester.pump();
-    await tester.pump();
+      );
+      await tester.pump();
+      await tester.pump();
 
-    final RenderBackdropLayer source = _source(tester);
-    final Rect? strip = source.debugLastCaptureRegion;
-    expect(strip, isNotNull);
-    expect(strip!.height, lessThan(_h / 2));
+      final RenderBackdropLayer source = _source(tester);
+      final Rect? strip = source.debugLastCaptureRegion;
+      expect(strip, isNotNull);
+      expect(strip!.height, lessThan(_h / 2));
 
-    // Now the same scene, with the one filter in it read as a shader. The strip
-    // already held must not be reused — it holds pixels the shader was drawn
-    // into at the wrong extent — and the capture that replaces it must cover
-    // the source.
-    RenderBackdropLayer.debugImageFilterClassifier = (ui.ImageFilter _) => true;
-    t.value = 0.5;
-    await tester.pump();
-    await tester.pump();
+      // Now the same scene, with the one filter in it read as a shader. The strip
+      // already held must not be reused — it holds pixels the shader was drawn
+      // into at the wrong extent — and the capture that replaces it must cover
+      // the source.
+      RenderBackdropLayer.debugImageFilterClassifier = (ui.ImageFilter _) =>
+          true;
+      t.value = 0.5;
+      await tester.pump();
+      await tester.pump();
 
-    expect(
-      source.debugLastCaptureRegion,
-      Offset.zero & Size(_w.toDouble(), _h.toDouble()),
-      reason: 'a shader filter has to be rasterised against the whole source',
-    );
-  });
+      expect(
+        source.debugLastCaptureRegion,
+        Offset.zero & Size(_w.toDouble(), _h.toDouble()),
+        reason: 'a shader filter has to be rasterised against the whole source',
+      );
+    },
+  );
 
   testWidgets('the whole-source capture lasts only while the filter is there', (
     WidgetTester tester,

@@ -5,8 +5,9 @@ import 'package:flutter_test/flutter_test.dart';
 // Behaviours the Flutter port has to share with Compose, each of which Flutter
 // would get wrong by default.
 void main() {
-  testWidgets('a press that slides past the touch slop still counts as a tap',
-      (WidgetTester tester) async {
+  testWidgets('a press that slides past the touch slop still counts as a tap', (
+    WidgetTester tester,
+  ) async {
     // Compose's `clickable` bottoms out in `waitForUpOrCancellation`, which
     // fails only when another node consumes the event — there is no distance
     // test. Flutter's TapGestureRecognizer self-rejects past kTouchSlop (18px),
@@ -28,8 +29,9 @@ void main() {
     );
     await tester.pump();
 
-    final TestGesture gesture =
-        await tester.startGesture(tester.getCenter(find.text('Push me')));
+    final TestGesture gesture = await tester.startGesture(
+      tester.getCenter(find.text('Push me')),
+    );
     // Well past kTouchSlop.
     for (int i = 0; i < 6; i++) {
       await gesture.moveBy(const Offset(9, 3));
@@ -42,8 +44,9 @@ void main() {
     await tester.pump(const Duration(seconds: 1));
   });
 
-  testWidgets('releasing the pill on the tab it started on reports nothing',
-      (WidgetTester tester) async {
+  testWidgets('releasing the pill on the tab it started on reports nothing', (
+    WidgetTester tester,
+  ) async {
     // Compose reports the selection through a snapshotFlow on the index, which
     // only emits on an actual change. Reporting on every release would re-fire
     // navigation or analytics each time the pill is merely touched.
@@ -83,12 +86,16 @@ void main() {
     await tester.pump(const Duration(milliseconds: 16));
     await tester.pump(const Duration(seconds: 1));
 
-    expect(reported, isEmpty,
-        reason: 'the index did not change, so nothing should be reported');
+    expect(
+      reported,
+      isEmpty,
+      reason: 'the index did not change, so nothing should be reported',
+    );
   });
 
-  testWidgets('a drag that does change tab still reports exactly once',
-      (WidgetTester tester) async {
+  testWidgets('a drag that does change tab still reports exactly once', (
+    WidgetTester tester,
+  ) async {
     final List<int> reported = <int>[];
     int selected = 0;
     await tester.pumpWidget(
@@ -138,8 +145,9 @@ void main() {
     expect(reported, <int>[2]);
   });
 
-  testWidgets('the drag ends only when the last finger lifts',
-      (WidgetTester tester) async {
+  testWidgets('the drag ends only when the last finger lifts', (
+    WidgetTester tester,
+  ) async {
     // Compose's inspectDragGestures hands the drag to a surviving pointer when
     // the tracked one goes up. Ending on the first lift would run the whole
     // release choreography with a finger still on the control.
@@ -197,8 +205,11 @@ void main() {
     await tester.pump(const Duration(milliseconds: 16));
     await tester.pump(const Duration(seconds: 1));
 
-    expect(selected, 2,
-        reason: 'the surviving finger must keep dragging the pill');
+    expect(
+      selected,
+      2,
+      reason: 'the surviving finger must keep dragging the pill',
+    );
     expect(ends, 1);
   });
 }

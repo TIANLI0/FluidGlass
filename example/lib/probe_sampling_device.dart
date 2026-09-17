@@ -148,7 +148,8 @@ class _AppState extends State<_App> {
   }
 }
 
-Future<void> _settle(int ms) => Future<void>.delayed(Duration(milliseconds: ms));
+Future<void> _settle(int ms) =>
+    Future<void>.delayed(Duration(milliseconds: ms));
 
 /// Mean RGB of the middle of the glass.
 Future<List<double>?> _sampleGlass() async {
@@ -156,8 +157,9 @@ Future<List<double>?> _sampleGlass() async {
       _captureKey.currentContext?.findRenderObject() as RenderRepaintBoundary?;
   if (boundary == null) return null;
   final ui.Image image = await boundary.toImage(pixelRatio: 1.0);
-  final ByteData? data =
-      await image.toByteData(format: ui.ImageByteFormat.rawStraightRgba);
+  final ByteData? data = await image.toByteData(
+    format: ui.ImageByteFormat.rawStraightRgba,
+  );
   final int w = image.width;
   final int h = image.height;
   image.dispose();
@@ -182,8 +184,10 @@ Future<List<double>?> _sampleGlass() async {
 
 Future<void> _drive() async {
   await _settle(2500);
-  debugPrint('SAMPLE| target is rgb(255,32,32); glass has no tint, so the '
-      'sampled colour should come through');
+  debugPrint(
+    'SAMPLE| target is rgb(255,32,32); glass has no tint, so the '
+    'sampled colour should come through',
+  );
 
   bool allOk = true;
   for (final _Case c in _Case.values) {
@@ -197,9 +201,11 @@ Future<void> _drive() async {
     }
     final bool ok = rgb[0] > 180 && rgb[1] < 110 && rgb[2] < 110;
     if (!ok) allOk = false;
-    debugPrint('SAMPLE| ${ok ? "OK  " : "FAIL"} ${c.label}: '
-        'r=${rgb[0].toStringAsFixed(0)} g=${rgb[1].toStringAsFixed(0)} '
-        'b=${rgb[2].toStringAsFixed(0)}');
+    debugPrint(
+      'SAMPLE| ${ok ? "OK  " : "FAIL"} ${c.label}: '
+      'r=${rgb[0].toStringAsFixed(0)} g=${rgb[1].toStringAsFixed(0)} '
+      'b=${rgb[2].toStringAsFixed(0)}',
+    );
   }
   debugPrint('SAMPLE| RESULT ${allOk ? "PASS" : "FAIL"}');
   debugPrint('SAMPLE| done');

@@ -93,7 +93,6 @@ void main() {
   });
   tearDown(() => GlassDeviceTier.instance.reset());
 
-
   Future<List<double>> sampled(WidgetTester tester, Widget source) async {
     tester.view.physicalSize = Size(_w.toDouble(), _h.toDouble());
     tester.view.devicePixelRatio = 1.0;
@@ -104,16 +103,20 @@ void main() {
     return _meanRgb(await _pixels(tester), _inside);
   }
 
-  testWidgets('a plain coloured box in the source is sampled',
-      (WidgetTester tester) async {
-    final List<double> rgb =
-        await sampled(tester, const ColoredBox(color: Color(0xFFFF0000)));
+  testWidgets('a plain coloured box in the source is sampled', (
+    WidgetTester tester,
+  ) async {
+    final List<double> rgb = await sampled(
+      tester,
+      const ColoredBox(color: Color(0xFFFF0000)),
+    );
     expect(rgb[0], greaterThan(200), reason: 'red channel: $rgb');
     expect(rgb[1], lessThan(60), reason: 'green channel: $rgb');
   });
 
-  testWidgets('a rounded card drawn with a BoxDecoration is sampled',
-      (WidgetTester tester) async {
+  testWidgets('a rounded card drawn with a BoxDecoration is sampled', (
+    WidgetTester tester,
+  ) async {
     final List<double> rgb = await sampled(
       tester,
       Center(
@@ -131,8 +134,9 @@ void main() {
     expect(rgb[1], lessThan(60), reason: 'green channel: $rgb');
   });
 
-  testWidgets('a rounded card made with ClipRRect is sampled',
-      (WidgetTester tester) async {
+  testWidgets('a rounded card made with ClipRRect is sampled', (
+    WidgetTester tester,
+  ) async {
     // ClipRRect puts a real compositing layer inside the captured subtree,
     // which is the interesting case: `toImageSync` has to composite it rather
     // than replay one picture.
@@ -153,8 +157,9 @@ void main() {
     expect(rgb[1], lessThan(60), reason: 'green channel: $rgb');
   });
 
-  testWidgets('a rounded card inside a scrollable is sampled',
-      (WidgetTester tester) async {
+  testWidgets('a rounded card inside a scrollable is sampled', (
+    WidgetTester tester,
+  ) async {
     // The real shape of the app-chrome case: cards in a list, so the capture
     // has to reach through a viewport and a repaint boundary per item.
     final List<double> rgb = await sampled(
@@ -177,8 +182,9 @@ void main() {
     expect(rgb[1], lessThan(60), reason: 'green channel: $rgb');
   });
 
-  testWidgets('many consumers all sample correctly',
-      (WidgetTester tester) async {
+  testWidgets('many consumers all sample correctly', (
+    WidgetTester tester,
+  ) async {
     // The capture is taken per region now, so a pinned bar reading one strip
     // does not cost a whole-screen capture. Past a handful of distinct regions
     // that stops paying and the whole source is captured once instead — this
@@ -200,52 +206,54 @@ void main() {
       Color(0xFFFF00FF),
     ];
 
-    await tester.pumpWidget(Directionality(
-      textDirection: TextDirection.ltr,
-      child: MediaQuery(
-        data: const MediaQueryData(),
-        child: RepaintBoundary(
-          key: _boundary,
-          child: SizedBox(
-            width: _w.toDouble(),
-            height: _h.toDouble(),
-            child: Stack(
-              clipBehavior: Clip.none,
-              children: <Widget>[
-                Positioned.fill(
-                  child: BackdropLayer(
-                    backdrop: backdrop,
-                    child: Stack(
-                      children: <Widget>[
-                        for (int i = 0; i < bands.length; i++)
-                          Positioned(
-                            left: 0,
-                            right: 0,
-                            top: i * (_h / bands.length),
-                            height: _h / bands.length,
-                            child: ColoredBox(color: bands[i]),
-                          ),
-                      ],
-                    ),
-                  ),
-                ),
-                for (int i = 0; i < bands.length; i++)
-                  Positioned(
-                    left: 80,
-                    top: i * (_h / bands.length) + 8,
-                    child: DrawBackdrop.plain(
+    await tester.pumpWidget(
+      Directionality(
+        textDirection: TextDirection.ltr,
+        child: MediaQuery(
+          data: const MediaQueryData(),
+          child: RepaintBoundary(
+            key: _boundary,
+            child: SizedBox(
+              width: _w.toDouble(),
+              height: _h.toDouble(),
+              child: Stack(
+                clipBehavior: Clip.none,
+                children: <Widget>[
+                  Positioned.fill(
+                    child: BackdropLayer(
                       backdrop: backdrop,
-                      shape: () => const RoundedRectangle(6),
-                      effects: (BackdropEffectScope scope) {},
-                      child: const SizedBox(width: 80, height: 24),
+                      child: Stack(
+                        children: <Widget>[
+                          for (int i = 0; i < bands.length; i++)
+                            Positioned(
+                              left: 0,
+                              right: 0,
+                              top: i * (_h / bands.length),
+                              height: _h / bands.length,
+                              child: ColoredBox(color: bands[i]),
+                            ),
+                        ],
+                      ),
                     ),
                   ),
-              ],
+                  for (int i = 0; i < bands.length; i++)
+                    Positioned(
+                      left: 80,
+                      top: i * (_h / bands.length) + 8,
+                      child: DrawBackdrop.plain(
+                        backdrop: backdrop,
+                        shape: () => const RoundedRectangle(6),
+                        effects: (BackdropEffectScope scope) {},
+                        child: const SizedBox(width: 80, height: 24),
+                      ),
+                    ),
+                ],
+              ),
             ),
           ),
         ),
       ),
-    ));
+    );
     await tester.pump();
     await tester.pump();
 
@@ -254,12 +262,21 @@ void main() {
       final double y = i * (_h / bands.length) + 8;
       final List<double> rgb = _meanRgb(p, Rect.fromLTWH(100, y + 6, 40, 12));
       final Color want = bands[i];
-      expect((rgb[0] - want.r * 255).abs(), lessThan(24),
-          reason: 'consumer $i sampled $rgb, wanted $want');
-      expect((rgb[1] - want.g * 255).abs(), lessThan(24),
-          reason: 'consumer $i sampled $rgb, wanted $want');
-      expect((rgb[2] - want.b * 255).abs(), lessThan(24),
-          reason: 'consumer $i sampled $rgb, wanted $want');
+      expect(
+        (rgb[0] - want.r * 255).abs(),
+        lessThan(24),
+        reason: 'consumer $i sampled $rgb, wanted $want',
+      );
+      expect(
+        (rgb[1] - want.g * 255).abs(),
+        lessThan(24),
+        reason: 'consumer $i sampled $rgb, wanted $want',
+      );
+      expect(
+        (rgb[2] - want.b * 255).abs(),
+        lessThan(24),
+        reason: 'consumer $i sampled $rgb, wanted $want',
+      );
     }
   });
 }

@@ -68,8 +68,9 @@ class _QualityContentState extends State<QualityContent> {
   @override
   Widget build(BuildContext context) {
     final bool isLight = Theme.of(context).brightness == Brightness.light;
-    final Color contentColor =
-        isLight ? const Color(0xFF000000) : const Color(0xFFFFFFFF);
+    final Color contentColor = isLight
+        ? const Color(0xFF000000)
+        : const Color(0xFFFFFFFF);
 
     return BackdropDemoScaffold(
       builder: (BuildContext context, LayerBackdrop backdrop) {
@@ -153,15 +154,17 @@ class _DeviceReadout extends StatelessWidget {
             'Cores: ${info.processorCount == 0 ? "unknown" : info.processorCount}'
             '   Arch: ${info.architecture.isEmpty ? "unknown" : info.architecture}',
           ),
-          Text('Display: ${refreshRate.round()} Hz'
-              '   ${info.devicePixelRatio}x'
-              '   ${info.fillDemandMegapixelsPerSecond.round()} Mpx/s to fill'),
+          Text(
+            'Display: ${refreshRate.round()} Hz'
+            '   ${info.devicePixelRatio}x'
+            '   ${info.fillDemandMegapixelsPerSecond.round()} Mpx/s to fill',
+          ),
           const SizedBox(height: 8),
           Text(
             p90Micros == 0
                 ? 'Raster p90: idle — nothing is animating to measure'
                 : 'Raster p90: ${(p90Micros / 1000).toStringAsFixed(1)} ms of a '
-                    '${budgetMs.toStringAsFixed(1)} ms frame',
+                      '${budgetMs.toStringAsFixed(1)} ms frame',
             style: TextStyle(
               color: contentColor.withValues(alpha: 0.68),
               fontSize: 13,

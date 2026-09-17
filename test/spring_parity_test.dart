@@ -52,18 +52,23 @@ void main() {
     );
   }
 
-  testWidgets('springOf(1.0, k) is critically damped — no overshoot',
-      (WidgetTester tester) async {
+  testWidgets('springOf(1.0, k) is critically damped — no overshoot', (
+    WidgetTester tester,
+  ) async {
     // DampedDragAnimation's value and pressProgress specs.
     final result = await trace(tester, 'value', springOf(1.0, 1000.0));
-    expect(result.peak, lessThanOrEqualTo(1.0 + 1e-6),
-        reason: 'a damping ratio of 1 must not overshoot');
+    expect(
+      result.peak,
+      lessThanOrEqualTo(1.0 + 1e-6),
+      reason: 'a damping ratio of 1 must not overshoot',
+    );
     expect(result.settledMs, inInclusiveRange(240, 400));
     expect(result.at128ms, closeTo(0.868, 0.02));
   });
 
-  testWidgets('the squash springs overshoot by the amount Compose asks for',
-      (WidgetTester tester) async {
+  testWidgets('the squash springs overshoot by the amount Compose asks for', (
+    WidgetTester tester,
+  ) async {
     // scaleX: spring(0.6, 250). Underdamped, so it must visibly overshoot.
     final scaleX = await trace(tester, 'scaleX', springOf(0.6, 250.0));
     expect(scaleX.peak, closeTo(1.094, 0.02));
@@ -76,29 +81,38 @@ void main() {
     expect(scaleY.peak, lessThan(scaleX.peak));
   });
 
-  testWidgets('the press highlight is the bounciest spring in the catalog',
-      (WidgetTester tester) async {
+  testWidgets('the press highlight is the bounciest spring in the catalog', (
+    WidgetTester tester,
+  ) async {
     // InteractiveHighlight press/position, and the tab bar's offset return.
     final result = await trace(tester, 'highlight', springOf(0.5, 300.0));
     expect(result.peak, closeTo(1.163, 0.02));
   });
 
-  testWidgets('the menu open spring never overshoots',
-      (WidgetTester tester) async {
+  testWidgets('the menu open spring never overshoots', (
+    WidgetTester tester,
+  ) async {
     // Regression: the open used to be underdamped (ratio 0.75), which was
     // measured on-device blooming to 102.8% and then easing back to 100% over
     // ~175ms. On an opaque panel the eye calls the bloom finished at 100%, so
     // that back-settle read as a *second* opening animation rather than as
     // bounce. Critically damped is the fix, and this pins it.
     final result = await trace(tester, 'menu-open', springOf(1.0, 550.0));
-    expect(result.peak, lessThanOrEqualTo(1.0 + 1e-6),
-        reason: 'any overshoot re-reads as a second animation');
-    expect(result.settledMs, inInclusiveRange(300, 500),
-        reason: 'still quick enough to feel immediate');
+    expect(
+      result.peak,
+      lessThanOrEqualTo(1.0 + 1e-6),
+      reason: 'any overshoot re-reads as a second animation',
+    );
+    expect(
+      result.settledMs,
+      inInclusiveRange(300, 500),
+      reason: 'still quick enough to feel immediate',
+    );
   });
 
-  testWidgets('the velocity spring smooths rather than tracks',
-      (WidgetTester tester) async {
+  testWidgets('the velocity spring smooths rather than tracks', (
+    WidgetTester tester,
+  ) async {
     // Regression: this spring used to be built with visibilityThreshold 5.0 —
     // copied from Compose's `Animatable(0f, 5f)`, which is only the default
     // spec for calls that do not pass one. The live threshold is the spec's,
@@ -115,13 +129,24 @@ void main() {
     );
     addTearDown(animation.dispose);
 
-    final result = await trace(tester, 'velocity', springOf(0.5, 300.0),
-        visibilityThreshold: 0.001 * 10.0);
-    expect(result.settledMs, greaterThan(300),
-        reason: 'a smoothing spring must take time to settle, not snap');
-    expect(result.peak, greaterThan(1.05),
-        reason: 'it must overshoot, so the stretch rings out after the finger '
-            'stops');
+    final result = await trace(
+      tester,
+      'velocity',
+      springOf(0.5, 300.0),
+      visibilityThreshold: 0.001 * 10.0,
+    );
+    expect(
+      result.settledMs,
+      greaterThan(300),
+      reason: 'a smoothing spring must take time to settle, not snap',
+    );
+    expect(
+      result.peak,
+      greaterThan(1.05),
+      reason:
+          'it must overshoot, so the stretch rings out after the finger '
+          'stops',
+    );
   });
 }
 

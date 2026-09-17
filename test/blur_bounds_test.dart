@@ -19,7 +19,9 @@ class _Checker extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     const double cell = 20;
     canvas.drawRect(
-        Offset.zero & size, Paint()..color = const Color(0xFFFFFFFF));
+      Offset.zero & size,
+      Paint()..color = const Color(0xFFFFFFFF),
+    );
     final Paint black = Paint()..color = const Color(0xFF000000);
     for (double y = 0; y < size.height; y += cell) {
       for (double x = 0; x < size.width; x += cell) {
@@ -151,8 +153,9 @@ void main() {
       ..pinnedQuality = GlassQuality.liquid;
   });
 
-  testWidgets('a rectangular element does not bleed its blur outside itself',
-      (WidgetTester tester) async {
+  testWidgets('a rectangular element does not bleed its blur outside itself', (
+    WidgetTester tester,
+  ) async {
     // Regression: the clip was skipped whenever the outline was a rectangle
     // covering the element — "a plain rectangle clips nothing away". True of
     // the element, false of what gets drawn: the backdrop goes into a layer
@@ -163,10 +166,12 @@ void main() {
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.reset);
 
-    await tester.pumpWidget(_host(
-      glass: const Rect.fromLTWH(80, 80, 160, 160),
-      shape: const Rectangle(),
-    ));
+    await tester.pumpWidget(
+      _host(
+        glass: const Rect.fromLTWH(80, 80, 160, 160),
+        shape: const Rectangle(),
+      ),
+    );
     await tester.pump();
     await tester.pump();
     final Uint8List p = await _pixels(tester);
@@ -180,13 +185,18 @@ void main() {
         if (v > 24 && v < 231) greyish += 1;
       }
     }
-    expect(greyish, 0,
-        reason: '$greyish pixels outside the element are neither black nor '
-            'white, so the blur layer bled past its bounds');
+    expect(
+      greyish,
+      0,
+      reason:
+          '$greyish pixels outside the element are neither black nor '
+          'white, so the blur layer bled past its bounds',
+    );
   });
 
-  testWidgets('blur is not starved at the edge of its source',
-      (WidgetTester tester) async {
+  testWidgets('blur is not starved at the edge of its source', (
+    WidgetTester tester,
+  ) async {
     // Regression: the capture covers the source and no more, so a blur reading
     // past it mixed in transparent black — a dark fringe along every edge where
     // the glass met the end of its source, which for app chrome is the edge of
@@ -202,14 +212,19 @@ void main() {
     addTearDown(tester.view.reset);
 
     // Flush into the source's top-left corner.
-    await tester.pumpWidget(_flatHost(glass: const Rect.fromLTWH(0, 0, 200, 200)));
+    await tester.pumpWidget(
+      _flatHost(glass: const Rect.fromLTWH(0, 0, 200, 200)),
+    );
     await tester.pump();
     await tester.pump();
     final Uint8List p = await _pixels(tester);
 
     final double interior = _meanRed(p, const Rect.fromLTWH(90, 90, 20, 20));
-    expect(interior, closeTo(128, 6),
-        reason: 'a blurred flat grey should still be that grey');
+    expect(
+      interior,
+      closeTo(128, 6),
+      reason: 'a blurred flat grey should still be that grey',
+    );
 
     for (final (Rect at, String where) probe in <(Rect, String)>[
       (const Rect.fromLTWH(0, 0, 8, 8), 'top-left corner'),
@@ -219,9 +234,13 @@ void main() {
       (const Rect.fromLTWH(0, 192, 8, 8), 'bottom-left corner'),
     ]) {
       final double v = _meanRed(p, probe.$1);
-      expect((v - interior).abs(), lessThan(6.0),
-          reason: 'the ${probe.$2} reads $v against an interior of $interior, '
-              'so the blur is being starved where the source ends');
+      expect(
+        (v - interior).abs(),
+        lessThan(6.0),
+        reason:
+            'the ${probe.$2} reads $v against an interior of $interior, '
+            'so the blur is being starved where the source ends',
+      );
     }
   });
 }

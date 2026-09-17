@@ -1081,7 +1081,6 @@ class RenderBackdropLayer extends RenderProxyBox
       }());
     }
 
-
     if (relevantChange && !alreadyHandled) {
       if (beforeComposition) {
         invalidateSnapshot();

@@ -17,49 +17,52 @@ class _SliderContentState extends State<SliderContent> {
   @override
   Widget build(BuildContext context) {
     final bool isLight = Theme.of(context).brightness == Brightness.light;
-    final Color backgroundColor =
-        isLight ? const Color(0xFFFFFFFF) : const Color(0xFF121212);
+    final Color backgroundColor = isLight
+        ? const Color(0xFFFFFFFF)
+        : const Color(0xFF121212);
 
     return BackdropDemoScaffold(
       builder: (BuildContext context, LayerBackdrop backdrop) {
         return <Widget>[
           Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.center,
-          spacing: 16,
-          children: <Widget>[
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 32),
-              child: LiquidSlider(
-                value: _value,
-                onValueChanged: (double value) => setState(() => _value = value),
-                valueRange: (start: 0, end: 100),
-                visibilityThreshold: 0.01,
-                backdrop: backdrop,
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.center,
+            spacing: 16,
+            children: <Widget>[
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 32),
+                child: LiquidSlider(
+                  value: _value,
+                  onValueChanged: (double value) =>
+                      setState(() => _value = value),
+                  valueRange: (start: 0, end: 100),
+                  visibilityThreshold: 0.01,
+                  backdrop: backdrop,
+                ),
               ),
-            ),
-            Padding(
-              padding: const EdgeInsets.all(24),
-              child: ClipPath(
-                clipper: const GlassShapeClipper(RoundedRectangle(32)),
-                child: ColoredBox(
-                  color: backgroundColor,
-                  child: Padding(
-                    padding: const EdgeInsets.all(24) +
-                        const EdgeInsets.symmetric(horizontal: 32),
-                    child: LiquidSlider(
-                      value: _value,
-                      onValueChanged: (double value) =>
-                          setState(() => _value = value),
-                      valueRange: (start: 0, end: 100),
-                      visibilityThreshold: 0.01,
-                      backdrop: flatBackdrop(backgroundColor),
+              Padding(
+                padding: const EdgeInsets.all(24),
+                child: ClipPath(
+                  clipper: const GlassShapeClipper(RoundedRectangle(32)),
+                  child: ColoredBox(
+                    color: backgroundColor,
+                    child: Padding(
+                      padding:
+                          const EdgeInsets.all(24) +
+                          const EdgeInsets.symmetric(horizontal: 32),
+                      child: LiquidSlider(
+                        value: _value,
+                        onValueChanged: (double value) =>
+                            setState(() => _value = value),
+                        valueRange: (start: 0, end: 100),
+                        visibilityThreshold: 0.01,
+                        backdrop: flatBackdrop(backgroundColor),
+                      ),
                     ),
                   ),
                 ),
               ),
-            ),
-          ],
+            ],
           ),
         ];
       },

@@ -82,34 +82,45 @@ void main() {
   // to the canvas. An element that scaled and faded at once therefore painted
   // its child at full size — a menu blooming out of its anchor snapped between
   // 61% and 100% the instant its alpha crossed 1.0, twice per open/close.
-  testWidgets('a glass element that scales and fades scales its child too',
-      (WidgetTester tester) async {
+  testWidgets('a glass element that scales and fades scales its child too', (
+    WidgetTester tester,
+  ) async {
     tester.view.physicalSize = const Size(200, 200);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.reset);
 
-    await tester.pumpWidget(_host((GlassLayer layer) {
-      layer.transformOrigin = Offset.zero;
-      layer.scaleX = 0.5;
-      layer.scaleY = 0.5;
-      layer.alpha = 1.0;
-    }));
+    await tester.pumpWidget(
+      _host((GlassLayer layer) {
+        layer.transformOrigin = Offset.zero;
+        layer.scaleX = 0.5;
+        layer.scaleY = 0.5;
+        layer.alpha = 1.0;
+      }),
+    );
     final _Coverage opaque = await _coverage(tester);
     expect(opaque.isEmpty, isFalse);
     expect(opaque.right, lessThan(55), reason: 'opaque: scaled to 50×50');
     expect(opaque.bottom, lessThan(55));
 
-    await tester.pumpWidget(_host((GlassLayer layer) {
-      layer.transformOrigin = Offset.zero;
-      layer.scaleX = 0.5;
-      layer.scaleY = 0.5;
-      layer.alpha = 0.6;
-    }));
+    await tester.pumpWidget(
+      _host((GlassLayer layer) {
+        layer.transformOrigin = Offset.zero;
+        layer.scaleX = 0.5;
+        layer.scaleY = 0.5;
+        layer.alpha = 0.6;
+      }),
+    );
     final _Coverage faded = await _coverage(tester);
     expect(faded.isEmpty, isFalse);
-    expect(faded.right, lessThan(55),
-        reason: 'the fade must not undo the scale — $faded');
-    expect(faded.bottom, lessThan(55),
-        reason: 'the fade must not undo the scale — $faded');
+    expect(
+      faded.right,
+      lessThan(55),
+      reason: 'the fade must not undo the scale — $faded',
+    );
+    expect(
+      faded.bottom,
+      lessThan(55),
+      reason: 'the fade must not undo the scale — $faded',
+    );
   });
 }

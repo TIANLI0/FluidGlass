@@ -1,5 +1,26 @@
 # Changelog
 
+## 0.1.18
+
+### Added
+
+- `LiquidSegmentedControl.thumbColor` — the wash painted over the thumb's
+  refraction. It has always been white, which reads as *raised* on the grey
+  track iOS gives these controls; on a palette whose panel is already near
+  white, the thumb had nothing to separate it from the track and the control
+  said nothing about which segment was selected — the one thing it exists to
+  say. Null keeps the old white exactly, down to the alphas, so nothing that
+  does not pass the parameter changes.
+- `LiquidSlider.divisions` — snaps the *reported* value to equal steps while
+  the thumb keeps sliding continuously under the finger. A device volume of
+  0–16 on a finger-width track resolves to about three pixels a step, and a
+  continuous slider makes an exact setting a matter of luck.
+- `LiquidSlider.onChangeEnd` — fires once when the interaction ends (the
+  finger lifts after a drag, or a tap on the track lands). `onValueChanged`
+  fires continuously while dragging, so a caller that debounces its writes had
+  no way to know the user had stopped, and had to either wait out the debounce
+  window after the finger was already gone or write on every frame.
+
 ## 0.1.17
 
 ### Fixed

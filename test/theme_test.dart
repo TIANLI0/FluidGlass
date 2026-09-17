@@ -140,8 +140,9 @@ void main() {
     });
 
     test('copyWith replaces one field and keeps the rest', () {
-      final LiquidGlassColors themed =
-          LiquidGlassColors.light.copyWith(accent: const Color(0xFFD2603A));
+      final LiquidGlassColors themed = LiquidGlassColors.light.copyWith(
+        accent: const Color(0xFFD2603A),
+      );
 
       expect(themed.accent, const Color(0xFFD2603A));
       expect(themed.toggleAccent, LiquidGlassColors.light.toggleAccent);
@@ -151,10 +152,7 @@ void main() {
     });
 
     test('equality is by value, so a theme only notifies on a real change', () {
-      expect(
-        LiquidGlassColors.light.copyWith(),
-        LiquidGlassColors.light,
-      );
+      expect(LiquidGlassColors.light.copyWith(), LiquidGlassColors.light);
       expect(
         LiquidGlassColors.light.copyWith().hashCode,
         LiquidGlassColors.light.hashCode,
@@ -163,8 +161,9 @@ void main() {
   });
 
   group('LiquidGlassTheme.of', () {
-    testWidgets('falls back to the default for the enclosing brightness',
-        (WidgetTester tester) async {
+    testWidgets('falls back to the default for the enclosing brightness', (
+      WidgetTester tester,
+    ) async {
       final List<LiquidGlassColors> seen = <LiquidGlassColors>[];
       for (final Brightness brightness in Brightness.values) {
         // A bare Theme, not a MaterialApp: that one wraps the theme in an
@@ -190,8 +189,9 @@ void main() {
     });
 
     testWidgets('returns the supplied palette', (WidgetTester tester) async {
-      final LiquidGlassColors themed =
-          LiquidGlassColors.light.copyWith(accent: const Color(0xFFD2603A));
+      final LiquidGlassColors themed = LiquidGlassColors.light.copyWith(
+        accent: const Color(0xFFD2603A),
+      );
       LiquidGlassColors? seen;
 
       await tester.pumpWidget(
@@ -217,8 +217,9 @@ void main() {
     setUp(() => GlassDeviceTier.instance.reset());
     tearDown(() => GlassDeviceTier.instance.reset());
 
-    testWidgets('the panel tints with the theme, not with the default',
-        (WidgetTester tester) async {
+    testWidgets('the panel tints with the theme, not with the default', (
+      WidgetTester tester,
+    ) async {
       await tester.pumpWidget(_host());
       await tester.pump();
       final List<double> untinted = await _meanRgb(tester, _inside);
@@ -241,8 +242,9 @@ void main() {
       expect(tinted[2], lessThan(40));
     });
 
-    testWidgets('a per-element surfaceColor still wins over the theme',
-        (WidgetTester tester) async {
+    testWidgets('a per-element surfaceColor still wins over the theme', (
+      WidgetTester tester,
+    ) async {
       await tester.pumpWidget(
         _host(
           colors: LiquidGlassColors.light.copyWith(

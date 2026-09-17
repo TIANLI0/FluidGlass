@@ -28,8 +28,9 @@ class SdfShaderSource extends ChangeNotifier {
 
   Future<void> _load() async {
     final ByteData data = await rootBundle.load(assetName);
-    final ui.Codec codec =
-        await ui.instantiateImageCodec(data.buffer.asUint8List());
+    final ui.Codec codec = await ui.instantiateImageCodec(
+      data.buffer.asUint8List(),
+    );
     final ui.FrameInfo frame = await codec.getNextFrame();
     _image = frame.image;
     notifyListeners();
@@ -43,26 +44,25 @@ class SdfShaderSource extends ChangeNotifier {
   }) {
     final ui.Image? image = _image;
     if (image == null) return;
-    scope.fragmentShaderEffect(
-      'SdfShader',
-      DemoShaders.instance.sdf,
-      (ui.FragmentShader shader, BackdropEffectGeometry geometry) {
-        // Linear sampling: an SDF interpolates linearly, and the texture is
-        // minified here.
-        shader.setImageSampler(1, image, filterQuality: ui.FilterQuality.low);
-        shader
-          ..setFloat(0, 0)
-          ..setFloat(1, 0)
-          ..setFloat(2, geometry.layerSize.width)
-          ..setFloat(3, geometry.layerSize.height)
-          ..setFloat(4, geometry.size.width)
-          ..setFloat(5, geometry.size.height)
-          ..setFloat(6, image.width.toDouble())
-          ..setFloat(7, image.height.toDouble())
-          ..setFloat(8, refractionHeight)
-          ..setFloat(9, lightAngle);
-      },
-    );
+    scope.fragmentShaderEffect('SdfShader', DemoShaders.instance.sdf, (
+      ui.FragmentShader shader,
+      BackdropEffectGeometry geometry,
+    ) {
+      // Linear sampling: an SDF interpolates linearly, and the texture is
+      // minified here.
+      shader.setImageSampler(1, image, filterQuality: ui.FilterQuality.low);
+      shader
+        ..setFloat(0, 0)
+        ..setFloat(1, 0)
+        ..setFloat(2, geometry.layerSize.width)
+        ..setFloat(3, geometry.layerSize.height)
+        ..setFloat(4, geometry.size.width)
+        ..setFloat(5, geometry.size.height)
+        ..setFloat(6, image.width.toDouble())
+        ..setFloat(7, image.height.toDouble())
+        ..setFloat(8, refractionHeight)
+        ..setFloat(9, lightAngle);
+    });
   }
 
   @override

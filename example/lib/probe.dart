@@ -52,8 +52,10 @@ class _ProbeAppState extends State<_ProbeApp> {
                 child: BackdropLayer(
                   backdrop: _backdrop,
                   child: SizedBox.expand(
-                    child: Image.asset('assets/wallpaper_light.webp',
-                        fit: BoxFit.cover),
+                    child: Image.asset(
+                      'assets/wallpaper_light.webp',
+                      fit: BoxFit.cover,
+                    ),
                   ),
                 ),
               ),
@@ -71,10 +73,17 @@ class _ProbeAppState extends State<_ProbeApp> {
                         LiquidBottomTab(
                           onPressed: () => setState(() => _index = i),
                           children: <Widget>[
-                            const FlightIcon(size: 28, color: Color(0xFF000000)),
-                            Text('Tab ${i + 1}',
-                                style: const TextStyle(
-                                    color: Color(0xFF000000), fontSize: 12)),
+                            const FlightIcon(
+                              size: 28,
+                              color: Color(0xFF000000),
+                            ),
+                            Text(
+                              'Tab ${i + 1}',
+                              style: const TextStyle(
+                                color: Color(0xFF000000),
+                                fontSize: 12,
+                              ),
+                            ),
                           ],
                         ),
                     ],
@@ -103,10 +112,7 @@ double _tabWidth() => (_tabsRect().width - 8.0) / _tabsCount;
 
 Offset _pillCentre(double value) {
   final Rect rect = _tabsRect();
-  return Offset(
-    rect.left + 4 + (value + 0.5) * _tabWidth(),
-    rect.top + 32,
-  );
+  return Offset(rect.left + 4 + (value + 0.5) * _tabWidth(), rect.top + 32);
 }
 
 Offset _last = Offset.zero;
@@ -114,7 +120,11 @@ Offset _last = Offset.zero;
 void _down(Offset p) {
   _last = p;
   GestureBinding.instance.handlePointerEvent(
-    PointerDownEvent(pointer: ++_pointer, position: p, kind: PointerDeviceKind.touch),
+    PointerDownEvent(
+      pointer: ++_pointer,
+      position: p,
+      kind: PointerDeviceKind.touch,
+    ),
   );
 }
 
@@ -132,7 +142,11 @@ void _move(Offset p) {
 
 void _up() {
   GestureBinding.instance.handlePointerEvent(
-    PointerUpEvent(pointer: _pointer, position: _last, kind: PointerDeviceKind.touch),
+    PointerUpEvent(
+      pointer: _pointer,
+      position: _last,
+      kind: PointerDeviceKind.touch,
+    ),
   );
 }
 

@@ -88,10 +88,11 @@ int _nearestRow(List<int> rgb) {
   int bestScore = 1 << 30;
   for (int i = 0; i < _rows.length; i++) {
     final Color c = _rows[i];
-    final int score = ((c.r * 255 - rgb[0]).abs() +
-            (c.g * 255 - rgb[1]).abs() +
-            (c.b * 255 - rgb[2]).abs())
-        .round();
+    final int score =
+        ((c.r * 255 - rgb[0]).abs() +
+                (c.g * 255 - rgb[1]).abs() +
+                (c.b * 255 - rgb[2]).abs())
+            .round();
     if (score < bestScore) {
       bestScore = score;
       best = i;
@@ -115,8 +116,9 @@ void main() {
   });
   tearDown(() => GlassDeviceTier.instance.reset());
 
-  testWidgets('the glass shows the current frame, not the previous one',
-      (WidgetTester tester) async {
+  testWidgets('the glass shows the current frame, not the previous one', (
+    WidgetTester tester,
+  ) async {
     // "Rendering latency": during a scroll the content inside the glass trails
     // the content around it. The capture is taken while the glass paints, so
     // whether it is fresh depends on whether the source's layer has already
@@ -148,8 +150,9 @@ void main() {
     expect(lagging, 0, reason: log.join('\n'));
   });
 
-  testWidgets('the glass keeps up during a real drag',
-      (WidgetTester tester) async {
+  testWidgets('the glass keeps up during a real drag', (
+    WidgetTester tester,
+  ) async {
     // The path a finger takes: a drag updates the offset from a pointer event,
     // not from `jumpTo`. Compare what the glass shows against the row actually
     // under it on that same frame.
@@ -164,8 +167,9 @@ void main() {
     await tester.pump();
     await tester.pump();
 
-    final TestGesture gesture =
-        await tester.startGesture(const Offset(100, 200));
+    final TestGesture gesture = await tester.startGesture(
+      const Offset(100, 200),
+    );
     final List<String> log = <String>[];
     int wrong = 0;
 
@@ -177,8 +181,10 @@ void main() {
       final int shown = _nearestRow(await _glassRgb(tester));
       // The glass covers y 150..250 of the viewport; sample its centre, y=200.
       final int expected = ((controller.offset + 200) / _extent).floor();
-      log.add('offset=${controller.offset.toStringAsFixed(0)} '
-          'expected row $expected, glass showed $shown');
+      log.add(
+        'offset=${controller.offset.toStringAsFixed(0)} '
+        'expected row $expected, glass showed $shown',
+      );
       if (shown != expected) wrong += 1;
     }
     await gesture.up();

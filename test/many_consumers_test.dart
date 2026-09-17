@@ -68,22 +68,23 @@ void main() {
     addTearDown(tick.dispose);
 
     Widget build(double shift) => _frame(
-          backdrop,
-          ListenableBuilder(
-            listenable: tick,
-            builder: (BuildContext context, Widget? _) => ColoredBox(
-              color: Color(0xFF000000 | (tick.value * 7919 % 0xFFFFFF)),
-              child: const SizedBox.expand(),
-            ),
-          ),
-          _tiles(backdrop, 13, shift: shift),
-        );
+      backdrop,
+      ListenableBuilder(
+        listenable: tick,
+        builder: (BuildContext context, Widget? _) => ColoredBox(
+          color: Color(0xFF000000 | (tick.value * 7919 % 0xFFFFFF)),
+          child: const SizedBox.expand(),
+        ),
+      ),
+      _tiles(backdrop, 13, shift: shift),
+    );
 
     await tester.pumpWidget(build(0));
     await tester.pumpAndSettle();
 
-    final RenderBackdropLayer source =
-        tester.renderObject(find.byType(BackdropLayer));
+    final RenderBackdropLayer source = tester.renderObject(
+      find.byType(BackdropLayer),
+    );
 
     source.debugCaptureCount = 0;
     const int frames = 10;
@@ -94,13 +95,16 @@ void main() {
 
     final double perFrame = source.debugCaptureCount / frames;
     // ignore: avoid_print
-    print('MANY| captures=${source.debugCaptureCount} '
-        'frames=$frames perFrame=${perFrame.toStringAsFixed(2)}');
+    print(
+      'MANY| captures=${source.debugCaptureCount} '
+      'frames=$frames perFrame=${perFrame.toStringAsFixed(2)}',
+    );
 
     expect(
       perFrame,
       lessThan(1.2),
-      reason: 'thirteen tiles must share one capture per changed frame, '
+      reason:
+          'thirteen tiles must share one capture per changed frame, '
           'not flush the pipeline several times',
     );
   });

@@ -81,8 +81,10 @@ Future<void> main() async {
 
 Future<void> _drive() async {
   await _settle(30);
-  debugPrint('tier: ${GlassDeviceTier.instance.quality}   '
-      'shader filters: ${ui.ImageFilter.isShaderFilterSupported}');
+  debugPrint(
+    'tier: ${GlassDeviceTier.instance.quality}   '
+    'shader filters: ${ui.ImageFilter.isShaderFilterSupported}',
+  );
   for (final _Case which in _Case.values) {
     _which.value = which;
     await _settle(40);
@@ -159,9 +161,11 @@ Future<void> _run(_Case which) async {
   final double live = spread(native);
   final double saw = spread(glass);
   debugPrint('--- ${which.label}');
-  debugPrint('  native half moved ${live.toStringAsFixed(1)}   '
-      'FluidGlass half moved ${saw.toStringAsFixed(1)}   '
-      '${live > 12 && saw < live / 4 ? '<<< FROZEN' : 'tracking'}');
+  debugPrint(
+    '  native half moved ${live.toStringAsFixed(1)}   '
+    'FluidGlass half moved ${saw.toStringAsFixed(1)}   '
+    '${live > 12 && saw < live / 4 ? '<<< FROZEN' : 'tracking'}',
+  );
   debugPrint('  glass : ${glass.map((double v) => v.round()).join(' ')}');
   debugPrint('  native: ${native.map((double v) => v.round()).join(' ')}');
 

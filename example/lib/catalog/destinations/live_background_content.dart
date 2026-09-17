@@ -74,7 +74,10 @@ class _LiveBackgroundContentState extends State<LiveBackgroundContent>
           minScale: 1,
           maxScale: 4,
           child: SizedBox.expand(
-            child: Image.asset('assets/wallpaper_light.webp', fit: BoxFit.cover),
+            child: Image.asset(
+              'assets/wallpaper_light.webp',
+              fit: BoxFit.cover,
+            ),
           ),
         );
     }

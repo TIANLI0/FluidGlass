@@ -3,8 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  testWidgets('a glass element with a layerBlock still receives gestures',
-      (WidgetTester tester) async {
+  testWidgets('a glass element with a layerBlock still receives gestures', (
+    WidgetTester tester,
+  ) async {
     // The playground and the adaptive-luminance demo put their gestures inside
     // the glass so the touch target follows the transform.
     Offset pan = Offset.zero;
@@ -16,7 +17,9 @@ void main() {
           body: Stack(
             alignment: Alignment.center,
             children: <Widget>[
-              const Positioned.fill(child: ColoredBox(color: Color(0xFF224466))),
+              const Positioned.fill(
+                child: ColoredBox(color: Color(0xFF224466)),
+              ),
               StatefulBuilder(
                 builder: (BuildContext context, StateSetter setState) {
                   return DrawBackdrop(
@@ -84,7 +87,10 @@ void main() {
     await second.up();
     await tester.pump();
 
-    expect(pan.dx, lessThan(before.dx),
-        reason: 'the transformed glass must be grabbable where it is drawn');
+    expect(
+      pan.dx,
+      lessThan(before.dx),
+      reason: 'the transformed glass must be grabbable where it is drawn',
+    );
   });
 }

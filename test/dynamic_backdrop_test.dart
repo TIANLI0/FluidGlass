@@ -36,11 +36,12 @@ Widget _host(ScrollController controller) {
                     controller: controller,
                     itemExtent: 40,
                     itemCount: 60,
-                    itemBuilder: (BuildContext context, int index) => ColoredBox(
-                      color: index.isEven
-                          ? const Color(0xFF000000)
-                          : const Color(0xFFFFFFFF),
-                    ),
+                    itemBuilder: (BuildContext context, int index) =>
+                        ColoredBox(
+                          color: index.isEven
+                              ? const Color(0xFF000000)
+                              : const Color(0xFFFFFFFF),
+                        ),
                   ),
                 ),
               ),
@@ -100,10 +101,17 @@ class _CountingSource implements LayerBackdropSource {
   @override
   bool get hasContent => inner.hasContent;
   @override
-  void drawSource(Canvas canvas, double devicePixelRatio,
-          {double clampMargin = 0.0, Rect? region}) =>
-      inner.drawSource(canvas, devicePixelRatio,
-          clampMargin: clampMargin, region: region);
+  void drawSource(
+    Canvas canvas,
+    double devicePixelRatio, {
+    double clampMargin = 0.0,
+    Rect? region,
+  }) => inner.drawSource(
+    canvas,
+    devicePixelRatio,
+    clampMargin: clampMargin,
+    region: region,
+  );
   @override
   void invalidateSnapshot() {
     invalidations += 1;
@@ -126,8 +134,9 @@ void main() {
   });
   tearDown(() => GlassDeviceTier.instance.reset());
 
-  testWidgets('a glass bar tracks a list scrolling underneath it',
-      (WidgetTester tester) async {
+  testWidgets('a glass bar tracks a list scrolling underneath it', (
+    WidgetTester tester,
+  ) async {
     // Regression: `RenderBackdropLayer` only invalidated its captured snapshot
     // inside its own `paint`, and only told its consumers to repaint from
     // there. Nothing marks a pinned glass element dirty when unrelated content
@@ -156,13 +165,18 @@ void main() {
 
     final double min = samples.reduce((double a, double b) => a < b ? a : b);
     final double max = samples.reduce((double a, double b) => a > b ? a : b);
-    expect(max - min, greaterThan(20.0),
-        reason: 'the bar must re-sample as the list moves, but its brightness '
-            'only moved between $min and $max across $samples');
+    expect(
+      max - min,
+      greaterThan(20.0),
+      reason:
+          'the bar must re-sample as the list moves, but its brightness '
+          'only moved between $min and $max across $samples',
+    );
   });
 
-  testWidgets('a still source is not re-captured for an animating consumer',
-      (WidgetTester tester) async {
+  testWidgets('a still source is not re-captured for an animating consumer', (
+    WidgetTester tester,
+  ) async {
     // The other half of the contract, and the reason invalidation is driven by
     // signals rather than by the frame counter: a full-screen `toImageSync`
     // every frame would be correct and would also undo the whole point of
@@ -177,37 +191,39 @@ void main() {
     final ValueNotifier<double> spin = ValueNotifier<double>(0);
     addTearDown(spin.dispose);
 
-    await tester.pumpWidget(Directionality(
-      textDirection: TextDirection.ltr,
-      child: MediaQuery(
-        data: const MediaQueryData(),
-        child: Stack(
-          clipBehavior: Clip.none,
-          children: <Widget>[
-            Positioned.fill(
-              child: BackdropLayer(
-                backdrop: backdrop,
-                child: const ColoredBox(color: Color(0xFF808080)),
+    await tester.pumpWidget(
+      Directionality(
+        textDirection: TextDirection.ltr,
+        child: MediaQuery(
+          data: const MediaQueryData(),
+          child: Stack(
+            clipBehavior: Clip.none,
+            children: <Widget>[
+              Positioned.fill(
+                child: BackdropLayer(
+                  backdrop: backdrop,
+                  child: const ColoredBox(color: Color(0xFF808080)),
+                ),
               ),
-            ),
-            Positioned(
-              left: 0,
-              top: 0,
-              child: DrawBackdrop.plain(
-                backdrop: backdrop,
-                shape: () => const Rectangle(),
-                repaint: spin,
-                layerBlock: (GlassLayer layer) {
-                  layer.scaleX = 1 + spin.value * 0.001;
-                },
-                effects: (BackdropEffectScope scope) => scope.blur(2),
-                child: const SizedBox(width: 80, height: 40),
+              Positioned(
+                left: 0,
+                top: 0,
+                child: DrawBackdrop.plain(
+                  backdrop: backdrop,
+                  shape: () => const Rectangle(),
+                  repaint: spin,
+                  layerBlock: (GlassLayer layer) {
+                    layer.scaleX = 1 + spin.value * 0.001;
+                  },
+                  effects: (BackdropEffectScope scope) => scope.blur(2),
+                  child: const SizedBox(width: 80, height: 40),
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
-    ));
+    );
     await tester.pump();
 
     // Wrap the attached source so retakes can be counted, then animate only
@@ -224,8 +240,12 @@ void main() {
       spin.value = i.toDouble();
       await tester.pump();
     }
-    expect(counting.invalidations, 0,
-        reason: 'nothing about the source changed, so nothing should have '
-            'invalidated its capture');
+    expect(
+      counting.invalidations,
+      0,
+      reason:
+          'nothing about the source changed, so nothing should have '
+          'invalidated its capture',
+    );
   });
 }

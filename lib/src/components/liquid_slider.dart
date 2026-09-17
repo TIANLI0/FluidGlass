@@ -54,13 +54,38 @@ class LiquidSlider extends StatefulWidget {
     required this.valueRange,
     required this.visibilityThreshold,
     required this.backdrop,
-  });
+    this.divisions,
+    this.onChangeEnd,
+  }) : assert(
+         divisions == null || divisions > 0,
+         'divisions must be positive, or null for a continuous track.',
+       );
 
   final double value;
   final ValueChanged<double> onValueChanged;
   final ({double start, double end}) valueRange;
   final double visibilityThreshold;
   final Backdrop backdrop;
+
+  /// Snaps the reported value to this many equal steps across [valueRange].
+  ///
+  /// Null keeps the track continuous. Give a count when the value the caller
+  /// stores is discrete and the range is short: a device volume of 0–16 on a
+  /// finger-width track resolves to about three pixels a step, and a
+  /// continuous slider then makes an exact setting a matter of luck. The
+  /// *thumb* still slides continuously — only the reported value snaps, so the
+  /// bead keeps tracking the finger rather than jumping between stops.
+  final int? divisions;
+
+  /// Called once when the interaction ends — the finger lifts after a drag, or
+  /// a tap on the track lands.
+  ///
+  /// [onValueChanged] fires continuously while dragging, which is the wrong
+  /// moment to write anything expensive: a caller that debounces its writes
+  /// has no way to know the user has stopped, and so must either wait out the
+  /// debounce window after the finger is already gone, or write on every
+  /// frame of the drag.
+  final ValueChanged<double>? onChangeEnd;
 
   @override
   State<LiquidSlider> createState() => _LiquidSliderState();
@@ -92,7 +117,9 @@ class _LiquidSliderState extends State<LiquidSlider>
       onDragStopped: () {
         // didDrag stays latched; only the toggle clears it.
         if (_didDrag) {
-          widget.onValueChanged(_animation.targetValue);
+          final double settled = _snap(_animation.targetValue);
+          widget.onValueChanged(settled);
+          widget.onChangeEnd?.call(settled);
         }
       },
       onDrag: _onDrag,
@@ -120,6 +147,21 @@ class _LiquidSliderState extends State<LiquidSlider>
 
   double get _span => widget.valueRange.end - widget.valueRange.start;
 
+  /// Rounds to the nearest step when [LiquidSlider.divisions] is set.
+  ///
+  /// Applied to what is *reported*, never to what the thumb is drawn at: the
+  /// bead follows the finger and the value lands on a stop, which is how a
+  /// stepped slider stays smooth under the thumb.
+  double _snap(double raw) {
+    final int? divisions = widget.divisions;
+    if (divisions == null || _span == 0) return raw;
+    final double step = _span / divisions;
+    final double stepped =
+        widget.valueRange.start +
+        ((raw - widget.valueRange.start) / step).roundToDouble() * step;
+    return stepped.clamp(widget.valueRange.start, widget.valueRange.end);
+  }
+
   void _onDrag(Size size, Offset dragAmount) {
     if (!_didDrag) {
       _didDrag = dragAmount.dx != 0;
@@ -131,7 +173,7 @@ class _LiquidSliderState extends State<LiquidSlider>
         ? _animation.targetValue + delta
         : _animation.targetValue - delta;
     widget.onValueChanged(
-      next.clamp(widget.valueRange.start, widget.valueRange.end),
+      _snap(next.clamp(widget.valueRange.start, widget.valueRange.end)),
     );
   }
 
@@ -139,13 +181,15 @@ class _LiquidSliderState extends State<LiquidSlider>
     if (_trackWidth == 0) return;
     final bool isLtr = Directionality.of(context) == TextDirection.ltr;
     final double delta = _span * (position.dx / _trackWidth);
-    final double target =
-        (isLtr
-                ? widget.valueRange.start + delta
-                : widget.valueRange.end - delta)
-            .clamp(widget.valueRange.start, widget.valueRange.end);
+    final double target = _snap(
+      (isLtr ? widget.valueRange.start + delta : widget.valueRange.end - delta)
+          .clamp(widget.valueRange.start, widget.valueRange.end),
+    );
     _animation.animateToValue(target);
     widget.onValueChanged(target);
+    // A tap is a complete interaction on its own — there is no finger left to
+    // lift, so this is the moment a debouncing caller is waiting for.
+    widget.onChangeEnd?.call(target);
   }
 
   /// The track backdrop, squashed towards the thumb's centre while pressed.

@@ -21,48 +21,51 @@ const Key _boundary = Key('boundary');
 const int _w = 200;
 const int _h = 400;
 
-Widget _scene(LayerBackdrop backdrop, Widget source, {required bool barAtTop}) =>
-    Directionality(
-      textDirection: TextDirection.ltr,
-      child: MediaQuery(
-        data: const MediaQueryData(),
-        child: RepaintBoundary(
-          key: _boundary,
-          child: SizedBox(
-            width: _w.toDouble(),
-            height: _h.toDouble(),
-            child: Stack(
-              clipBehavior: Clip.none,
-              children: <Widget>[
-                Positioned.fill(
-                  child: BackdropLayer(backdrop: backdrop, child: source),
-                ),
-                Positioned(
-                  left: 0,
-                  right: 0,
-                  top: barAtTop ? 0 : null,
-                  bottom: barAtTop ? null : 0,
-                  child: DrawBackdrop.plain(
-                    backdrop: backdrop,
-                    shape: () => const Rectangle(),
-                    effects: (BackdropEffectScope scope) => scope.blur(2),
-                    child: const SizedBox(height: 60, width: double.infinity),
-                  ),
-                ),
-              ],
+Widget _scene(
+  LayerBackdrop backdrop,
+  Widget source, {
+  required bool barAtTop,
+}) => Directionality(
+  textDirection: TextDirection.ltr,
+  child: MediaQuery(
+    data: const MediaQueryData(),
+    child: RepaintBoundary(
+      key: _boundary,
+      child: SizedBox(
+        width: _w.toDouble(),
+        height: _h.toDouble(),
+        child: Stack(
+          clipBehavior: Clip.none,
+          children: <Widget>[
+            Positioned.fill(
+              child: BackdropLayer(backdrop: backdrop, child: source),
             ),
-          ),
+            Positioned(
+              left: 0,
+              right: 0,
+              top: barAtTop ? 0 : null,
+              bottom: barAtTop ? null : 0,
+              child: DrawBackdrop.plain(
+                backdrop: backdrop,
+                shape: () => const Rectangle(),
+                effects: (BackdropEffectScope scope) => scope.blur(2),
+                child: const SizedBox(height: 60, width: double.infinity),
+              ),
+            ),
+          ],
         ),
       ),
-    );
+    ),
+  ),
+);
 
 Widget _bands({int count = 60}) => ListView.builder(
-      itemExtent: 40,
-      itemCount: count,
-      itemBuilder: (BuildContext context, int index) => ColoredBox(
-        color: index.isEven ? const Color(0xFF000000) : const Color(0xFFFFFFFF),
-      ),
-    );
+  itemExtent: 40,
+  itemCount: count,
+  itemBuilder: (BuildContext context, int index) => ColoredBox(
+    color: index.isEven ? const Color(0xFF000000) : const Color(0xFFFFFFFF),
+  ),
+);
 
 /// Mean brightness of the strip the bar occupies.
 Future<double> _bar(WidgetTester tester, {required bool atTop}) async {
@@ -111,26 +114,36 @@ Future<List<double>> _dragAndRelease(
 void _expectTracking(List<double> samples, double atLeast, String what) {
   final double min = samples.reduce((double a, double b) => a < b ? a : b);
   final double max = samples.reduce((double a, double b) => a > b ? a : b);
-  expect(max - min, greaterThan(atLeast),
-      reason: 'the glass must keep sampling while $what, but its brightness '
-          'only moved between $min and $max across $samples');
+  expect(
+    max - min,
+    greaterThan(atLeast),
+    reason:
+        'the glass must keep sampling while $what, but its brightness '
+        'only moved between $min and $max across $samples',
+  );
 }
 
 class _Stretch extends ScrollBehavior {
   const _Stretch();
   @override
   Widget buildOverscrollIndicator(
-          BuildContext context, Widget child, ScrollableDetails details) =>
-      StretchingOverscrollIndicator(
-          axisDirection: details.direction, child: child);
+    BuildContext context,
+    Widget child,
+    ScrollableDetails details,
+  ) => StretchingOverscrollIndicator(
+    axisDirection: details.direction,
+    child: child,
+  );
 }
 
 class _NoIndicator extends ScrollBehavior {
   const _NoIndicator();
   @override
   Widget buildOverscrollIndicator(
-          BuildContext context, Widget child, ScrollableDetails details) =>
-      child;
+    BuildContext context,
+    Widget child,
+    ScrollableDetails details,
+  ) => child;
 }
 
 void main() {
@@ -151,92 +164,113 @@ void main() {
     addTearDown(tester.view.reset);
   }
 
-  testWidgets('the glass tracks a list bouncing back from an overscroll',
-      (WidgetTester tester) async {
+  testWidgets('the glass tracks a list bouncing back from an overscroll', (
+    WidgetTester tester,
+  ) async {
     // iOS physics: the position itself runs past the edge and a ballistic
     // simulation brings it back, so scroll notifications keep arriving.
     configure(tester);
     final LayerBackdrop backdrop = LayerBackdrop();
     addTearDown(backdrop.dispose);
-    await tester.pumpWidget(_scene(
-      backdrop,
-      ScrollConfiguration(
-        behavior: const _NoIndicator(),
-        child: ListView.builder(
-          physics: const BouncingScrollPhysics(),
-          itemExtent: 40,
-          itemCount: 60,
-          itemBuilder: (BuildContext context, int index) => ColoredBox(
-            color:
-                index.isEven ? const Color(0xFF000000) : const Color(0xFFFFFFFF),
+    await tester.pumpWidget(
+      _scene(
+        backdrop,
+        ScrollConfiguration(
+          behavior: const _NoIndicator(),
+          child: ListView.builder(
+            physics: const BouncingScrollPhysics(),
+            itemExtent: 40,
+            itemCount: 60,
+            itemBuilder: (BuildContext context, int index) => ColoredBox(
+              color: index.isEven
+                  ? const Color(0xFF000000)
+                  : const Color(0xFFFFFFFF),
+            ),
           ),
         ),
+        barAtTop: false,
       ),
-      barAtTop: false,
-    ));
+    );
     await tester.pump();
-    _expectTracking(await _dragAndRelease(tester, atTop: false), 20,
-        'a list bounces back');
+    _expectTracking(
+      await _dragAndRelease(tester, atTop: false),
+      20,
+      'a list bounces back',
+    );
     await tester.pumpAndSettle();
   });
 
-  testWidgets('the glass tracks the android stretch springing back',
-      (WidgetTester tester) async {
+  testWidgets('the glass tracks the android stretch springing back', (
+    WidgetTester tester,
+  ) async {
     // The harder half: the scroll position never leaves zero, so there is no
     // `ScrollNotification` during the spring-back at all. Only the source
     // repainting — or the layer fingerprint — can see this.
     configure(tester);
     final LayerBackdrop backdrop = LayerBackdrop();
     addTearDown(backdrop.dispose);
-    await tester.pumpWidget(_scene(
-      backdrop,
-      ScrollConfiguration(behavior: const _Stretch(), child: _bands()),
-      barAtTop: false,
-    ));
+    await tester.pumpWidget(
+      _scene(
+        backdrop,
+        ScrollConfiguration(behavior: const _Stretch(), child: _bands()),
+        barAtTop: false,
+      ),
+    );
     await tester.pump();
-    _expectTracking(await _dragAndRelease(tester, atTop: false), 10,
-        'the android stretch springs back');
+    _expectTracking(
+      await _dragAndRelease(tester, atTop: false),
+      10,
+      'the android stretch springs back',
+    );
     await tester.pumpAndSettle();
   });
 
-  testWidgets('the glass tracks a cupertino refresh control',
-      (WidgetTester tester) async {
+  testWidgets('the glass tracks a cupertino refresh control', (
+    WidgetTester tester,
+  ) async {
     configure(tester);
     final LayerBackdrop backdrop = LayerBackdrop();
     addTearDown(backdrop.dispose);
-    await tester.pumpWidget(_scene(
-      backdrop,
-      ScrollConfiguration(
-        behavior: const _NoIndicator(),
-        child: CustomScrollView(
-          physics:
-              const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
-          slivers: <Widget>[
-            CupertinoSliverRefreshControl(onRefresh: () async {}),
-            SliverFixedExtentList(
-              itemExtent: 40,
-              delegate: SliverChildBuilderDelegate(
-                (BuildContext context, int index) => ColoredBox(
-                  color: index.isEven
-                      ? const Color(0xFF000000)
-                      : const Color(0xFFFFFFFF),
-                ),
-                childCount: 60,
-              ),
+    await tester.pumpWidget(
+      _scene(
+        backdrop,
+        ScrollConfiguration(
+          behavior: const _NoIndicator(),
+          child: CustomScrollView(
+            physics: const BouncingScrollPhysics(
+              parent: AlwaysScrollableScrollPhysics(),
             ),
-          ],
+            slivers: <Widget>[
+              CupertinoSliverRefreshControl(onRefresh: () async {}),
+              SliverFixedExtentList(
+                itemExtent: 40,
+                delegate: SliverChildBuilderDelegate(
+                  (BuildContext context, int index) => ColoredBox(
+                    color: index.isEven
+                        ? const Color(0xFF000000)
+                        : const Color(0xFFFFFFFF),
+                  ),
+                  childCount: 60,
+                ),
+              ),
+            ],
+          ),
         ),
+        barAtTop: true,
       ),
-      barAtTop: true,
-    ));
+    );
     await tester.pump();
-    _expectTracking(await _dragAndRelease(tester, atTop: true), 20,
-        'a refresh control springs back');
+    _expectTracking(
+      await _dragAndRelease(tester, atTop: true),
+      20,
+      'a refresh control springs back',
+    );
     await tester.pumpAndSettle();
   });
 
-  testWidgets('the glass tracks the source itself springing back',
-      (WidgetTester tester) async {
+  testWidgets('the glass tracks the source itself springing back', (
+    WidgetTester tester,
+  ) async {
     // A page that is dragged down and released as a whole: the source moves
     // rather than its content, so nothing inside it repaints and no scroll
     // notification is dispatched. The capture is taken in the source's own
@@ -252,63 +286,65 @@ void main() {
     );
     addTearDown(spring.dispose);
 
-    await tester.pumpWidget(Directionality(
-      textDirection: TextDirection.ltr,
-      child: MediaQuery(
-        data: const MediaQueryData(),
-        child: RepaintBoundary(
-          key: _boundary,
-          child: SizedBox(
-            width: _w.toDouble(),
-            height: _h.toDouble(),
-            child: Stack(
-              clipBehavior: Clip.none,
-              children: <Widget>[
-                Positioned.fill(
-                  child: AnimatedBuilder(
-                    animation: spring,
-                    builder: (BuildContext context, Widget? child) =>
-                        Transform.translate(
-                      offset: Offset(0, -60 * spring.value),
-                      child: child,
-                    ),
-                    child: BackdropLayer(
-                      backdrop: backdrop,
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: <Widget>[
-                          for (int i = 0; i < 10; i++)
-                            SizedBox(
-                              height: 40,
-                              width: _w.toDouble(),
-                              child: ColoredBox(
-                                color: i.isEven
-                                    ? const Color(0xFF000000)
-                                    : const Color(0xFFFFFFFF),
+    await tester.pumpWidget(
+      Directionality(
+        textDirection: TextDirection.ltr,
+        child: MediaQuery(
+          data: const MediaQueryData(),
+          child: RepaintBoundary(
+            key: _boundary,
+            child: SizedBox(
+              width: _w.toDouble(),
+              height: _h.toDouble(),
+              child: Stack(
+                clipBehavior: Clip.none,
+                children: <Widget>[
+                  Positioned.fill(
+                    child: AnimatedBuilder(
+                      animation: spring,
+                      builder: (BuildContext context, Widget? child) =>
+                          Transform.translate(
+                            offset: Offset(0, -60 * spring.value),
+                            child: child,
+                          ),
+                      child: BackdropLayer(
+                        backdrop: backdrop,
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: <Widget>[
+                            for (int i = 0; i < 10; i++)
+                              SizedBox(
+                                height: 40,
+                                width: _w.toDouble(),
+                                child: ColoredBox(
+                                  color: i.isEven
+                                      ? const Color(0xFF000000)
+                                      : const Color(0xFFFFFFFF),
+                                ),
                               ),
-                            ),
-                        ],
+                          ],
+                        ),
                       ),
                     ),
                   ),
-                ),
-                Positioned(
-                  left: 0,
-                  right: 0,
-                  top: 0,
-                  child: DrawBackdrop.plain(
-                    backdrop: backdrop,
-                    shape: () => const Rectangle(),
-                    effects: (BackdropEffectScope scope) => scope.blur(2),
-                    child: const SizedBox(height: 60, width: double.infinity),
+                  Positioned(
+                    left: 0,
+                    right: 0,
+                    top: 0,
+                    child: DrawBackdrop.plain(
+                      backdrop: backdrop,
+                      shape: () => const Rectangle(),
+                      effects: (BackdropEffectScope scope) => scope.blur(2),
+                      child: const SizedBox(height: 60, width: double.infinity),
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),
       ),
-    ));
+    );
     await tester.pump();
 
     spring.reverse();

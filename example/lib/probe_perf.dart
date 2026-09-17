@@ -48,8 +48,10 @@ class _ProbeAppState extends State<_ProbeApp> {
               child: BackdropLayer(
                 backdrop: _backdrop,
                 child: SizedBox.expand(
-                  child: Image.asset('assets/wallpaper_light.webp',
-                      fit: BoxFit.cover),
+                  child: Image.asset(
+                    'assets/wallpaper_light.webp',
+                    fit: BoxFit.cover,
+                  ),
                 ),
               ),
             ),
@@ -68,9 +70,13 @@ class _ProbeAppState extends State<_ProbeApp> {
                         onPressed: () => setState(() => _index = i),
                         children: <Widget>[
                           const FlightIcon(size: 28, color: Color(0xFF000000)),
-                          Text('Tab ${i + 1}',
-                              style: const TextStyle(
-                                  color: Color(0xFF000000), fontSize: 12)),
+                          Text(
+                            'Tab ${i + 1}',
+                            style: const TextStyle(
+                              color: Color(0xFF000000),
+                              fontSize: 12,
+                            ),
+                          ),
                         ],
                       ),
                   ],
@@ -98,10 +104,7 @@ double _tabWidth() => (_tabsRect().width - 8.0) / _tabsCount;
 
 Offset _pillCentre(double value) {
   final Rect rect = _tabsRect();
-  return Offset(
-    rect.left + 4 + (value + 0.5) * _tabWidth(),
-    rect.top + 32,
-  );
+  return Offset(rect.left + 4 + (value + 0.5) * _tabWidth(), rect.top + 32);
 }
 
 Offset _last = Offset.zero;
@@ -110,7 +113,10 @@ void _down(Offset p) {
   _last = p;
   GestureBinding.instance.handlePointerEvent(
     PointerDownEvent(
-        pointer: ++_pointer, position: p, kind: PointerDeviceKind.touch),
+      pointer: ++_pointer,
+      position: p,
+      kind: PointerDeviceKind.touch,
+    ),
   );
 }
 
@@ -129,7 +135,10 @@ void _move(Offset p) {
 void _up() {
   GestureBinding.instance.handlePointerEvent(
     PointerUpEvent(
-        pointer: _pointer, position: _last, kind: PointerDeviceKind.touch),
+      pointer: _pointer,
+      position: _last,
+      kind: PointerDeviceKind.touch,
+    ),
   );
 }
 
@@ -142,12 +151,15 @@ Future<void> _settle([int ms = 700]) =>
 /// lookup by title is needed.
 void _maximizeWindow() {
   final DynamicLibrary user32 = DynamicLibrary.open('user32.dll');
-  final int hwnd = user32.lookupFunction<IntPtr Function(),
-      int Function()>('GetForegroundWindow')();
+  final int hwnd = user32.lookupFunction<IntPtr Function(), int Function()>(
+    'GetForegroundWindow',
+  )();
   if (hwnd != 0) {
     const int swMaximize = 3;
-    user32.lookupFunction<Int32 Function(IntPtr, Int32),
-        int Function(int, int)>('ShowWindow')(hwnd, swMaximize);
+    user32
+        .lookupFunction<Int32 Function(IntPtr, Int32), int Function(int, int)>(
+          'ShowWindow',
+        )(hwnd, swMaximize);
   }
 }
 
@@ -206,8 +218,10 @@ Future<void> _drive() async {
   final FlutterView view =
       WidgetsBinding.instance.platformDispatcher.views.first;
   _report('window=${view.physicalSize} dpr=${view.devicePixelRatio}');
-  _report('frames=${build.length} over ${seconds}s '
-      '(${(build.length / seconds).toStringAsFixed(0)} fps)');
+  _report(
+    'frames=${build.length} over ${seconds}s '
+    '(${(build.length / seconds).toStringAsFixed(0)} fps)',
+  );
   _report(stats('build ', build));
   _report(stats('raster', raster));
   _report(stats('total ', total));

@@ -20,7 +20,8 @@ class UISensor extends ChangeNotifier {
   void update(double x, double y) {
     const double alpha = 0.5;
     final double norm = math.sqrt(x * x + y * y + 9.81 * 9.81);
-    _gravityAngle = _gravityAngle * (1.0 - alpha) +
+    _gravityAngle =
+        _gravityAngle * (1.0 - alpha) +
         math.atan2(y, x) * (180.0 / math.pi) * alpha;
     _gravity = _gravity * (1.0 - alpha) + Offset(x / norm, y / norm) * alpha;
     notifyListeners();

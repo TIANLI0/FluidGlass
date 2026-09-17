@@ -13,7 +13,9 @@ Future<Uint8List?> pickWallpaperBytes() async {
     mimeTypes: <String>['image/*'],
   );
   try {
-    final XFile? file = await openFile(acceptedTypeGroups: <XTypeGroup>[images]);
+    final XFile? file = await openFile(
+      acceptedTypeGroups: <XTypeGroup>[images],
+    );
     if (file == null) return null;
     return await file.readAsBytes();
   } catch (_) {

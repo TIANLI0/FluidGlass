@@ -11,17 +11,14 @@ import 'wallpaper_picker.dart';
 /// [builder] returns the demo's children, which are centred unless they align
 /// themselves.
 class BackdropDemoScaffold extends StatefulWidget {
-  const BackdropDemoScaffold({
-    super.key,
-    this.decorate,
-    required this.builder,
-  });
+  const BackdropDemoScaffold({super.key, this.decorate, required this.builder});
 
   /// Wraps the wallpaper before it is captured, so a demo can dim or blur what
   /// its glass refracts.
   final Widget Function(Widget wallpaper)? decorate;
 
-  final List<Widget> Function(BuildContext context, LayerBackdrop backdrop) builder;
+  final List<Widget> Function(BuildContext context, LayerBackdrop backdrop)
+  builder;
 
   @override
   State<BackdropDemoScaffold> createState() => _BackdropDemoScaffoldState();
@@ -61,7 +58,9 @@ class _BackdropDemoScaffoldState extends State<BackdropDemoScaffold> {
       // default, and the glass elements inside paint outside their boxes.
       clipBehavior: Clip.none,
       children: <Widget>[
-        Positioned.fill(child: BackdropLayer(backdrop: _backdrop, child: wallpaper)),
+        Positioned.fill(
+          child: BackdropLayer(backdrop: _backdrop, child: wallpaper),
+        ),
         ...widget.builder(context, _backdrop),
         Align(
           alignment: Alignment.bottomCenter,
