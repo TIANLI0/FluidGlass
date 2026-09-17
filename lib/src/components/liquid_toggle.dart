@@ -107,13 +107,8 @@ class _LiquidToggleState extends State<LiquidToggle>
     void Function() drawBackdrop,
   ) {
     final double progress = _animation.pressProgress;
-    // Full size at full press, as the slider's thumb does. Squashing the copy
-    // to 0.75 pulled its ends *into* the knob's view: the knob is round, the
-    // copy's edge is straight, and a straight edge seen through a round piece
-    // of glass is the square that has no business being there. At 1.0 the copy
-    // sits where the real track sits and the knob only ever refracts its middle.
-    final double scaleX = lerpDouble(2 / 3, 1, progress)!;
-    final double scaleY = lerpDouble(0, 1, progress)!;
+    final double scaleX = lerpDouble(2 / 3, 0.75, progress)!;
+    final double scaleY = lerpDouble(0, 0.75, progress)!;
     final Canvas canvas = context.canvas;
     final Offset center = Offset(
       context.size.width / 2,
@@ -179,23 +174,13 @@ class _LiquidToggleState extends State<LiquidToggle>
                     shape: () => const Capsule(),
                     effects: (BackdropEffectScope scope) {
                       final double progress = _animation.pressProgress;
-                      final double blurRadius = 8 * (1 - progress);
                       scope
-                        ..blur(blurRadius)
+                        ..blur(8 * (1 - progress))
                         ..lens(
                           5 * progress,
                           10 * progress,
                           chromaticAberration: true,
                         );
-                      // The knob refracts a *scaled copy* of its own track, which does not fill
-                      // the knob's layer. A clamped blur starting the chain is given no extra
-                      // room — right when the layer is full of the thing being blurred, wrong
-                      // here: it clamps against the layer's straight edges, and the knob wears a
-                      // square of smeared sampling where its capsule should be. The bottom-tabs
-                      // pill raises the padding for the same reason.
-                      if (scope.padding < blurRadius) {
-                        scope.padding = blurRadius;
-                      }
                     },
                     highlight: () {
                       final double progress = _animation.pressProgress;
