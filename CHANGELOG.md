@@ -1,5 +1,27 @@
 # Changelog
 
+## 0.1.21
+
+### Added
+
+- `LayerBackdrop.extendEdges` — whether the capture's outermost row and column
+  are stretched outwards when an effect reads past them. True, the default, is
+  right for a source that *fills its bounds*: a page, a wallpaper, a feed,
+  where a blur reading past the capture would otherwise mix in transparency and
+  leave a dark fringe. Pass false for a source whose content is **not** its
+  bounds.
+
+### Fixed
+
+- The toggle's knob no longer shows a square edge on a shape that has none. Its
+  track is a capsule inside a 64x28 box, so the capture's outermost column
+  holds one coloured pixel at the capsule's widest point with transparency
+  above and below it; stretching that column outwards drew the pixel as a
+  straight band, and the knob — a round lens looking straight into it — showed
+  the band. The track now captures with `extendEdges: false`.
+- Reverts 0.1.20's change to the same knob, which addressed the symptom from
+  the wrong end.
+
 ## 0.1.20
 
 ### Fixed

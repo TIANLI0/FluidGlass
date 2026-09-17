@@ -58,7 +58,22 @@ abstract class LayerBackdropSource {
 /// Unchanged captures are reused across frames; disjoint regions may need
 /// separate captures before their requests can be combined.
 class LayerBackdrop extends Backdrop with ChangeNotifier {
-  LayerBackdrop();
+  LayerBackdrop({this.extendEdges = true});
+
+  /// Whether the capture's outermost row and column are stretched outwards
+  /// when an effect reads past them.
+  ///
+  /// True — the default — is right for a source that *fills its bounds*: a
+  /// page, a wallpaper, a feed. A blur reading past such a capture would
+  /// otherwise mix in transparency and leave a dark fringe along an edge that
+  /// sits flush with the screen.
+  ///
+  /// False for a source whose content is **not** its bounds — a capsule track,
+  /// a circular avatar. There the outermost column holds one coloured pixel at
+  /// the shape's widest point and transparency above and below it; stretching
+  /// it outwards draws that pixel as a straight band, and glass looking into
+  /// the band shows a square edge on a shape that has none.
+  final bool extendEdges;
 
   LayerBackdropSource? _source;
 
@@ -256,7 +271,7 @@ class LayerBackdrop extends Backdrop with ChangeNotifier {
     source.drawSource(
       canvas,
       context.devicePixelRatio,
-      clampMargin: margin,
+      clampMargin: extendEdges ? margin : 0.0,
       region: region,
     );
     canvas.restore();

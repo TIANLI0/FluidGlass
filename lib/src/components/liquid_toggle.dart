@@ -27,7 +27,12 @@ class _LiquidToggleState extends State<LiquidToggle>
   static const double _dragWidth = 20;
   static const double _knobPadding = 2;
 
-  final LayerBackdrop _trackBackdrop = LayerBackdrop();
+  // The track is a capsule inside a 64x28 box, so its content is not its
+  // bounds: stretching the capture's outer column outwards turns the one
+  // coloured pixel at the capsule's widest point into a straight band, and
+  // the knob — a round lens looking straight at it — shows that band as a
+  // square. See [LayerBackdrop.extendEdges].
+  final LayerBackdrop _trackBackdrop = LayerBackdrop(extendEdges: false);
 
   late final DampedDragAnimation _animation;
   late final Backdrop _knobBackdrop;
