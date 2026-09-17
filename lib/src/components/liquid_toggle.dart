@@ -107,8 +107,13 @@ class _LiquidToggleState extends State<LiquidToggle>
     void Function() drawBackdrop,
   ) {
     final double progress = _animation.pressProgress;
-    final double scaleX = lerpDouble(2 / 3, 0.75, progress)!;
-    final double scaleY = lerpDouble(0, 0.75, progress)!;
+    // Full size at full press, as the slider's thumb does. Squashing the copy
+    // to 0.75 pulled its ends *into* the knob's view: the knob is round, the
+    // copy's edge is straight, and a straight edge seen through a round piece
+    // of glass is the square that has no business being there. At 1.0 the copy
+    // sits where the real track sits and the knob only ever refracts its middle.
+    final double scaleX = lerpDouble(2 / 3, 1, progress)!;
+    final double scaleY = lerpDouble(0, 1, progress)!;
     final Canvas canvas = context.canvas;
     final Offset center = Offset(
       context.size.width / 2,

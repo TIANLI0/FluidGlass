@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.1.20
+
+### Fixed
+
+- The toggle's knob no longer shows a square through a round piece of glass.
+  It refracts a copy of its own track, and that copy was squashed to 0.75 at
+  full press — which pulls the copy's straight ends *into* the knob's view. The
+  slider's thumb has always drawn its copy at full size for exactly this
+  reason; the toggle now matches it.
+
 ## 0.1.19
 
 ### Added
