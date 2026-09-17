@@ -6,6 +6,7 @@ import 'package:flutter/scheduler.dart';
 import 'package:flutter/widgets.dart';
 
 import '../backdrop.dart';
+import '../internal/layer_picture_replay.dart';
 
 /// Something a [LayerBackdrop] can sample: a captured region of the screen,
 /// with a known size and position.
@@ -58,7 +59,14 @@ abstract class LayerBackdropSource {
 /// Unchanged captures are reused across frames; disjoint regions may need
 /// separate captures before their requests can be combined.
 class LayerBackdrop extends Backdrop with ChangeNotifier {
-  LayerBackdrop({this.extendEdges = true});
+  LayerBackdrop({this.extendEdges = true, this.preferPictureReplay = false});
+
+  /// Reuse recorded drawing commands instead of capturing a GPU texture when
+  /// the source contains only pictures, offsets, transforms and simple clips.
+  /// Useful for scrolling/animated backgrounds shared by liquid components.
+  /// Unsupported layers, edge extension, and explicit capture resolutions use
+  /// the snapshot path. This does not disable blur, refraction or dispersion.
+  final bool preferPictureReplay;
 
   /// Whether the capture's outermost row and column are stretched outwards
   /// when an effect reads past them.
@@ -247,7 +255,7 @@ class LayerBackdrop extends Backdrop with ChangeNotifier {
     final Rect element = Offset.zero & context.size;
     final Rect region = MatrixUtils.transformRect(
       toSource,
-      element.inflate(context.sampleMargin),
+      context.sampleBounds ?? element.inflate(context.sampleMargin),
     );
 
     // The clamp margin is quoted in the element's pixels; the source's may be a
@@ -626,6 +634,10 @@ class RenderBackdropLayer extends RenderProxyBox
   @visibleForTesting
   int debugCaptureCount = 0;
 
+  /// Source draws that reused pictures instead of capturing a texture.
+  @visibleForTesting
+  int debugReplayCount = 0;
+
   /// The pixel ratio of the most recent capture, in debug builds.
   @visibleForTesting
   double? debugLastCapturePixelRatio;
@@ -942,6 +954,7 @@ class RenderBackdropLayer extends RenderProxyBox
   /// `ImageFilter.isShaderFilterSupported`), which is why a bar pinned over a
   /// list showed a differently-stretched page while the list sprang back.
   bool _hasShaderFilter = false;
+  bool _canReplayPictures = false;
 
   /// One-entry memo for [_isShaderFilter]. A static `ImageFiltered` hands the
   /// walk the same filter object every frame, so it is classified once; an
@@ -1043,6 +1056,7 @@ class RenderBackdropLayer extends RenderProxyBox
     final bool hadBackdropDependency = _hasBackdropDependency;
     _hasBackdropDependency = false;
     _hasShaderFilter = false;
+    _canReplayPictures = true;
     for (
       Layer? child = layer?.firstChild;
       child != null;
@@ -1230,6 +1244,7 @@ class RenderBackdropLayer extends RenderProxyBox
     bool placed,
   ) {
     if (layer == null) return;
+    if (!canReplayLayer(layer)) _canReplayPictures = false;
     if (layer is PictureLayer) {
       out.add(Object.hash(pathHash, identityHashCode(layer.picture)));
       _addBounds(bounds, layer.canvasBounds, dx, dy, transform, placed);
@@ -1480,6 +1495,25 @@ class RenderBackdropLayer extends RenderProxyBox
     // Someone is sampling, so keep watching for changes this render object's
     // own paint would not notice.
     _watchSubtree();
+    final Rect bounds = Offset.zero & size;
+    if (_backdrop.preferPictureReplay &&
+        _canReplayPictures &&
+        _pixelRatio == null &&
+        _motionPixelRatio == null &&
+        (clampMargin <= 0 || (region != null && _covers(bounds, region)))) {
+      final Rect needed = region == null ? bounds : region.intersect(bounds);
+      if (needed.isEmpty) return;
+      _noteRequest(needed);
+      canvas.save();
+      canvas.clipRect(needed);
+      replayLayerChildren(layer!, canvas);
+      canvas.restore();
+      assert(() {
+        debugReplayCount++;
+        return true;
+      }());
+      return;
+    }
     final _Capture? capture = _obtainCapture(devicePixelRatio, region);
     if (capture == null) return;
 
@@ -1500,7 +1534,6 @@ class RenderBackdropLayer extends RenderProxyBox
     // sits inside the source has real neighbours, already included because the
     // requested region was inflated by this same margin — stretching there
     // would smear over them.
-    final Rect bounds = Offset.zero & size;
     final double m = clampMargin;
     final double sx = iw / dst.width;
     final double sy = ih / dst.height;

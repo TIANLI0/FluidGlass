@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.1.22
+
+### Fixed
+
+- A pressed toggle no longer exposes rectangular capture edges inside its
+  glass knob. `WrappedBackdrop` now inverse-maps the requested sampling bounds
+  through its canvas transform before `LayerBackdrop` crops the source. This
+  preserves Kyant's original track scaling and lens parameters, including the
+  collapsed track at rest, and also works for nested wrappers.
+
 ## 0.1.21
 
 ### Added

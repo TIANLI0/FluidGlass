@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:flutter/rendering.dart';
 
 import '../backdrop.dart';
 
@@ -28,7 +29,26 @@ class WrappedBackdrop extends Backdrop {
 
   @override
   void drawBackdrop(BackdropDrawContext context) {
-    onDraw(context, () => backdrop.drawBackdrop(context));
+    final Matrix4 before = Matrix4.fromFloat64List(
+      context.canvas.getTransform(),
+    );
+    if (before.invert() == 0) return;
+    onDraw(context, () {
+      // The source capture must include everything the transformed drawing
+      // reads. Cropping first and then shrinking the canvas exposes rectangular
+      // capture edges inside the toggle's otherwise round track.
+      final Matrix4 inverse = Matrix4.copy(before)
+        ..multiply(Matrix4.fromFloat64List(context.canvas.getTransform()));
+      if (inverse.invert() == 0) return; // A zero-height track draws nothing.
+      final Rect bounds =
+          context.sampleBounds ??
+          (Offset.zero & context.size).inflate(context.sampleMargin);
+      backdrop.drawBackdrop(
+        context.copyWith(
+          sampleBounds: MatrixUtils.transformRect(inverse, bounds),
+        ),
+      );
+    });
   }
 
   @override

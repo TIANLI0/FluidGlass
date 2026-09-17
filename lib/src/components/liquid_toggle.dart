@@ -1,6 +1,7 @@
 import 'dart:ui' show lerpDouble;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 
 import '../../fluid_glass.dart';
 
@@ -27,11 +28,8 @@ class _LiquidToggleState extends State<LiquidToggle>
   static const double _dragWidth = 20;
   static const double _knobPadding = 2;
 
-  // The track is a capsule inside a 64x28 box, so its content is not its
-  // bounds: stretching the capture's outer column outwards turns the one
-  // coloured pixel at the capsule's widest point into a straight band, and
-  // the knob — a round lens looking straight at it — shows that band as a
-  // square. See [LayerBackdrop.extendEdges].
+  // Replay the track's capsule drawing into the lens. A solid shape needs no
+  // texture capture, and its transparent exterior must not be edge-extended.
   final LayerBackdrop _trackBackdrop = LayerBackdrop(extendEdges: false);
 
   late final DampedDragAnimation _animation;
@@ -148,19 +146,68 @@ class _LiquidToggleState extends State<LiquidToggle>
       // pressed and carries a shadow.
       clipBehavior: Clip.none,
       children: <Widget>[
-        BackdropLayer(
+        _ToggleTrack(
           backdrop: _trackBackdrop,
-          child: ClipPath(
-            clipper: const GlassShapeClipper(Capsule()),
-            child: CustomPaint(
-              painter: _TrackPainter(_animation, trackColor, accentColor),
-              size: const Size(64, 28),
-            ),
-          ),
+          animation: _animation,
+          trackColor: trackColor,
+          accentColor: accentColor,
         ),
         ListenableBuilder(
           listenable: _animation,
-          builder: (BuildContext context, Widget? _) {
+          child: Semantics(
+            toggled: widget.selected,
+            child: _animation.wrapGestures(
+              child: DrawBackdrop(
+                backdrop: _knobBackdrop,
+                shape: () => const Capsule(),
+                effects: (BackdropEffectScope scope) {
+                  final double progress = _animation.pressProgress;
+                  scope
+                    ..blur(8 * (1 - progress))
+                    ..lens(
+                      5 * progress,
+                      10 * progress,
+                      chromaticAberration: true,
+                    );
+                },
+                highlight: () {
+                  final double progress = _animation.pressProgress;
+                  return Highlight.ambient.copyWith(
+                    width: Highlight.ambient.width / 1.5,
+                    blurRadius: Highlight.ambient.blurRadius / 1.5,
+                    alpha: progress,
+                  );
+                },
+                shadow: () => GlassShadow(
+                  radius: 4,
+                  color: const Color(0xFF000000).withValues(alpha: 0.05),
+                ),
+                innerShadow: () {
+                  final double progress = _animation.pressProgress;
+                  return GlassInnerShadow(
+                    radius: 4 * progress,
+                    alpha: progress,
+                  );
+                },
+                layerBlock: _knobLayerBlock,
+                onDrawSurface: (Canvas canvas, Size size) {
+                  final double progress = _animation.pressProgress;
+                  canvas.drawRect(
+                    Offset.zero & size,
+                    Paint()
+                      ..color = const Color(
+                        0xFFFFFFFF,
+                      ).withValues(alpha: 1 - progress),
+                  );
+                },
+                // Src-over only, so the isolating save-layer is pure cost.
+                isolateSurface: false,
+                repaint: _animation,
+                child: const SizedBox(width: 40, height: 24),
+              ),
+            ),
+          ),
+          builder: (BuildContext context, Widget? child) {
             final double fraction = _animation.value;
             final double translationX = isLtr
                 ? lerpDouble(_knobPadding, _knobPadding + _dragWidth, fraction)!
@@ -171,59 +218,7 @@ class _LiquidToggleState extends State<LiquidToggle>
                   )!;
             return Transform.translate(
               offset: Offset(translationX, 0),
-              child: Semantics(
-                toggled: widget.selected,
-                child: _animation.wrapGestures(
-                  child: DrawBackdrop(
-                    backdrop: _knobBackdrop,
-                    shape: () => const Capsule(),
-                    effects: (BackdropEffectScope scope) {
-                      final double progress = _animation.pressProgress;
-                      scope
-                        ..blur(8 * (1 - progress))
-                        ..lens(
-                          5 * progress,
-                          10 * progress,
-                          chromaticAberration: true,
-                        );
-                    },
-                    highlight: () {
-                      final double progress = _animation.pressProgress;
-                      return Highlight.ambient.copyWith(
-                        width: Highlight.ambient.width / 1.5,
-                        blurRadius: Highlight.ambient.blurRadius / 1.5,
-                        alpha: progress,
-                      );
-                    },
-                    shadow: () => GlassShadow(
-                      radius: 4,
-                      color: const Color(0xFF000000).withValues(alpha: 0.05),
-                    ),
-                    innerShadow: () {
-                      final double progress = _animation.pressProgress;
-                      return GlassInnerShadow(
-                        radius: 4 * progress,
-                        alpha: progress,
-                      );
-                    },
-                    layerBlock: _knobLayerBlock,
-                    onDrawSurface: (Canvas canvas, Size size) {
-                      final double progress = _animation.pressProgress;
-                      canvas.drawRect(
-                        Offset.zero & size,
-                        Paint()
-                          ..color = const Color(
-                            0xFFFFFFFF,
-                          ).withValues(alpha: 1 - progress),
-                      );
-                    },
-                    // Src-over only, so the isolating save-layer is pure cost.
-                    isolateSurface: false,
-                    repaint: _animation,
-                    child: const SizedBox(width: 40, height: 24),
-                  ),
-                ),
-              ),
+              child: child,
             );
           },
         ),
@@ -232,24 +227,129 @@ class _LiquidToggleState extends State<LiquidToggle>
   }
 }
 
-class _TrackPainter extends CustomPainter {
-  _TrackPainter(this.animation, this.trackColor, this.accentColor)
-    : super(repaint: animation);
-
+class _ToggleTrack extends LeafRenderObjectWidget {
+  const _ToggleTrack({
+    required this.backdrop,
+    required this.animation,
+    required this.trackColor,
+    required this.accentColor,
+  });
+  final LayerBackdrop backdrop;
   final DampedDragAnimation animation;
   final Color trackColor;
   final Color accentColor;
 
   @override
-  void paint(Canvas canvas, Size size) {
-    canvas.drawRect(
-      Offset.zero & size,
-      Paint()..color = Color.lerp(trackColor, accentColor, animation.value)!,
-    );
+  _RenderToggleTrack createRenderObject(BuildContext context) =>
+      _RenderToggleTrack(backdrop, animation, trackColor, accentColor);
+
+  @override
+  void updateRenderObject(
+    BuildContext context,
+    _RenderToggleTrack renderObject,
+  ) {
+    renderObject.update(backdrop, animation, trackColor, accentColor);
+  }
+}
+
+/// A solid capsule is cheaper to draw twice than to capture into an image.
+/// Keeping a real render object as the source preserves LayerBackdrop's full
+/// source/consumer transform mapping (including RTL and ancestor transforms).
+class _RenderToggleTrack extends RenderBox implements LayerBackdropSource {
+  _RenderToggleTrack(
+    this._backdrop,
+    this._animation,
+    this._trackColor,
+    this._accentColor,
+  );
+
+  LayerBackdrop _backdrop;
+  DampedDragAnimation _animation;
+  Color _trackColor;
+  Color _accentColor;
+  Path? _path;
+  final Paint _paint = Paint();
+
+  void update(
+    LayerBackdrop backdrop,
+    DampedDragAnimation animation,
+    Color trackColor,
+    Color accentColor,
+  ) {
+    if (_backdrop != backdrop) {
+      if (attached) _backdrop.detachSource(this);
+      _backdrop = backdrop;
+      if (attached) _backdrop.attachSource(this);
+    }
+    if (_animation != animation) {
+      if (attached) _animation.removeListener(markNeedsPaint);
+      _animation = animation;
+      if (attached) _animation.addListener(markNeedsPaint);
+    }
+    if (_trackColor != trackColor || _accentColor != accentColor) {
+      _trackColor = trackColor;
+      _accentColor = accentColor;
+      _backdrop.scheduleNotification();
+    }
+    markNeedsPaint();
   }
 
   @override
-  bool shouldRepaint(covariant _TrackPainter oldDelegate) =>
-      oldDelegate.trackColor != trackColor ||
-      oldDelegate.accentColor != accentColor;
+  void attach(PipelineOwner owner) {
+    super.attach(owner);
+    _backdrop.attachSource(this);
+    _animation.addListener(markNeedsPaint);
+  }
+
+  @override
+  void detach() {
+    _animation.removeListener(markNeedsPaint);
+    _backdrop.detachSource(this);
+    super.detach();
+  }
+
+  @override
+  Size computeDryLayout(BoxConstraints constraints) =>
+      constraints.constrain(const Size(64, 28));
+
+  @override
+  void performLayout() {
+    size = computeDryLayout(constraints);
+    _path = const Capsule().createOutline(size, TextDirection.ltr).toPath();
+  }
+
+  void _draw(Canvas canvas) {
+    // Same clip + fill as the old track; replay it before the knob's filters.
+    canvas.save();
+    canvas.clipPath(_path!);
+    canvas.drawRect(
+      Offset.zero & size,
+      _paint..color = Color.lerp(_trackColor, _accentColor, _animation.value)!,
+    );
+    canvas.restore();
+  }
+
+  @override
+  void paint(PaintingContext context, Offset offset) {
+    context.canvas.save();
+    context.canvas.translate(offset.dx, offset.dy);
+    _draw(context.canvas);
+    context.canvas.restore();
+  }
+
+  @override
+  Size get sourceSize => size;
+  @override
+  Offset get sourceGlobalOffset => localToGlobal(Offset.zero);
+  @override
+  bool get hasContent => attached && hasSize && !size.isEmpty;
+  @override
+  void invalidateSnapshot() {}
+  @override
+  void drawSource(
+    Canvas canvas,
+    double devicePixelRatio, {
+    double clampMargin = 0,
+    Rect? region,
+  }) => _draw(canvas);
 }

@@ -15,6 +15,7 @@ class BackdropDrawContext {
     required this.layerBlock,
     required this.backdrop,
     this.sampleMargin = 0.0,
+    this.sampleBounds,
     this.quality = GlassQuality.liquid,
   });
 
@@ -56,6 +57,10 @@ class BackdropDrawContext {
   /// instead, by extending the edge pixels outwards.
   final double sampleMargin;
 
+  /// Requested pixels in the current drawing coordinates. Wrappers inverse-map
+  /// this rectangle when transforming the canvas, before a source is cropped.
+  final Rect? sampleBounds;
+
   /// The tier the consuming element draws at.
   ///
   /// A backdrop that runs effects of its own — filtering what it hands over —
@@ -64,7 +69,7 @@ class BackdropDrawContext {
   final GlassQuality quality;
 
   /// A copy of this context that draws into [canvas] instead.
-  BackdropDrawContext copyWith({Canvas? canvas}) {
+  BackdropDrawContext copyWith({Canvas? canvas, Rect? sampleBounds}) {
     return BackdropDrawContext(
       canvas: canvas ?? this.canvas,
       size: size,
@@ -74,6 +79,7 @@ class BackdropDrawContext {
       layerBlock: layerBlock,
       backdrop: backdrop,
       sampleMargin: sampleMargin,
+      sampleBounds: sampleBounds ?? this.sampleBounds,
       quality: quality,
     );
   }
