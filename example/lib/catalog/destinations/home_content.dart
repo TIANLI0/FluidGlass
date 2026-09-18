@@ -1,3 +1,4 @@
+import 'package:fluid_glass/fluid_glass.dart';
 import 'package:flutter/material.dart';
 
 import '../catalog_destination.dart';
@@ -51,6 +52,14 @@ class HomeContent extends StatelessWidget {
                 _ListItem(
                   label: 'Bottom tabs',
                   onTap: () => onNavigate(CatalogDestination.bottomTabs),
+                ),
+                _ListItem(
+                  label: 'Navigation bar',
+                  onTap: () => onNavigate(CatalogDestination.navigationBar),
+                ),
+                _ListItem(
+                  label: 'Fusion (hold one, drag them together)',
+                  onTap: () => onNavigate(CatalogDestination.fusion),
                 ),
                 _ListItem(
                   label: 'Menu',
@@ -157,15 +166,17 @@ class _ListItem extends StatelessWidget {
     final Color contentColor = isLight
         ? const Color(0xFF000000)
         : const Color(0xFFFFFFFF);
-    return InkWell(
-      onTap: onTap,
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: SizedBox(
-          width: double.infinity,
-          child: Text(
-            label,
-            style: TextStyle(color: contentColor, fontSize: 17),
+    return LiquidInteraction(
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: SizedBox(
+            width: double.infinity,
+            child: Text(
+              label,
+              style: TextStyle(color: contentColor, fontSize: 17),
+            ),
           ),
         ),
       ),

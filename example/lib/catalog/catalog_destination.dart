@@ -5,6 +5,8 @@ enum CatalogDestination {
   toggle,
   slider,
   bottomTabs,
+  navigationBar,
+  fusion,
   menu,
   toolbar,
   dialog,

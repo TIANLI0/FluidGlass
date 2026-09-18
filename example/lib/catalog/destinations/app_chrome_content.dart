@@ -38,7 +38,8 @@ import 'package:flutter/scheduler.dart';
 /// The tier does not move while you watch — quality is a property of the
 /// device, decided before the first frame.
 class AppChromeContent extends StatefulWidget {
-  const AppChromeContent({super.key});
+  const AppChromeContent({super.key, this.onBack});
+  final VoidCallback? onBack;
 
   @override
   State<AppChromeContent> createState() => _AppChromeContentState();
@@ -118,11 +119,7 @@ class _AppChromeContentState extends State<AppChromeContent> {
           top: 0,
           left: 0,
           right: 0,
-          child: _Header(
-            backdrop: _backdrop,
-            contentColor: contentColor,
-            topInset: viewPadding.top,
-          ),
+          child: _Header(onBack: widget.onBack, backdrop: _backdrop),
         ),
 
         // The readout, itself on glass, so it is part of the load it measures.
@@ -339,51 +336,35 @@ class _Row extends StatelessWidget {
 }
 
 class _Header extends StatelessWidget {
-  const _Header({
-    required this.backdrop,
-    required this.contentColor,
-    required this.topInset,
-  });
+  const _Header({this.onBack, required this.backdrop});
 
+  final VoidCallback? onBack;
   final Backdrop backdrop;
-  final Color contentColor;
-  final double topInset;
 
   @override
   Widget build(BuildContext context) {
-    return LiquidPanel(
+    return LiquidNavigationBar(
       backdrop: backdrop,
-      // Square top corners: the bar runs into the status bar rather than
-      // floating, which is what app chrome actually looks like.
-      shape: const UnevenRoundedRectangle(
-        RectangleCornerRadii(
-          topStart: 0,
-          topEnd: 0,
-          bottomEnd: 28,
-          bottomStart: 28,
-        ),
+      title: const Text('Feed'),
+      leading: LiquidNavigationAction(
+        backdrop: backdrop,
+        icon: Icons.arrow_back_ios_new,
+        label: 'Back',
+        iconSize: 18,
+        onPressed: onBack ?? () => Navigator.maybePop(context),
       ),
-      child: Padding(
-        padding: EdgeInsets.only(
-          top: topInset,
-          left: 20,
-          right: 12,
-          bottom: 14,
-        ),
-        child: Row(
-          children: <Widget>[
-            Expanded(
-              child: Text(
-                'Feed',
-                style: TextStyle(
-                  color: contentColor,
-                  fontSize: 26,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ),
-            Icon(Icons.notifications_none, color: contentColor, size: 24),
-          ],
+      trailing: LiquidMenu(
+        backdrop: backdrop,
+        alignment: Alignment.topRight,
+        items: const [
+          LiquidMenuItem(label: 'All activity', isSelected: true),
+          LiquidMenuItem(label: 'Mentions', icon: Icons.alternate_email),
+        ],
+        anchorBuilder: (context, open, toggle) => LiquidNavigationAction(
+          backdrop: backdrop,
+          icon: Icons.notifications_none,
+          label: 'Notifications',
+          onPressed: toggle,
         ),
       ),
     );

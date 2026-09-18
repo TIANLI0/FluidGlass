@@ -140,14 +140,14 @@ class CatalogApp extends StatelessWidget {
       theme: ThemeData(
         brightness: Brightness.light,
         scaffoldBackgroundColor: const Color(0xFFFFFFFF),
-        splashFactory: InkRipple.splashFactory,
+        splashFactory: LiquidInkHighlight.splashFactory,
         highlightColor: const Color(0x1A000000),
         splashColor: const Color(0x1A000000),
       ),
       darkTheme: ThemeData(
         brightness: Brightness.dark,
         scaffoldBackgroundColor: const Color(0xFF121212),
-        splashFactory: InkRipple.splashFactory,
+        splashFactory: LiquidInkHighlight.splashFactory,
         highlightColor: const Color(0x1AFFFFFF),
         splashColor: const Color(0x1AFFFFFF),
       ),

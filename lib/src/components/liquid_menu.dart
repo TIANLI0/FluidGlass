@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../../fluid_glass.dart';
@@ -32,12 +33,12 @@ enum LiquidMenuSide { below, above }
 
 /// A pop-up menu that blooms out of its anchor as a [LiquidPanel].
 ///
-/// The motion is one spring, read directly: a uniform scale from 35% about the
+/// The motion is one spring, read directly: a short scale from 86% about the
 /// anchor corner, with the spring's own slight overshoot supplying the settle
 /// — no easing curve is layered on top, which is what made earlier attempts
 /// feel rubbery. The panel's refraction, rim and shadow ramp with the same
 /// spring through [LiquidPanel.reveal], and the opacity resolves within the
-/// first 40% of the travel so the glass never reads as a ghost.
+/// first 85% of the travel so the glass never reads as a ghost.
 ///
 /// Pressing a row washes that row alone; there is no panel-wide flash.
 ///
@@ -129,13 +130,123 @@ class _LiquidMenuState extends State<LiquidMenu> with TickerProviderStateMixin {
     visibilityThreshold: 0.001,
   );
 
-  /// Both directions are critically damped. An underdamped open was measured
-  /// blooming to 102.8% and then easing back for ~175ms — on a fully opaque
-  /// panel that back-settle reads as a second animation, not as bounce.
-  late final SpringDescription _openSpec = springOf(1.0, 550.0);
-  late final SpringDescription _closeSpec = springOf(1.0, 650.0);
+  /// A small opening overshoot gives the panel weight; closing is critically
+  /// damped so a dismissed menu never rebounds into the interaction area.
+  late final SpringDescription _openSpec = springOf(0.76, 420.0);
+  late final SpringDescription _closeSpec = springOf(1.0, 620.0);
+
+  late final SpringValue _dragX = SpringValue(
+    vsync: this,
+    value: 0,
+    visibilityThreshold: 0.01,
+  );
+  late final SpringValue _dragY = SpringValue(
+    vsync: this,
+    value: 0,
+    visibilityThreshold: 0.01,
+  );
+  late final SpringValue _held = SpringValue(
+    vsync: this,
+    value: 0,
+    visibilityThreshold: 0.001,
+  );
+  late final SpringValue _selection = SpringValue(
+    vsync: this,
+    value: 0,
+    visibilityThreshold: 0.001,
+  );
+  late final SpringValue _selectionOpacity = SpringValue(
+    vsync: this,
+    value: 0,
+    visibilityThreshold: 0.001,
+  );
+  late final Listenable _motion = Listenable.merge([
+    _open,
+    _dragX,
+    _dragY,
+    _held,
+  ]);
+  Offset? _dragOrigin;
+
+  void _animate(
+    SpringValue value,
+    double target, {
+    double damping = 0.72,
+    double stiffness = 380,
+  }) {
+    if (MediaQuery.disableAnimationsOf(context)) {
+      value.snapTo(target);
+    } else {
+      value.animateTo(target, springOf(damping, stiffness));
+    }
+  }
+
+  void _releaseDrag() {
+    _dragOrigin = null;
+    _animate(_dragX, 0);
+    _animate(_dragY, 0);
+    _animate(_held, 0);
+    _animate(_selectionOpacity, 0, damping: 1);
+  }
 
   bool _isOpen = false;
+  bool _anchorTracking = false;
+  int? _trackingPointer;
+  int? _hovered;
+  final Map<int, GlobalKey> _rowKeys = <int, GlobalKey>{};
+
+  /// Where the finger is, for the hovered row glow to follow. A notifier
+  /// rather than state: the glow moves with the pointer, and rebuilding the
+  /// panel on every move event to say so would be absurd.
+  ///
+  /// Never cleared on release. A row reads it only while it is the hovered
+  /// one, and clearing it would hand that row a null — the centre — for the
+  /// one frame before it deactivates, which is the snap this replaced.
+  final ValueNotifier<Offset?> _pointer = ValueNotifier<Offset?>(null);
+
+  void _track(Offset global) {
+    _pointer.value = global;
+    int? next;
+    for (int i = 0; i < widget.items.length; i++) {
+      final RenderBox? box =
+          _rowKeys[i]?.currentContext?.findRenderObject() as RenderBox?;
+      if (box != null &&
+          box.hasSize &&
+          (Offset.zero & box.size).contains(box.globalToLocal(global))) {
+        next = i;
+        break;
+      }
+    }
+    if (!_isOpen || _open.value < 0.5) return;
+    _dragOrigin ??= global;
+    final Offset delta = global - _dragOrigin!;
+    _animate(_dragX, (delta.dx * 0.055).clamp(-7.0, 7.0));
+    _animate(_dragY, (delta.dy * 0.04).clamp(-6.0, 6.0));
+    _animate(_held, next == null ? 0 : 1);
+    if (next != _hovered) {
+      if (next != null) {
+        if (_selectionOpacity.value < 0.01) {
+          _selection.snapTo(next.toDouble());
+        } else {
+          _animate(_selection, next.toDouble(), damping: 0.78, stiffness: 500);
+        }
+      }
+      _animate(_selectionOpacity, next == null ? 0 : 1, damping: 1);
+      setState(() => _hovered = next);
+    }
+  }
+
+  void _finishTracking({bool cancel = false}) {
+    final int? index = _hovered;
+    _trackingPointer = null;
+    _releaseDrag();
+    setState(() => _hovered = null);
+    if (!cancel && index != null && _isOpen) {
+      final LiquidMenuItem item = widget.items[index];
+      _close();
+      item.onSelected?.call();
+    }
+  }
 
   /// Where the anchor sat when the menu opened, for screen-edge avoidance.
   Rect _anchorRect = Rect.zero;
@@ -150,6 +261,12 @@ class _LiquidMenuState extends State<LiquidMenu> with TickerProviderStateMixin {
   void dispose() {
     _live.remove(this);
     _open.dispose();
+    _dragX.dispose();
+    _dragY.dispose();
+    _held.dispose();
+    _selection.dispose();
+    _selectionOpacity.dispose();
+    _pointer.dispose();
     super.dispose();
   }
 
@@ -185,12 +302,25 @@ class _LiquidMenuState extends State<LiquidMenu> with TickerProviderStateMixin {
     if (!_portal.isShowing) {
       _portal.show();
     }
-    _open.animateTo(1.0, _openSpec);
+    if (MediaQuery.disableAnimationsOf(context)) {
+      _open.snapTo(1);
+    } else {
+      _open.animateTo(1.0, _openSpec);
+    }
   }
 
   void _close() {
     if (!_isOpen) return;
-    setState(() => _isOpen = false);
+    _releaseDrag();
+    setState(() {
+      _isOpen = false;
+      _hovered = null;
+    });
+    if (MediaQuery.disableAnimationsOf(context)) {
+      _open.snapTo(0);
+      _portal.hide();
+      return;
+    }
     _open.animateTo(0.0, _closeSpec);
     // The panel stays mounted until the spring has run out, so it animates
     // away instead of vanishing.
@@ -199,7 +329,17 @@ class _LiquidMenuState extends State<LiquidMenu> with TickerProviderStateMixin {
     });
   }
 
-  void _toggle() => _isOpen ? _close() : _show();
+  void _toggle() {
+    if (_anchorTracking) return;
+    _isOpen ? _close() : _show();
+  }
+
+  void _endAnchorTracking() {
+    _finishTracking();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _anchorTracking = false;
+    });
+  }
 
   double get _panelHeight =>
       widget.items.length * _rowHeight + _panelPadding * 2;
@@ -276,21 +416,53 @@ class _LiquidMenuState extends State<LiquidMenu> with TickerProviderStateMixin {
                 ? (leading ? Alignment.topLeft : Alignment.topRight)
                 : (leading ? Alignment.bottomLeft : Alignment.bottomRight),
             offset: Offset(dx, below ? widget.gap : -widget.gap),
-            child: _MenuPanel(
-              open: _open,
-              isOpen: _isOpen,
-              backdrop: widget.backdrop,
-              items: widget.items,
-              width: widget.panelWidth,
-              height: _panelHeight,
-              rowHeight: _rowHeight,
-              padding: _panelPadding,
-              growFromTop: below,
-              growFromLeft: leading,
-              onSelected: (LiquidMenuItem item) {
-                _close();
-                item.onSelected?.call();
+            child: Listener(
+              behavior: HitTestBehavior.opaque,
+              onPointerDown: (event) {
+                if (_trackingPointer != null || !_isOpen || _open.value < 0.5) {
+                  return;
+                }
+                _trackingPointer = event.pointer;
+                _track(event.position);
               },
+              onPointerMove: (event) {
+                if (_trackingPointer == event.pointer) _track(event.position);
+              },
+              onPointerUp: (event) {
+                if (_trackingPointer != event.pointer) return;
+                _track(event.position);
+                _finishTracking();
+              },
+              onPointerCancel: (event) {
+                if (_trackingPointer == event.pointer) {
+                  _finishTracking(cancel: true);
+                }
+              },
+              child: _MenuPanel(
+                motion: _motion,
+                pointer: _pointer,
+                dragX: _dragX,
+                dragY: _dragY,
+                held: _held,
+                selection: _selection,
+                selectionOpacity: _selectionOpacity,
+                hovered: _hovered,
+                rowKeys: _rowKeys,
+                open: _open,
+                isOpen: _isOpen,
+                backdrop: widget.backdrop,
+                items: widget.items,
+                width: widget.panelWidth,
+                height: _panelHeight,
+                rowHeight: _rowHeight,
+                padding: _panelPadding,
+                growFromTop: below,
+                growFromLeft: leading,
+                onSelected: (LiquidMenuItem item) {
+                  _close();
+                  item.onSelected?.call();
+                },
+              ),
             ),
           ),
         ],
@@ -299,7 +471,18 @@ class _LiquidMenuState extends State<LiquidMenu> with TickerProviderStateMixin {
 
     final Widget anchor = CompositedTransformTarget(
       link: _link,
-      child: widget.anchorBuilder(context, _isOpen, _toggle),
+      child: GestureDetector(
+        onLongPressStart: (_) {
+          _anchorTracking = true;
+          _show();
+        },
+        onLongPressMoveUpdate: (event) => _track(event.globalPosition),
+        onLongPressEnd: (_) => _endAnchorTracking(),
+        onLongPressCancel: () {
+          if (_hovered != null) _finishTracking(cancel: true);
+        },
+        child: widget.anchorBuilder(context, _isOpen, _toggle),
+      ),
     );
 
     return OverlayPortal(
@@ -315,6 +498,15 @@ class _LiquidMenuState extends State<LiquidMenu> with TickerProviderStateMixin {
 
 class _MenuPanel extends StatelessWidget {
   const _MenuPanel({
+    required this.motion,
+    required this.pointer,
+    required this.dragX,
+    required this.dragY,
+    required this.held,
+    required this.selection,
+    required this.selectionOpacity,
+    required this.hovered,
+    required this.rowKeys,
     required this.open,
     required this.isOpen,
     required this.backdrop,
@@ -328,6 +520,11 @@ class _MenuPanel extends StatelessWidget {
     required this.onSelected,
   });
 
+  final Listenable motion;
+  final ValueListenable<Offset?> pointer;
+  final SpringValue dragX, dragY, held, selection, selectionOpacity;
+  final int? hovered;
+  final Map<int, GlobalKey> rowKeys;
   final SpringValue open;
 
   /// Whether the menu is on its way in rather than on its way out.
@@ -352,12 +549,14 @@ class _MenuPanel extends StatelessWidget {
       growFromLeft ? 0.08 : 0.92,
       growFromTop ? 0.02 : 0.98,
     );
-    final double scale = 0.35 + 0.65 * p;
-    layer.scaleX = scale;
-    layer.scaleY = scale;
-    // Opaque by 40% of the travel: late enough to soften the arrival, early
-    // enough that the panel never hangs around as a ghost.
-    layer.alpha = (p / 0.4).clamp(0.0, 1.0);
+    final double scale = 0.86 + 0.14 * p;
+    final double press = held.value;
+    layer.scaleX = scale * (1 + 0.012 * press);
+    layer.scaleY = scale * (1 + 0.008 * press);
+    layer.translationX = dragX.value;
+    layer.translationY = dragY.value + (growFromTop ? -8 : 8) * (1 - p);
+    // One continuous mapping in both directions, including interrupted closes.
+    layer.alpha = (p / 0.85).clamp(0.0, 1.0);
   }
 
   @override
@@ -388,35 +587,86 @@ class _MenuPanel extends StatelessWidget {
         backdrop: backdrop,
         shape: RoundedRectangle(_radiusFor(width)),
         reveal: () => open.value.clamp(0.0, 1.0),
-        repaint: open,
+        repaint: motion,
         layerBlock: _layerBlock,
         child: SizedBox(
           width: width,
           height: height,
           child: Padding(
             padding: EdgeInsets.symmetric(vertical: padding),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: <Widget>[
-                for (int i = 0; i < items.length; i++) ...<Widget>[
-                  if (i > 0)
-                    Divider(
-                      height: 0,
-                      thickness: 0.5,
-                      indent: 16,
-                      endIndent: 16,
-                      color: separatorColor,
+            child: Stack(
+              children: [
+                Positioned.fill(
+                  child: IgnorePointer(
+                    child: ListenableBuilder(
+                      listenable: Listenable.merge([
+                        selection,
+                        selectionOpacity,
+                      ]),
+                      builder: (context, child) => Stack(
+                        children: [
+                          Positioned(
+                            left: 6,
+                            right: 6,
+                            top:
+                                selection.value.clamp(
+                                      0.0,
+                                      (items.length - 1)
+                                          .clamp(0, items.length)
+                                          .toDouble(),
+                                    ) *
+                                    rowHeight +
+                                2,
+                            height: rowHeight - 4,
+                            child: Opacity(
+                              opacity: selectionOpacity.value.clamp(0.0, 1.0),
+                              child: DecoratedBox(
+                                decoration: BoxDecoration(
+                                  color: contentColor.withValues(alpha: 0.09),
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(
+                                    color: const Color(
+                                      0xFFFFFFFF,
+                                    ).withValues(alpha: 0.18),
+                                    width: 0.5,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
-                  _MenuRow(
-                    item: items[i],
-                    height: rowHeight,
-                    contentColor: items[i].isDestructive
-                        ? destructiveColor
-                        : contentColor,
-                    washColor: contentColor.withValues(alpha: 0.08),
-                    onSelected: onSelected,
                   ),
-                ],
+                ),
+                Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: <Widget>[
+                    for (int i = 0; i < items.length; i++) ...<Widget>[
+                      if (i > 0)
+                        Divider(
+                          height: 0,
+                          thickness: 0.5,
+                          indent: 16,
+                          endIndent: 16,
+                          color: separatorColor,
+                        ),
+                      _MenuRow(
+                        key: rowKeys.putIfAbsent(i, () => GlobalKey()),
+                        active: hovered == i,
+                        pointer: pointer,
+                        reserveCheck: items.any((item) => item.isSelected),
+                        item: items[i],
+                        height: rowHeight,
+                        contentColor: items[i].isDestructive
+                            ? destructiveColor
+                            : contentColor,
+                        washColor: contentColor.withValues(alpha: 0.08),
+                        onSelected: onSelected,
+                      ),
+                    ],
+                  ],
+                ),
               ],
             ),
           ),
@@ -432,6 +682,10 @@ class _MenuPanel extends StatelessWidget {
 
 class _MenuRow extends StatefulWidget {
   const _MenuRow({
+    super.key,
+    required this.active,
+    required this.pointer,
+    required this.reserveCheck,
     required this.item,
     required this.height,
     required this.contentColor,
@@ -439,6 +693,9 @@ class _MenuRow extends StatefulWidget {
     required this.onSelected,
   });
 
+  final bool active;
+  final ValueListenable<Offset?> pointer;
+  final bool reserveCheck;
   final LiquidMenuItem item;
   final double height;
   final Color contentColor;
@@ -450,8 +707,6 @@ class _MenuRow extends StatefulWidget {
 }
 
 class _MenuRowState extends State<_MenuRow> {
-  bool _pressed = false;
-
   @override
   Widget build(BuildContext context) {
     // Slop-free, like Compose's `clickable`: a finger that wanders while
@@ -460,49 +715,62 @@ class _MenuRowState extends State<_MenuRow> {
     // The pressed wash is an inset rounded rectangle, not a full-bleed bar:
     // full-bleed collided with the panel's rounded corners on the first and
     // last rows, shearing the wash into a hard-edged strip.
-    return DragInspector(
-      behavior: HitTestBehavior.opaque,
-      onDragStart: (Offset position, Size size) =>
-          setState(() => _pressed = true),
-      onDragEnd: () => setState(() => _pressed = false),
-      onDragCancel: () => setState(() => _pressed = false),
+    return Semantics(
+      button: true,
+      selected: widget.item.isSelected,
       onTap: () => widget.onSelected(widget.item),
       child: SizedBox(
         height: widget.height,
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 110),
-            curve: Curves.easeOut,
-            decoration: BoxDecoration(
-              color: _pressed
-                  ? widget.washColor
-                  : widget.washColor.withValues(alpha: 0.0),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            padding: const EdgeInsets.symmetric(horizontal: 10),
-            child: Row(
-              children: <Widget>[
-                if (widget.item.isSelected)
-                  Padding(
-                    padding: const EdgeInsets.only(right: 8),
-                    child: Icon(
-                      Icons.check,
-                      size: 18,
-                      color: widget.contentColor,
+          child: LiquidInteraction(
+            active: widget.active,
+            activePosition: widget.pointer,
+            selected: widget.item.isSelected,
+            trackPointer: false,
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 110),
+              curve: Curves.easeOut,
+              decoration: BoxDecoration(
+                color: Colors.transparent,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              padding: const EdgeInsets.symmetric(horizontal: 10),
+              child: Row(
+                children: <Widget>[
+                  if (widget.reserveCheck)
+                    Padding(
+                      padding: const EdgeInsets.only(right: 8),
+                      child: SizedBox(
+                        width: 18,
+                        child: widget.item.isSelected
+                            ? Icon(
+                                Icons.check,
+                                size: 18,
+                                color: widget.contentColor,
+                              )
+                            : null,
+                      ),
+                    ),
+                  Expanded(
+                    child: Text(
+                      widget.item.label,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: widget.contentColor,
+                        fontSize: 16,
+                      ),
                     ),
                   ),
-                Expanded(
-                  child: Text(
-                    widget.item.label,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(color: widget.contentColor, fontSize: 16),
-                  ),
-                ),
-                if (widget.item.icon != null)
-                  Icon(widget.item.icon, size: 19, color: widget.contentColor),
-              ],
+                  if (widget.item.icon != null)
+                    Icon(
+                      widget.item.icon,
+                      size: 19,
+                      color: widget.contentColor,
+                    ),
+                ],
+              ),
             ),
           ),
         ),

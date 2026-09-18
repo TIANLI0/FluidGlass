@@ -44,6 +44,15 @@ class InteractiveHighlight extends ChangeNotifier {
   /// How far the pointer has travelled since it went down.
   Offset get offset => _positionAnimation.value - _startPosition;
 
+  /// Where the glow sits on an element of [size], in that element own
+  /// coordinates — the spring-followed pointer, through [position].
+  ///
+  /// [paintOverlay] uses this to draw the glow itself. It is public for the
+  /// case where something else draws it: a fused body lights every control in
+  /// it from one glow, so the glow has to be read out of the control that owns
+  /// the press and handed over.
+  Offset glowPosition(Size size) => position(size, _positionAnimation.value);
+
   late final _pressProgressSpec = springOf(0.5, 300.0);
   late final _positionSpec = springOf(0.5, 300.0);
 

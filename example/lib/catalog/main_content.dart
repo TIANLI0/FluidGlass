@@ -8,6 +8,7 @@ import 'destinations/bottom_tabs_content.dart';
 import 'destinations/buttons_content.dart';
 import 'destinations/control_center_content.dart';
 import 'destinations/dialog_content.dart';
+import 'destinations/fusion_content.dart';
 import 'destinations/glass_playground_content.dart';
 import 'destinations/home_content.dart';
 import 'destinations/lazy_scroll_container_content.dart';
@@ -15,6 +16,7 @@ import 'destinations/live_background_content.dart';
 import 'destinations/lock_screen_content.dart';
 import 'destinations/magnifier_content.dart';
 import 'destinations/menu_content.dart';
+import 'destinations/navigation_bar_content.dart';
 import 'destinations/progressive_blur_content.dart';
 import 'destinations/scroll_container_content.dart';
 import 'destinations/quality_content.dart';
@@ -71,6 +73,10 @@ class _MainContentState extends State<MainContent> {
         return const SliderContent();
       case CatalogDestination.bottomTabs:
         return const BottomTabsContent();
+      case CatalogDestination.navigationBar:
+        return NavigationBarContent(onBack: _back);
+      case CatalogDestination.fusion:
+        return const FusionContent();
       case CatalogDestination.menu:
         return const MenuContent();
       case CatalogDestination.toolbar:
@@ -84,7 +90,7 @@ class _MainContentState extends State<MainContent> {
       case CatalogDestination.magnifier:
         return const MagnifierContent();
       case CatalogDestination.appChrome:
-        return const AppChromeContent();
+        return AppChromeContent(onBack: _back);
       case CatalogDestination.liveBackground:
         return const LiveBackgroundContent();
       case CatalogDestination.quality:
@@ -118,7 +124,9 @@ class _MainContentState extends State<MainContent> {
               child: _buildDestination(),
             ),
           ),
-          if (!atHome)
+          if (!atHome &&
+              _destination != CatalogDestination.appChrome &&
+              _destination != CatalogDestination.navigationBar)
             Align(
               alignment: Alignment.topLeft,
               child: SafeArea(

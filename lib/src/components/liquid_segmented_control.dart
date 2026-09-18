@@ -128,9 +128,10 @@ class _LiquidSegmentedControlState extends State<LiquidSegmentedControl>
     widget.onSelected(index);
   }
 
-  void _onSegmentTap(int index) {
-    _select(index);
-    _animation.animateToValue(index.toDouble());
+  void _cancelDrag() {
+    _animation.release();
+    _animation.animateToValue(_currentIndex.toDouble());
+    _offsetAnimation.animateTo(0, springOf(1.0, 300.0));
   }
 
   void _thumbLayerBlock(GlassLayer layer) {
@@ -187,10 +188,19 @@ class _LiquidSegmentedControlState extends State<LiquidSegmentedControl>
                             children: <Widget>[
                               for (int i = 0; i < _count; i++)
                                 Expanded(
-                                  child: DragInspector(
-                                    behavior: HitTestBehavior.opaque,
-                                    onTap: () => _onSegmentTap(i),
-                                    child: const SizedBox.expand(),
+                                  child: LiquidInteraction(
+                                    child: DragInspector(
+                                      behavior: HitTestBehavior.opaque,
+                                      onDragStart: (position, size) {
+                                        _animation.handleDragStart(position);
+                                        _animation.updateValue(i.toDouble());
+                                      },
+                                      onDrag: (position, delta, size) =>
+                                          _animation.handleDrag(size, delta),
+                                      onDragEnd: _animation.handleDragEnd,
+                                      onDragCancel: _cancelDrag,
+                                      child: const SizedBox.expand(),
+                                    ),
                                   ),
                                 ),
                             ],
@@ -220,7 +230,7 @@ class _LiquidSegmentedControlState extends State<LiquidSegmentedControl>
                       onDrag: (Offset position, Offset delta, Size size) =>
                           _animation.handleDrag(size, delta),
                       onDragEnd: _animation.handleDragEnd,
-                      onDragCancel: _animation.handleDragEnd,
+                      onDragCancel: _cancelDrag,
                       child: DrawBackdrop(
                         backdrop: widget.backdrop,
                         shape: () => const Capsule(),

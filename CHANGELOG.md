@@ -1,5 +1,52 @@
 # Changelog
 
+## 0.1.23
+
+### Added
+
+- `LiquidFusion` — several shapes drawn as one body of glass. The silhouette is
+  a field rather than an outline: each shape contributes a signed distance, the
+  shader takes their smooth minimum, and the result bulges towards its
+  neighbour before the two touch, grows a concave neck, and swallows it.
+  `smoothing` is how far apart that reaching starts, and its default of 10 is
+  measured — a fused field closes over a gap of about half the smoothing, which
+  leaves a row of controls eight apart reading as a row until something moves.
+  It is also one glass element for the group: one capture of the backdrop and
+  one shader pass where each shape apart pays for its own. `LiquidBlob` is a
+  shape, `LiquidFusionPress` is the press the body is under, and the new
+  `shaders/fusion.frag` draws all of it.
+- `LiquidNavigationBar` and `LiquidNavigationAction` — top chrome as three
+  islands of glass over a scrim of the page colour, drawn as one fused body.
+  Islands only cover what they hold, so content keeps scrolling visibly between
+  them; the scrim is opaque behind the status bar and gone below them, so the
+  gaps never read as holes. The geometry is computed from the bar's own layout
+  rather than measured off the widgets in it, which is what keeps the glass
+  from lagging the icons on it by a frame.
+- `LiquidInteraction` — the finger-following press feedback the liquid
+  components use, for a control that is not made of glass. It observes pointers
+  without claiming their gestures. `activePosition` lets a parent that owns the
+  gesture say where the finger is, which is what a menu does for its rows.
+- `LiquidInkHighlight` — a splash factory, so every Material ink control in an
+  app gets the same soft press glow without being wrapped.
+- `InteractiveHighlight.glowPosition`, for something other than the element
+  itself drawing its glow.
+
+### Changed
+
+- A menu now tracks a drag across its rows: press the anchor and slide, and the
+  row under the finger is the one that commits on release. Releasing outside a
+  row cancels, and a cancelled gesture never commits.
+- A segmented control's drag can start on any segment, and a cancelled drag
+  restores the selection it started from rather than leaving the thumb where
+  the finger left it.
+
+### Fixed
+
+- A menu row's press glow no longer sits in the middle of the row whatever the
+  finger is doing. The row is activated by the menu, not by its own pointer, so
+  it had no pointer to follow; the menu now hands it the one it is already
+  tracking.
+
 ## 0.1.22
 
 ### Fixed

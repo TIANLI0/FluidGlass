@@ -31,12 +31,14 @@ class FluidGlassPrograms extends ChangeNotifier {
       'packages/fluid_glass/shaders/highlight_ambient.frag';
   static const String _interactiveHighlightAsset =
       'packages/fluid_glass/shaders/interactive_highlight.frag';
+  static const String _fusionAsset = 'packages/fluid_glass/shaders/fusion.frag';
 
   ui.FragmentProgram? _refraction;
   ui.FragmentProgram? _dispersion;
   ui.FragmentProgram? _highlightDefault;
   ui.FragmentProgram? _highlightAmbient;
   ui.FragmentProgram? _interactiveHighlight;
+  ui.FragmentProgram? _fusion;
 
   Future<void>? _loading;
   Object? _error;
@@ -47,7 +49,8 @@ class FluidGlassPrograms extends ChangeNotifier {
       _dispersion != null &&
       _highlightDefault != null &&
       _highlightAmbient != null &&
-      _interactiveHighlight != null;
+      _interactiveHighlight != null &&
+      _fusion != null;
 
   /// The error thrown while loading the programs, if any.
   Object? get error => _error;
@@ -76,6 +79,12 @@ class FluidGlassPrograms extends ChangeNotifier {
   ui.FragmentProgram? get interactiveHighlight {
     _kick();
     return _interactiveHighlight;
+  }
+
+  /// Several rounded rectangles drawn as one fused, commonly lit body.
+  ui.FragmentProgram? get fusion {
+    _kick();
+    return _fusion;
   }
 
   void _kick() {
@@ -119,12 +128,14 @@ class FluidGlassPrograms extends ChangeNotifier {
             _programFromAsset(_highlightDefaultAsset),
             _programFromAsset(_highlightAmbientAsset),
             _programFromAsset(_interactiveHighlightAsset),
+            _programFromAsset(_fusionAsset),
           ]);
       _refraction = programs[0];
       _dispersion = programs[1];
       _highlightDefault = programs[2];
       _highlightAmbient = programs[3];
       _interactiveHighlight = programs[4];
+      _fusion = programs[5];
     } catch (e, stack) {
       _error = e;
       FlutterError.reportError(

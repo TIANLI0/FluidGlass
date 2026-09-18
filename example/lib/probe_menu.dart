@@ -13,7 +13,10 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 
-final String _dir = Platform.environment['PROBE_DIR'] ?? 'probe_menu_out';
+const String _definedDir = String.fromEnvironment('PROBE_DIR');
+final String _dir = _definedDir.isNotEmpty
+    ? _definedDir
+    : Platform.environment['PROBE_DIR'] ?? 'probe_menu_out';
 
 // The boundary wraps the whole app, not the route: OverlayPortal puts the
 // panel in the Navigator's Overlay, which sits above anything inside `home`.
@@ -189,10 +192,24 @@ Future<void> _drive() async {
   );
   await _settle(300);
   await _shoot('03_row_pressed');
+  final Offset thirdRow = secondRow + const Offset(24, 44);
+  GestureBinding.instance.handlePointerEvent(
+    PointerMoveEvent(
+      pointer: _pointer,
+      position: thirdRow,
+      delta: const Offset(24, 44),
+      kind: PointerDeviceKind.touch,
+    ),
+  );
+  await _settle(60);
+  await _shoot('03_drag_moving');
+  await _settle(300);
+  await _shoot('03_drag_settled');
+
   GestureBinding.instance.handlePointerEvent(
     PointerUpEvent(
       pointer: _pointer,
-      position: secondRow,
+      position: thirdRow,
       kind: PointerDeviceKind.touch,
     ),
   );

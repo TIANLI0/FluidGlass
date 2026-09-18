@@ -497,3 +497,110 @@ a derivative work of two Apache-2.0 projects by
 [Kyant](https://github.com/Kyant0);
 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) records which files derive from
 which originals.
+
+### Fusing controls — one body of glass
+
+```dart
+LiquidFusionScope(
+  backdrop: backdrop,
+  child: Row(spacing: 8, children: <Widget>[back, title, more]),
+)
+```
+
+Controls inside a scope stop drawing their own glass and their own light, and
+hand the scope three things instead: where they are, how round they are, and
+what their press is doing this frame. The scope draws all of them as a single
+element. Nothing is configured at the controls — a `LiquidButton` in a scope is
+the same `LiquidButton` as anywhere else.
+
+Two things become shared, on different terms:
+
+* **The shape, once they are close.** The silhouette is a field, not an outline:
+  each shape contributes a signed distance, the shader takes their smooth
+  minimum, and the result bulges towards its neighbour before the two touch,
+  grows a concave neck, and swallows it. A union of two paths gives none of that.
+* **The light, as far as the body reaches.** The rim runs around the whole body
+  rather than around each part. The press is the control being operated, so the
+  glow stays in the connected body the finger is in: drag along a merged pair
+  and it travels through the neck, drag towards a control that has not merged
+  and it stops at the gap — a separate control is not the one being pressed.
+  Which shapes count as one body is worked out per frame, from the same gap
+  arithmetic that sets the smoothing.
+
+`LiquidNavigationBar` does *not* use a scope: a centred title puts its three
+islands far too far apart to ever merge, so they stay three pieces of glass
+with three samples of the backdrop.
+
+The default `smoothing` of 10 is the balance point between merging and the
+press, and it was measured. A fused field closes over a gap of about half the
+smoothing, so 10 bridges at 5 logical pixels: a row of controls 8 apart still
+reads as a row at rest, and the press — which swells a held control by 4px on
+its short axis and leans it towards the finger by a twentieth of the drag — is
+what closes the rest. Press one control towards its neighbour and they bridge.
+
+It is also one glass element rather than one per control: a single capture of
+the backdrop and a single shader pass for the group. Wrap the group, not the
+page — the scope box is what gets captured and shaded, and controls in
+different scopes share nothing. One body is one surface, so a member's own
+`surfaceColor` and `tint` do not survive joining it; colour the scope instead,
+and keep an accented primary action outside it. Up to eight controls. On a
+device with no runtime shaders every control draws its own glass as before.
+
+`LiquidFusion` is the explicit form for a caller that owns the geometry, taking
+`LiquidBlob`s and an optional `LiquidFusionPress`. Either form leaves headroom
+around the shapes for what the field does outside them — a press swells a held
+control past its own box, and a box with no headroom clips the swell square. The catalog's Fusion screen
+is three ordinary buttons: hold one to see the light cross the group, drag two
+together to merge them.
+
+### Shared press feedback and navigation
+
+Set `ThemeData(splashFactory: LiquidInkHighlight.splashFactory)` in both light
+and dark themes to apply soft press feedback to Material ink controls throughout
+the app. Glass buttons retain their finger-following glow. Wrap custom content in
+`LiquidInteraction(child: ...)`; it observes input without replacing the child's
+action. Its `selected` flag keeps an accent wash, while `active` can be driven by
+a parent for drag selection. Use `trackPointer: false` for parent-controlled rows.
+
+Toolbar button groups use transient press glow and spring feedback without a
+persistent selection wash. Segmented controls accept drags starting
+on any segment, commit on release, and restore their selection on cancellation.
+Menus support dragging between rows and long-pressing the anchor to slide into
+the menu. Releasing outside a row cancels selection. Opening has a light spring
+overshoot, closing settles directly, and menus honor reduced-motion settings.
+
+```dart
+// Place above a BackdropLayer in a Stack; let the content scroll underneath.
+LiquidNavigationBar(
+  backdrop: backdrop,
+  leading: LiquidNavigationAction(
+    backdrop: backdrop,
+    icon: Icons.arrow_back_ios_new,
+    label: 'Back',
+    onPressed: () => Navigator.maybePop(context),
+  ),
+  titleLeading: const CircleAvatar(radius: 16),
+  title: const Text('Mika'),
+  onTitlePressed: openProfile,
+  trailing: moreButton,
+)
+```
+
+Top chrome as three floating islands of glass rather than one bar: a round
+leading action, a title island that hugs its content, a round trailing action.
+Only what carries text is covered, so the content keeps scrolling visibly
+between them. What stops the gaps reading as holes is the scrim behind
+them — `scrimColor`, defaulting to the enclosing `ColorScheme.surface` — opaque
+behind the status bar and gone `fadeHeight` below the islands, so there is no
+hard edge anywhere. The two side slots are the same width whatever they hold,
+which is what keeps the title centered on the screen rather than between its
+neighbours. `titleLeading` puts an avatar in the island and `onTitlePressed`
+makes it a button, the way a chat header opens the profile it names. The bar
+includes the top safe area; use `includeTopPadding: false` when the parent
+already supplies SafeArea. Only the islands take input: the scrim does not
+intercept touches, so content under it still scrolls and still takes taps. The
+catalog's Navigation bar screen is the chrome on its own — take the scrim to
+zero to see what it is for, put the avatar in and out of the island, and tap a
+row that is still half under it. App chrome shows the same chrome over a live
+scrolling feed; Toolbar & controls retains the original action groups, Library
+button, and Day/Week/Month picker.

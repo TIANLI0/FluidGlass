@@ -97,7 +97,13 @@ void main() {
     }
 
     void check(String phase, List<Rect> boxes, {required bool growing}) {
-      expect(boxes.length, greaterThan(6), reason: '$phase: too few frames');
+      // Closing now fades throughout its short retreat. Dark text crosses
+      // the capture threshold earlier, while the geometry continues settling.
+      expect(
+        boxes.length,
+        greaterThan(growing ? 6 : 3),
+        reason: '$phase: too few frames',
+      );
       final double span = boxes.last.height - boxes.first.height;
       expect(
         growing ? span > 0 : span < 0,
@@ -106,7 +112,7 @@ void main() {
       );
       for (int i = 1; i < boxes.length; i++) {
         final double step = boxes[i].height - boxes[i - 1].height;
-        // A monotone spring: never reverse direction, and never jump by more
+        // Allow the opening spring's subpixel settle, and never jump by more
         // than a fifth of the panel in one frame. Before the fix the panel
         // snapped between 61% and 100% in a single frame the moment its alpha
         // crossed 1.0 — that one-frame jump is what read as a flash.
