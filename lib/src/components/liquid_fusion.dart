@@ -255,8 +255,44 @@ class LiquidFusion extends StatelessWidget {
     if (self is! RenderBox || !self.hasSize || !self.attached) {
       return Offset.zero & box;
     }
+    // This runs inside a layout callback, so an ancestor further up the tree
+    // may not have been laid out yet — a route transition's transform on the
+    // frame its page first appears is the ordinary case. `localToGlobal` walks
+    // that chain asking each ancestor to contribute its paint transform, and
+    // one that scales or translates about its own centre has to read its own
+    // size to answer, which asserts while it is still NEEDS-LAYOUT.
+    //
+    // Where this widget sits on screen is not knowable on such a frame, so
+    // fall back to the box for now — and ask to be built again next frame.
+    //
+    // The retry is not optional. This runs from a `LayoutBuilder`, which
+    // rebuilds only when its constraints change or something marks it dirty;
+    // a page that finishes its transition and then sits still never lays the
+    // bar out again, so without the retry the fallback taken on the first
+    // frame is the geometry the chrome keeps for the life of the page. On a
+    // navigation bar that showed as the islands vanishing after every push
+    // while a cold start on the same page drew them — the body was there, but
+    // mapped through a box that no longer described its layer.
+    for (RenderObject? node = self.parent; node != null; node = node.parent) {
+      if (node is RenderBox && !node.hasSize) {
+        _rebuildNextFrame(context);
+        return Offset.zero & box;
+      }
+    }
     final Offset origin = self.localToGlobal(Offset.zero);
     return Rect.fromLTWH(-origin.dx, -origin.dy, screen.width, screen.height);
+  }
+
+  /// Marks the `LayoutBuilder` this was built from dirty once the current
+  /// frame is over, so [_limitFor] gets another go with laid-out ancestors.
+  /// One callback per frame while the ancestors are still mid-layout; the
+  /// chain ends the first frame the measurement succeeds, or when the widget
+  /// leaves the tree.
+  static void _rebuildNextFrame(BuildContext context) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!context.mounted) return;
+      (context as Element).markNeedsBuild();
+    });
   }
 
   Widget _build(BuildContext context, _FusionStyle style, Size box) {

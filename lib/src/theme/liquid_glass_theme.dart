@@ -36,10 +36,43 @@ class LiquidGlassTheme extends InheritedWidget {
   static LiquidGlassColors of(BuildContext context) {
     final LiquidGlassTheme? theme = context
         .dependOnInheritedWidgetOfExactType<LiquidGlassTheme>();
-    if (theme != null) {
-      return theme.colors;
-    }
-    return LiquidGlassColors.forBrightness(Theme.of(context).brightness);
+    final LiquidGlassColors colors =
+        theme?.colors ??
+        LiquidGlassColors.forBrightness(Theme.of(context).brightness);
+    return _forAccessibility(context, colors);
+  }
+
+  /// Raises the surface tint to opaque when the reader has asked for contrast.
+  ///
+  /// Increase Contrast is a request to stop deciding legibility by whatever
+  /// happens to be behind a surface. The tint is where that is decided —
+  /// [LiquidGlassColors.container] ships at alpha 0.4 — so making it opaque is
+  /// the whole response, and it reaches every component at once because they
+  /// all read their colours from here.
+  ///
+  /// Applied to an app-supplied palette too: an app that set its own brand
+  /// colours has not thereby opted out of the reader's accessibility settings.
+  ///
+  /// The other half of the response is the refraction, a *moving* distortion
+  /// under whatever is being read through it. That is dropped separately, by
+  /// clamping the tier in `DrawBackdrop` — which is also the cheap path.
+  ///
+  /// **Only [MediaQueryData.highContrast] is available to check.** Flutter
+  /// surfaces `accessibleNavigation`, `invertColors`, `highContrast`,
+  /// `disableAnimations` and `boldText`, and nothing for *Reduce
+  /// Transparency* — the setting that most directly asks a glass library to
+  /// stand down. Reaching it needs a platform channel. `highContrast` is iOS
+  /// 13+ and Android API 34+ only, so on everything else this returns the
+  /// palette untouched and the app has to offer its own switch, which
+  /// [GlassQualityScope] is for.
+  static LiquidGlassColors _forAccessibility(
+    BuildContext context,
+    LiquidGlassColors colors,
+  ) {
+    final MediaQueryData? media = MediaQuery.maybeOf(context);
+    if (media == null || !media.highContrast) return colors;
+    if (colors.container.a >= 1.0) return colors;
+    return colors.copyWith(container: colors.container.withValues(alpha: 1.0));
   }
 
   @override

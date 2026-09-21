@@ -145,6 +145,31 @@ class DrawBackdrop extends StatelessWidget {
 
   final Widget? child;
 
+  /// The tier for this element, after the reader's accessibility settings.
+  ///
+  /// The refraction is a moving distortion under whatever is read through the
+  /// glass, so a reader who asked for more contrast is asking for it to stop.
+  /// Clamping to [GlassQuality.plain] drops the lens and the shaded rim and
+  /// leaves a plain Gaussian blur behind the tint — which
+  /// [LiquidGlassTheme.of] has separately made opaque under the same flag.
+  ///
+  /// It is also, and not by coincidence, the cheap path: `plain` hands the
+  /// chain to the compositor instead of capturing the source, measured at
+  /// +0.13 ms per element against +2.66 ms. Legibility and cost want the same
+  /// thing here.
+  ///
+  /// An explicit [quality] still wins, so a showcase screen can hold the
+  /// liquid tier deliberately.
+  GlassQuality? _resolveQuality(BuildContext context) {
+    final GlassQuality? pinned = quality ?? GlassQualityScope.maybeOf(context);
+    final MediaQueryData? media = MediaQuery.maybeOf(context);
+    if (media == null || !media.highContrast) return pinned;
+    if (quality != null) return quality;
+    return (pinned ?? GlassDeviceTier.instance.quality).atMost(
+      GlassQuality.plain,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final Widget core = _DrawBackdropCore(
@@ -161,7 +186,7 @@ class DrawBackdrop extends StatelessWidget {
       onDrawSurface: onDrawSurface,
       onDrawFront: onDrawFront,
       isolateSurface: isolateSurface,
-      quality: quality ?? GlassQualityScope.maybeOf(context),
+      quality: _resolveQuality(context),
       repaint: repaint,
       textDirection: Directionality.maybeOf(context) ?? TextDirection.ltr,
       // Sibling glass in the same `BackdropGroup` shares one read of the
@@ -431,6 +456,31 @@ class _DrawBackdropCore extends SingleChildRenderObjectWidget {
 /// The shadows and the highlight rim are drawn here too, rather than by
 /// separate render objects, since they all need the same resolved shape.
 class RenderDrawBackdrop extends RenderProxyBox {
+  /// Whether the liquid tier may draw itself with compositor filters instead
+  /// of capturing its source.
+  ///
+  /// The capture — an `OffsetLayer.toImageSync` that flushes the pipeline
+  /// mid-frame — is what a live backdrop actually costs. When the backdrop is
+  /// already painted behind the element, the whole chain can go to the
+  /// compositor as nested [BackdropFilterLayer]s instead, which costs no
+  /// capture at all. Measured on a OnePlus PKJ110: +1.85 ms per element
+  /// becomes +0.14 ms, with the picture unchanged.
+  ///
+  /// **Opt-in for now.** Turning it on changes which path every liquid-tier
+  /// element takes, and the two paths do not mean quite the same thing: a
+  /// capture refracts *the source subtree*, while a compositor filter refracts
+  /// *whatever happens to be beneath the element*. Those coincide in the
+  /// ordinary arrangement — a `BackdropLayer` around the page with glass over
+  /// it — and diverge as soon as anything else paints in between. The capture
+  /// machinery's guarantees (one capture shared between overlapping readers,
+  /// `motionPixelRatio`, the spatial pruning that skips changes landing under
+  /// no glass) also simply do not apply on this path, because there is nothing
+  /// to capture; `test/capture_cost_test.dart` pins all three.
+  ///
+  /// Also useful for measuring: raster timings track GPU clock state, so the
+  /// two paths have to be alternated inside one build to be comparable.
+  static bool useCompositorLens = false;
+
   RenderDrawBackdrop({
     required Backdrop backdrop,
     required GlassShapeGetter shape,
@@ -781,7 +831,14 @@ class RenderDrawBackdrop extends RenderProxyBox {
   /// element in the first place — including the case where the element's own
   /// paint is being harvested as somebody else's backdrop ([_isCaptured]).
   bool get _usesNativeFilter {
-    if (_resolvedQuality.hasShaders) return false;
+    // The lens used to be disqualifying, on the reasoning that a fragment
+    // shader in a backdrop filter is handed the whole screen and so has no
+    // geometry to anchor to. Measured on device, that holds only for a filter
+    // *composed* into one chain: pushed as its own nested `BackdropFilterLayer`
+    // inside the clip, the shader is handed the clipped element instead — a
+    // 320x112 texture for a 320x110 bar — and element-local uniforms place it
+    // exactly. See `_paintNativeBackdrop`.
+    if (_resolvedQuality.hasShaders && !useCompositorLens) return false;
     if (!_backdrop.isPaintedBehindConsumer) return false;
     if (_onDrawBackdrop != null) return false;
     if (_exportedBackdrop != null) return false;
@@ -914,7 +971,14 @@ class RenderDrawBackdrop extends RenderProxyBox {
       quality: quality,
     );
     _effects(_effectScope);
-    final List<ui.ImageFilter> filters = _effectScope.resolve();
+    // On the compositor path each filter is handed the *clipped element*, not
+    // a layer inflated by `padding` — a backdrop filter reads real pixels from
+    // the scene beyond the element, so there is no margin to reserve and no
+    // edge to extend. Resolving against the element's own rect is what makes a
+    // shader's uniforms describe the texture it is actually given.
+    final List<ui.ImageFilter> filters = native
+        ? _effectScope.resolve(layerRect: Offset.zero & size)
+        : _effectScope.resolve();
     final double padding = _effectScope.padding;
 
     // 1. The drop shadow, outside the clip.
@@ -1182,7 +1246,7 @@ class RenderDrawBackdrop extends RenderProxyBox {
   ) {
     final GlassDrawCallback? onDrawSurface = _onDrawSurface;
     if (filters.isEmpty) {
-      _backdropFilterLayer.layer = null;
+      _releaseBackdropFilterLayers();
       if (onDrawSurface != null) {
         final Canvas canvas = context.canvas;
         canvas.save();
@@ -1193,33 +1257,61 @@ class RenderDrawBackdrop extends RenderProxyBox {
       return;
     }
 
-    // `resolve` returns the stages in the order they were declared, and the
-    // sampled path nests them innermost-first; composing them the same way
-    // keeps one chain that behaves identically.
-    ui.ImageFilter filter = filters.first;
-    for (int i = 1; i < filters.length; i++) {
-      filter = ui.ImageFilter.compose(outer: filters[i], inner: filter);
+    // One layer per stage, nested, rather than one composed filter.
+    //
+    // `ImageFilter.compose` looks equivalent and is not: composing a fragment
+    // shader with a blur inside a backdrop filter renders the blur alone and
+    // drops the shader silently (flutter/flutter#170820 — the fix in #177687
+    // snapshots the shader's input, so the uniforms no longer describe it).
+    // The failure is invisible in a perf number, because a shader that does
+    // nothing is cheap; it was caught by comparing pictures.
+    //
+    // Nested, each stage is its own `BackdropFilterLayer`: the outermost reads
+    // the real backdrop, and every inner one reads the previous one's output.
+    // Declaration order is preserved — blur first, then the lens over the
+    // blurred result — which is the order the sampled path uses.
+    _backdropFilterLayers.length = filters.length;
+    void pushStage(int i, PaintingContext context, Offset offset) {
+      if (i == filters.length) {
+        if (onDrawSurface == null) return;
+        final Canvas canvas = context.canvas;
+        canvas.save();
+        canvas.translate(offset.dx, offset.dy);
+        onDrawSurface(canvas, size);
+        canvas.restore();
+        return;
+      }
+      final LayerHandle<BackdropFilterLayer> handle =
+          _backdropFilterLayers[i] ??= LayerHandle<BackdropFilterLayer>();
+      final BackdropFilterLayer layer = handle.layer ?? BackdropFilterLayer();
+      layer.filter = filters[i];
+      // Only the outermost stage reads the scene, so only it can share that
+      // read with sibling glass; the inner stages read their parent's output.
+      layer.backdropKey = i == 0 ? _backdropGroupKey : null;
+      handle.layer = layer;
+      context.pushLayer(
+        layer,
+        (PaintingContext context, Offset offset) =>
+            pushStage(i + 1, context, offset),
+        offset,
+      );
     }
 
-    final BackdropFilterLayer layer =
-        _backdropFilterLayer.layer ?? BackdropFilterLayer();
-    layer
-      ..filter = filter
-      ..backdropKey = _backdropGroupKey;
-    _backdropFilterLayer.layer = layer;
-
-    context.pushLayer(layer, (PaintingContext context, Offset offset) {
-      if (onDrawSurface == null) return;
-      final Canvas canvas = context.canvas;
-      canvas.save();
-      canvas.translate(offset.dx, offset.dy);
-      onDrawSurface(canvas, size);
-      canvas.restore();
-    }, offset);
+    pushStage(0, context, offset);
   }
 
-  final LayerHandle<BackdropFilterLayer> _backdropFilterLayer =
-      LayerHandle<BackdropFilterLayer>();
+  /// One handle per filter stage, outermost first. Kept across frames so the
+  /// engine can reuse the layers rather than rebuilding the chain each paint.
+  final List<LayerHandle<BackdropFilterLayer>?> _backdropFilterLayers =
+      <LayerHandle<BackdropFilterLayer>?>[];
+
+  void _releaseBackdropFilterLayers() {
+    for (final LayerHandle<BackdropFilterLayer>? handle
+        in _backdropFilterLayers) {
+      handle?.layer = null;
+    }
+    _backdropFilterLayers.clear();
+  }
 
   /// Draws the backdrop through the effect chain.
   ///
@@ -1304,7 +1396,7 @@ class RenderDrawBackdrop extends RenderProxyBox {
   @override
   void dispose() {
     _samplingLayer.layer = null;
-    _backdropFilterLayer.layer = null;
+    _releaseBackdropFilterLayers();
     _clipRectLayer.layer = null;
     _clipRRectLayer.layer = null;
     _clipPathLayer.layer = null;

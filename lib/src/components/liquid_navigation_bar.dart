@@ -63,10 +63,18 @@ class LiquidNavigationBar extends StatefulWidget
     this.smoothing = 10,
     this.surfaceColor,
     this.scrimColor,
+    this.blurRadius,
+    this.isInteractive = true,
+    this.titleAlignment = Alignment.center,
+    this.titlePadding = const EdgeInsets.symmetric(horizontal: 16),
     this.includeTopPadding = true,
   }) : assert(height >= 48, 'An island holds a touch target; 48 is the floor.'),
        assert(fadeHeight >= 0),
-       assert(titleMinWidth >= 0);
+       assert(titleMinWidth >= 0),
+       assert(
+         blurRadius == null || blurRadius >= 0,
+         'A blur radius is a distance.',
+       );
 
   /// What the islands refract — the scrolling content they sit over.
   final Backdrop backdrop;
@@ -118,6 +126,37 @@ class LiquidNavigationBar extends StatefulWidget
   /// [ColorScheme.surface] — the page own background bleeding up behind the
   /// status bar, not a glass colour.
   final Color? scrimColor;
+
+  /// How hard the islands blur what they sit over. Defaults to [chromeBlur].
+  ///
+  /// The one dial worth reaching for when chrome does not read against a
+  /// particular app's content, and the one to reach for *first*: what makes
+  /// chrome legible is the blur under it, not the paint over it, so raising
+  /// this costs nothing but a wider sample where raising [surfaceColor]'s
+  /// alpha costs the glass. A page of running text under the bar wants more
+  /// than a page of photographs does.
+  final double? blurRadius;
+
+  /// Where the title content sits inside its island.
+  ///
+  /// Centre is right for a title that names a page. Left is right for an
+  /// identity — an avatar and a name read as one object starting at the same
+  /// edge, the way a conversation header does, and the island keeps its
+  /// [titleMinWidth] instead of shrink-wrapping around a short name.
+  final AlignmentGeometry titleAlignment;
+
+  /// The inset around the title content.
+  ///
+  /// Drop the leading side to zero for a [titleLeading] as tall as the island:
+  /// a round avatar of exactly [height] then shares its circle with the
+  /// island's own rounded cap, rather than floating inside it.
+  final EdgeInsetsGeometry titlePadding;
+
+  /// False keeps every tap and drops everything that moves — the squash, the
+  /// lean and the glow travelling through the body — for a platform asking
+  /// for reduced motion. It reaches the islands this bar builds; an action
+  /// passed in carries its own flag.
+  final bool isInteractive;
 
   /// Whether the bar leaves room for the status bar itself. Pass false when a
   /// parent [SafeArea] already did.
@@ -207,6 +246,31 @@ class _LiquidNavigationBarState extends State<LiquidNavigationBar> {
   /// The title island width, measured from what it holds.
   double _titleWidth = 0;
 
+  /// The one finger the chrome answers, published to the islands.
+  ///
+  /// **The bar owns the gesture, not the islands.** Each island used to run
+  /// its own slop-free tap: press the back button, slide onto the title, lift
+  /// — and the light had crossed the body while the tap had not, because the
+  /// island that saw the down was the only one that could fire. A body of
+  /// glass that carries a press from one island to the next has to carry the
+  /// *commit* with it, or the light is lying about what the finger can do.
+  /// So one listener over the whole chrome tracks the finger, tells the
+  /// island it is over to light up and lean, and on release tells that island
+  /// — whichever it is by then — to fire. Lifting in a gap fires nothing.
+  final _ChromeTouch _touch = _ChromeTouch();
+
+  /// The pointer being tracked, so a second finger is ignored.
+  int? _pointer;
+
+  bool _hasLeading = false;
+  bool _hasTrailing = false;
+
+  @override
+  void dispose() {
+    _touch.dispose();
+    super.dispose();
+  }
+
   void _report(
     _Slot slot,
     Offset local,
@@ -223,9 +287,58 @@ class _LiquidNavigationBarState extends State<LiquidNavigationBar> {
             progress: progress,
             radius: radius,
           );
+    // While the finger is on one island, the island it just left is still
+    // reporting its spring settling back to zero. Those reports would flip
+    // the body's light between the two islands every frame; the light
+    // belongs to the island under the finger.
+    final _Slot? held = _touch.slot;
+    if (next != null && held != null && held != slot) return;
     if (next == null && _press?.slot != slot) return;
     if (next == _press) return;
     setState(() => _press = next);
+  }
+
+  /// The island under [position] (chrome coordinates), or null in a gap.
+  _Slot? _slotAt(Offset position) {
+    for (final MapEntry<_Slot, Rect> entry in _rects.entries) {
+      if (entry.key == _Slot.leading && !_hasLeading) continue;
+      if (entry.key == _Slot.trailing && !_hasTrailing) continue;
+      if (entry.value.contains(position)) return entry.key;
+    }
+    return null;
+  }
+
+  void _onPointerDown(PointerDownEvent event) {
+    if (_pointer != null) return;
+    final _Slot? slot = _slotAt(event.localPosition);
+    if (slot == null) return;
+    _pointer = event.pointer;
+    _touch.update(slot: slot, position: event.localPosition);
+  }
+
+  void _onPointerMove(PointerMoveEvent event) {
+    if (event.pointer != _pointer) return;
+    // Over a gap the finger keeps the island it came from: the light has
+    // nowhere else to be, and a release there still fires nothing.
+    _touch.update(
+      slot: _slotAt(event.localPosition) ?? _touch.slot,
+      position: event.localPosition,
+    );
+  }
+
+  void _onPointerUp(PointerUpEvent event) {
+    if (event.pointer != _pointer) return;
+    _pointer = null;
+    _touch.release(
+      slot: _slotAt(event.localPosition),
+      position: event.localPosition,
+    );
+  }
+
+  void _onPointerCancel(PointerCancelEvent event) {
+    if (event.pointer != _pointer) return;
+    _pointer = null;
+    _touch.release(slot: null, position: event.localPosition);
   }
 
   /// The island rectangle with the press applied — the same lean and squash a
@@ -269,32 +382,41 @@ class _LiquidNavigationBarState extends State<LiquidNavigationBar> {
       child: Stack(
         clipBehavior: Clip.none,
         children: <Widget>[
-          Positioned.fill(
-            child: IgnorePointer(
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: <Color>[
-                      scrim,
-                      scrim,
-                      scrim.withValues(alpha: 0.94),
-                      scrim.withValues(alpha: 0),
-                    ],
-                    // Solid behind the status bar, still carrying across the
-                    // islands, and only then on its way out.
-                    stops: <double>[
-                      0,
-                      (top / total).clamp(0.0, 1.0),
-                      (chrome / total).clamp(0.0, 1.0),
-                      1,
-                    ],
+          // A fully transparent scrim is "no scrim", not a scrim of that
+          // colour's RGB. `Colors.transparent` is black at alpha 0, and
+          // `withValues(alpha: 0.94)` on it is 94% black: an app that handed
+          // the scrim to something else — a progressive blur under the bar —
+          // got a slab darkening towards the islands' bottom edge instead,
+          // and nothing threw. The ramp's alphas scale the caller's alpha, so
+          // a half-transparent page colour fades from half, and zero is
+          // nothing at all.
+          if (scrim.a > 0)
+            Positioned.fill(
+              child: IgnorePointer(
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: <Color>[
+                        scrim,
+                        scrim,
+                        scrim.withValues(alpha: scrim.a * 0.94),
+                        scrim.withValues(alpha: 0),
+                      ],
+                      // Solid behind the status bar, still carrying across
+                      // the islands, and only then on its way out.
+                      stops: <double>[
+                        0,
+                        (top / total).clamp(0.0, 1.0),
+                        (chrome / total).clamp(0.0, 1.0),
+                        1,
+                      ],
+                    ),
                   ),
                 ),
               ),
             ),
-          ),
           Positioned.fill(
             child: LayoutBuilder(
               builder: (BuildContext context, BoxConstraints constraints) =>
@@ -329,6 +451,8 @@ class _LiquidNavigationBarState extends State<LiquidNavigationBar> {
       room,
     );
 
+    _hasLeading = hasLeading;
+    _hasTrailing = hasTrailing;
     final Rect leadingRect = Rect.fromLTWH(16, y, slot, height);
     final Rect trailingRect = Rect.fromLTWH(width - 16 - slot, y, slot, height);
     final Rect titleRect = Rect.fromCenter(
@@ -346,11 +470,11 @@ class _LiquidNavigationBarState extends State<LiquidNavigationBar> {
         press == null || press.slot != slot ? rect : _deformed(rect, press);
     final Rect? pressedRect = press == null ? null : _rects[press.slot];
 
-    return LiquidFusion(
+    final Widget body = LiquidFusion(
       backdrop: widget.backdrop,
       smoothing: widget.smoothing,
       surfaceColor: surface,
-      blurRadius: LiquidNavigationBar.chromeBlur,
+      blurRadius: widget.blurRadius ?? LiquidNavigationBar.chromeBlur,
       // The light carries the width of the chrome, so a press on one island is
       // felt on the other two — on them, never in the gaps, because the field
       // is what masks it.
@@ -374,7 +498,9 @@ class _LiquidNavigationBarState extends State<LiquidNavigationBar> {
             rect: leadingRect,
             child: _ChromeSlot(
               slot: _Slot.leading,
+              rect: leadingRect,
               report: _report,
+              touch: _touch,
               child: widget.leading!,
             ),
           ),
@@ -382,11 +508,16 @@ class _LiquidNavigationBarState extends State<LiquidNavigationBar> {
           rect: titleRect,
           child: _ChromeSlot(
             slot: _Slot.title,
+            rect: titleRect,
             report: _report,
+            touch: _touch,
             child: _TitleIsland(
               title: widget.title,
               titleLeading: widget.titleLeading,
               onPressed: widget.onTitlePressed,
+              isInteractive: widget.isInteractive,
+              alignment: widget.titleAlignment,
+              padding: widget.titlePadding,
               content: content,
               onMeasured: _measureTitle,
             ),
@@ -397,25 +528,84 @@ class _LiquidNavigationBarState extends State<LiquidNavigationBar> {
             rect: trailingRect,
             child: _ChromeSlot(
               slot: _Slot.trailing,
+              rect: trailingRect,
               report: _report,
+              touch: _touch,
               child: widget.trailing!,
             ),
           ),
       ],
     );
+    if (!widget.isInteractive) return body;
+    // Translucent: the gaps between islands still pass taps to the content
+    // beneath, and the islands stay opaque hit targets of their own (see
+    // `_ChromePress`), so a tap on one never also lands on a message under it.
+    return Listener(
+      behavior: HitTestBehavior.translucent,
+      onPointerDown: _onPointerDown,
+      onPointerMove: _onPointerMove,
+      onPointerUp: _onPointerUp,
+      onPointerCancel: _onPointerCancel,
+      child: body,
+    );
   }
 }
 
-/// Tells whatever is in a slot that the chrome is drawing the glass, and where
-/// to report a press.
+/// The finger the bar is tracking, as the islands see it: which island it is
+/// over, where it is in chrome coordinates, and — for one notification — that
+/// it has just lifted.
+class _ChromeTouch extends ChangeNotifier {
+  _Slot? _slot;
+  Offset _position = Offset.zero;
+  bool _released = false;
+
+  /// The island under the finger, or the last one it was over; null at rest.
+  _Slot? get slot => _slot;
+
+  /// Where the finger is, in the chrome's coordinates.
+  Offset get position => _position;
+
+  /// True only during the notification for a lift: the island in [slot] fires,
+  /// every island lets go of its press.
+  bool get released => _released;
+
+  void update({required _Slot? slot, required Offset position}) {
+    if (slot == _slot && position == _position && !_released) return;
+    _slot = slot;
+    _position = position;
+    _released = false;
+    notifyListeners();
+  }
+
+  /// The finger lifted over [slot] (null: over nothing, or the gesture was
+  /// taken away). After the islands have heard it the touch is at rest.
+  void release({required _Slot? slot, required Offset position}) {
+    _slot = slot;
+    _position = position;
+    _released = true;
+    notifyListeners();
+    _slot = null;
+    _released = false;
+  }
+}
+
+/// Tells whatever is in a slot that the chrome is drawing the glass: where its
+/// island is, where to report a press, and which finger to follow.
 class _ChromeSlot extends InheritedWidget {
   const _ChromeSlot({
     required this.slot,
+    required this.rect,
     required this.report,
+    required this.touch,
     required super.child,
   });
 
   final _Slot slot;
+
+  /// The island's rectangle in chrome coordinates — what turns the bar's
+  /// finger position into the island's own.
+  final Rect rect;
+
   final void Function(
     _Slot slot,
     Offset local,
@@ -425,12 +615,17 @@ class _ChromeSlot extends InheritedWidget {
   )
   report;
 
+  final _ChromeTouch touch;
+
   static _ChromeSlot? maybeOf(BuildContext context) =>
       context.dependOnInheritedWidgetOfExactType<_ChromeSlot>();
 
   @override
   bool updateShouldNotify(_ChromeSlot oldWidget) =>
-      oldWidget.slot != slot || oldWidget.report != report;
+      oldWidget.slot != slot ||
+      oldWidget.rect != rect ||
+      oldWidget.report != report ||
+      oldWidget.touch != touch;
 }
 
 /// The title island content: an avatar and a label, sized to what it holds.
@@ -439,6 +634,9 @@ class _TitleIsland extends StatelessWidget {
     required this.title,
     required this.titleLeading,
     required this.onPressed,
+    required this.isInteractive,
+    required this.alignment,
+    required this.padding,
     required this.content,
     required this.onMeasured,
   });
@@ -446,6 +644,9 @@ class _TitleIsland extends StatelessWidget {
   final Widget title;
   final Widget? titleLeading;
   final VoidCallback? onPressed;
+  final bool isInteractive;
+  final AlignmentGeometry alignment;
+  final EdgeInsetsGeometry padding;
   final Color content;
   final ValueChanged<Size> onMeasured;
 
@@ -466,13 +667,16 @@ class _TitleIsland extends StatelessWidget {
     return Semantics(
       header: onPressed == null,
       button: onPressed != null,
+      onTap: onPressed,
       child: _ChromePress(
         onPressed: onPressed,
-        child: Center(
+        isInteractive: isInteractive,
+        child: Align(
+          alignment: alignment,
           child: _MeasureWidth(
             onMeasured: onMeasured,
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
+              padding: padding,
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 mainAxisAlignment: MainAxisAlignment.center,
@@ -492,6 +696,15 @@ class _TitleIsland extends StatelessWidget {
 
 /// Reports the width its child wants, so the bar can give the island a
 /// rectangle that fits it.
+///
+/// **It reports the intrinsic width, not the laid-out one.** The island's
+/// rectangle is computed *from* this number, so measuring what the child was
+/// given makes the two a fixed point that can never grow: an island handed
+/// 144 lays its row out in 144, reports 144, and is handed 144 again — a
+/// longer title is quietly ellipsised to the minimum width for ever, and a
+/// minimum of zero collapses the island out of existence. Asking how wide the
+/// content *wants* to be breaks the loop; the bar still clamps the answer to
+/// the room between the side actions.
 ///
 /// One frame late by construction, and that is why it is allowed here: an
 /// island changes width when its title changes, which does not happen while
@@ -524,9 +737,16 @@ class _RenderMeasureWidth extends RenderProxyBox {
   @override
   void performLayout() {
     super.performLayout();
-    if (_last == size) return;
-    _last = size;
-    onMeasured(size);
+    final RenderBox? content = child;
+    final Size measured = content == null
+        ? size
+        : Size(
+            math.max(content.getMaxIntrinsicWidth(double.infinity), size.width),
+            size.height,
+          );
+    if (_last == measured) return;
+    _last = measured;
+    onMeasured(measured);
   }
 }
 
@@ -538,9 +758,19 @@ class _RenderMeasureWidth extends RenderProxyBox {
 /// where it can cross a neck into an island that has merged and cannot cross a
 /// gap to one that has not.
 class _ChromePress extends StatefulWidget {
-  const _ChromePress({required this.onPressed, required this.child});
+  const _ChromePress({
+    required this.onPressed,
+    required this.child,
+    this.isInteractive = true,
+  });
 
   final VoidCallback? onPressed;
+
+  /// False keeps the tap and drops everything that moves — the squash, the
+  /// lean and the glow the chrome draws — for a platform asking for reduced
+  /// motion. The island still answers a press, it just does not deform.
+  final bool isInteractive;
+
   final Widget child;
 
   @override
@@ -554,6 +784,9 @@ class _ChromePressState extends State<_ChromePress>
   );
   _ChromeSlot? _chrome;
 
+  /// Whether the bar's finger is currently on this island.
+  bool _held = false;
+
   @override
   void initState() {
     super.initState();
@@ -563,14 +796,53 @@ class _ChromePressState extends State<_ChromePress>
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    _chrome = _ChromeSlot.maybeOf(context);
+    final _ChromeSlot? next = _ChromeSlot.maybeOf(context);
+    if (!identical(next?.touch, _chrome?.touch)) {
+      _chrome?.touch.removeListener(_onTouch);
+      next?.touch.addListener(_onTouch);
+    }
+    _chrome = next;
   }
 
   @override
   void dispose() {
+    _chrome?.touch.removeListener(_onTouch);
     _highlight.removeListener(_publish);
     _highlight.dispose();
     super.dispose();
+  }
+
+  /// The bar's finger moved, arrived, left or lifted.
+  ///
+  /// Arriving from a neighbouring island counts as a fresh press here — the
+  /// lean is measured from where the finger entered, not from where it first
+  /// touched the bar — and lifting over this island is what fires it, however
+  /// far the finger has travelled since it went down.
+  void _onTouch() {
+    final _ChromeSlot? chrome = _chrome;
+    if (chrome == null || !widget.isInteractive) return;
+    final _ChromeTouch touch = chrome.touch;
+    final bool mine = touch.slot == chrome.slot;
+    final Offset local = touch.position - chrome.rect.topLeft;
+    if (touch.released) {
+      if (mine) widget.onPressed?.call();
+      if (_held) {
+        _held = false;
+        _highlight.handleUp();
+      }
+      return;
+    }
+    if (mine) {
+      if (_held) {
+        _highlight.handleMove(local);
+      } else {
+        _held = true;
+        _highlight.handleDown(local);
+      }
+    } else if (_held) {
+      _held = false;
+      _highlight.handleUp();
+    }
   }
 
   void _publish() {
@@ -589,9 +861,26 @@ class _ChromePressState extends State<_ChromePress>
 
   @override
   Widget build(BuildContext context) {
-    if (widget.onPressed == null) return widget.child;
-    return _highlight.wrapGestures(
-      onTap: widget.onPressed,
+    if (!widget.isInteractive) {
+      final VoidCallback? onPressed = widget.onPressed;
+      if (onPressed == null) return widget.child;
+      return Material(
+        type: MaterialType.transparency,
+        child: InkWell(onTap: onPressed, child: widget.child),
+      );
+    }
+    // An island answers a finger whether or not it does anything. A title that
+    // only names the page is still part of the same body of glass, and a bar
+    // whose two ends move under the finger while its middle sits dead reads as
+    // a bug rather than as restraint. With no callback nothing fires; what the
+    // touch buys is the deformation and the light travelling through the body.
+    //
+    // The pointer itself is the bar's (`_ChromeTouch`), so a press can travel
+    // from one island to the next and fire the one it lifts on. This listener
+    // has no handlers: it is here to be an opaque hit target, so a tap on an
+    // island does not also reach whatever the island is drawn over.
+    return Listener(
+      behavior: HitTestBehavior.opaque,
       child: _PressDeformation(highlight: _highlight, child: widget.child),
     );
   }
@@ -648,6 +937,7 @@ class LiquidNavigationAction extends StatelessWidget {
     this.size = 48,
     this.iconSize = 22,
     this.surfaceColor,
+    this.isInteractive = true,
   }) : assert(size >= 48, 'Touch targets stay at least 48.');
 
   final Backdrop backdrop;
@@ -664,6 +954,10 @@ class LiquidNavigationAction extends StatelessWidget {
   /// Only used outside a bar, where this draws its own glass.
   final Color? surfaceColor;
 
+  /// False keeps the tap and drops the press deformation and glow, for a
+  /// platform asking for reduced motion.
+  final bool isInteractive;
+
   @override
   Widget build(BuildContext context) {
     final Color content = LiquidGlassTheme.of(context).content;
@@ -677,6 +971,7 @@ class LiquidNavigationAction extends StatelessWidget {
         ? LiquidButton(
             backdrop: backdrop,
             onPressed: onPressed,
+            isInteractive: isInteractive,
             surfaceColor:
                 surfaceColor ?? LiquidNavigationBar.chromeSurfaceOf(context),
             height: size,
@@ -685,6 +980,7 @@ class LiquidNavigationAction extends StatelessWidget {
           )
         : _ChromePress(
             onPressed: onPressed,
+            isInteractive: isInteractive,
             child: Center(child: glyph),
           );
 

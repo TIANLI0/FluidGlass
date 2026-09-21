@@ -32,6 +32,8 @@ class FluidGlassPrograms extends ChangeNotifier {
   static const String _interactiveHighlightAsset =
       'packages/fluid_glass/shaders/interactive_highlight.frag';
   static const String _fusionAsset = 'packages/fluid_glass/shaders/fusion.frag';
+  static const String _progressiveBlurAsset =
+      'packages/fluid_glass/shaders/progressive_blur.frag';
 
   ui.FragmentProgram? _refraction;
   ui.FragmentProgram? _dispersion;
@@ -39,6 +41,7 @@ class FluidGlassPrograms extends ChangeNotifier {
   ui.FragmentProgram? _highlightAmbient;
   ui.FragmentProgram? _interactiveHighlight;
   ui.FragmentProgram? _fusion;
+  ui.FragmentProgram? _progressiveBlur;
 
   Future<void>? _loading;
   Object? _error;
@@ -50,7 +53,8 @@ class FluidGlassPrograms extends ChangeNotifier {
       _highlightDefault != null &&
       _highlightAmbient != null &&
       _interactiveHighlight != null &&
-      _fusion != null;
+      _fusion != null &&
+      _progressiveBlur != null;
 
   /// The error thrown while loading the programs, if any.
   Object? get error => _error;
@@ -85,6 +89,13 @@ class FluidGlassPrograms extends ChangeNotifier {
   ui.FragmentProgram? get fusion {
     _kick();
     return _fusion;
+  }
+
+  /// A Gaussian whose radius varies along the pass — chrome that dissolves
+  /// into the content it sits over instead of ending on a line.
+  ui.FragmentProgram? get progressiveBlur {
+    _kick();
+    return _progressiveBlur;
   }
 
   void _kick() {
@@ -129,6 +140,7 @@ class FluidGlassPrograms extends ChangeNotifier {
             _programFromAsset(_highlightAmbientAsset),
             _programFromAsset(_interactiveHighlightAsset),
             _programFromAsset(_fusionAsset),
+            _programFromAsset(_progressiveBlurAsset),
           ]);
       _refraction = programs[0];
       _dispersion = programs[1];
@@ -136,6 +148,7 @@ class FluidGlassPrograms extends ChangeNotifier {
       _highlightAmbient = programs[3];
       _interactiveHighlight = programs[4];
       _fusion = programs[5];
+      _progressiveBlur = programs[6];
     } catch (e, stack) {
       _error = e;
       FlutterError.reportError(

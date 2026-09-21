@@ -562,6 +562,19 @@ the app. Glass buttons retain their finger-following glow. Wrap custom content i
 action. Its `selected` flag keeps an accent wash, while `active` can be driven by
 a parent for drag selection. Use `trackPointer: false` for parent-controlled rows.
 
+The glow stays as long as the finger does and follows it, clamped to the
+control — it does not die at the first 18 pixels of travel the way a Material
+ink does. Give a `LiquidInteraction` an `onTap` and it becomes a slop-free
+control of its own, firing on a lift inside its bounds. Put several inside a
+`LiquidInteractionGroup` and one finger serves all of them: the member under
+it lights up, sliding onto a neighbour moves the light and the press, and
+lifting fires whichever member the finger is on by then — the rule a fused body
+already follows for its light, applied to what the finger does. A scroll of the
+list the members sit in cancels the press. Members hand their tap to `onTap`
+and nothing else, or a plain tap fires twice. `LiquidNavigationBar` follows the
+same rule on its own: press one island, slide to another, lift, and the island
+under the finger is the one that fires.
+
 Toolbar button groups use transient press glow and spring feedback without a
 persistent selection wash. Segmented controls accept drags starting
 on any segment, commit on release, and restore their selection on cancellation.
@@ -595,9 +608,12 @@ behind the status bar and gone `fadeHeight` below the islands, so there is no
 hard edge anywhere. The two side slots are the same width whatever they hold,
 which is what keeps the title centered on the screen rather than between its
 neighbours. `titleLeading` puts an avatar in the island and `onTitlePressed`
-makes it a button, the way a chat header opens the profile it names. The bar
-includes the top safe area; use `includeTopPadding: false` when the parent
-already supplies SafeArea. Only the islands take input: the scrim does not
+makes it a button, the way a chat header opens the profile it names. When the
+chrome does not read against a particular app's content, reach for
+`blurRadius` before `surfaceColor`: legibility comes from the blur under the
+glass, and raising the tint's alpha instead is how glass turns into a grey bar.
+The bar includes the top safe area; use `includeTopPadding: false` when the
+parent already supplies SafeArea. Only the islands take input: the scrim does not
 intercept touches, so content under it still scrolls and still takes taps. The
 catalog's Navigation bar screen is the chrome on its own — take the scrim to
 zero to see what it is for, put the avatar in and out of the island, and tap a

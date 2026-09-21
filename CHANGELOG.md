@@ -1,5 +1,120 @@
 # Changelog
 
+## 0.1.24
+
+### Changed
+
+- **A press travels across a navigation bar, and so does the tap.** Each
+  island used to run its own slop-free tap: press the back button, slide onto
+  the title, lift — and the light had crossed the body while nothing fired,
+  because only the island that saw the down could. The bar now owns the one
+  finger: the island under it lights up and leans, sliding onto a neighbour
+  moves the light and the press to that neighbour, and lifting fires whichever
+  island the finger is on by then. Lifting in a gap fires nothing. The islands
+  stay opaque hit targets, so a tap on one still never reaches the content it
+  is drawn over. A body of glass that carries a press from one island to the
+  next has to carry the commit with it, or the light is lying about what the
+  finger can do.
+- `ProgressiveBlur` is rebuilt as a stack of the engine's own Gaussian blurs
+  rather than one shader with a per-fragment radius. That shader sampled a
+  fixed number of taps whatever the radius: a 24-pixel radius on a 4× display
+  is a sigma of ~56 device pixels, 25 taps across it are 6 pixels apart, and
+  the result was not a blur but the content copied several times at small
+  offsets — a ghost, on every device where the effect mattered. Now each
+  `bands` band adds just enough sigma to reach a geometrically growing target,
+  every band is the engine's downsampled Gaussian (which never undersamples),
+  and a one-sample shader inside each band's chain fades its input along a
+  ramp before the blur so the bands slope into each other instead of stepping.
+  A third of the samples, no aliasing, and a hard-edged fallback without
+  runtime shaders instead of a uniform slab.
+- An island answers a finger whether or not it does anything. The title island
+  took a press only when `onTitlePressed` made it a button, so a bar whose two
+  ends squashed and glowed under a finger had a dead middle — which reads as a
+  bug rather than as restraint. It now deforms and carries the light in every
+  case; with no callback nothing is claimed and nothing fires.
+
+### Fixed
+
+- `LiquidNavigationBar` no longer paints a black slab when handed a fully
+  transparent `scrimColor`. The scrim ramp was built with `withValues(alpha:
+  0.94)` on the colour as given, and `Colors.transparent` is black at alpha 0
+  — so an app that had moved the scrim elsewhere (a progressive blur under the
+  bar) got 94% black darkening towards the islands' bottom edge, and nothing
+  threw. The ramp's alphas now scale the caller's alpha, and zero draws
+  nothing.
+- A fused body and a `ProgressiveBlur` both measure again after a page
+  transition. Both bail out of `localToGlobal` while an ancestor is still
+  awaiting layout — the route's transform on the frame a page first appears —
+  and neither had a reason to try again once the page settled: the body kept
+  the box-only geometry it fell back to, which on a navigation bar showed as
+  the islands vanishing after every push while a cold start on the same page
+  drew them. Each now asks for one more go on the next frame until the
+  measurement succeeds.
+- A navigation bar's title island can grow past `titleMinWidth`. The island's
+  rectangle was computed from the width its content reported, and the content
+  reported the width it had been *given* — a fixed point: an island handed 144
+  laid out in 144, reported 144, and was handed 144 again. A long title was
+  ellipsised to the minimum for ever, and a `titleMinWidth` of zero collapsed
+  the island out of existence entirely. It now reports the width its content
+  wants, which the bar still clamps to the room between the side actions.
+- A fused body no longer throws while a page transition is starting.
+  `LiquidFusion` works out how much room it has on screen from inside a layout
+  callback, and it asked `localToGlobal` for where it sits. That walks the
+  ancestor chain collecting paint transforms, and a transform that scales or
+  translates about its own centre has to read its own size to answer — which
+  asserts `hasSize` while it is still awaiting layout, exactly what a route's
+  transform is on the frame its page first appears. Where the body sits is not
+  knowable on such a frame, so it now falls back to its own box and loses only
+  the headroom outside it, for one frame, mid-transition. The assert reached
+  any app whose chrome is a fused body: navigating back threw a framework
+  error every time.
+
+### Added
+
+- `ProgressiveBlur` — a blur that grows from nothing at one edge to
+  `maxBlurRadius` at the other, so chrome dissolves into the content under it
+  instead of ending on a line: the effect Apple's own chrome gets from its
+  private `variableBlur` filter, with the same `startOffset` that holds the
+  blurred end at full radius before the ramp begins. Built as a stack of the
+  engine's Gaussian blurs with shader-faded seams (see *Changed*), so it never
+  undersamples and costs a handful of downsampled blur passes.
+
+  Neither construction people reach for first can do this, and neither throws.
+  Fading a full-strength `BackdropFilter` behind a gradient `ShaderMask` fades
+  that layer's *opacity*, so the middle of the ramp shows half a blurred image
+  over half a sharp one — a double exposure that separates further the harder
+  the blur. And a `BackdropFilter` nested in a `ShaderMask` filters that
+  mask's own empty save layer rather than the scene, which draws as a dark
+  rectangle. Mixing only ever happens here between two images blurred by
+  similar amounts, which is what a double exposure cannot survive.
+- `LiquidInteractionGroup` and `LiquidInteraction.onTap` — one finger, many
+  controls. Every `LiquidInteraction` under the group is a member: the one
+  under the finger lights up and follows it, sliding onto a neighbour moves the
+  light and the press, and lifting fires the `onTap` of whichever member the
+  finger is on by then. A scroll of the list the members sit in cancels the
+  press, since the group observes the pointer without claiming it. Outside a
+  group, `onTap` makes a `LiquidInteraction` a slop-free control of its own,
+  firing on a lift inside its bounds however far the finger wandered — the
+  glow having stayed and followed the whole way, unlike a Material ink, which
+  dies at the first 18 pixels of travel.
+- `LiquidNavigationBar.blurRadius` — how hard the chrome blurs what it sits
+  over, which until now was the fixed `chromeBlur` of 8. It is the dial to
+  reach for first when chrome does not read against a particular app's
+  content: legibility comes from the blur under the glass, not the paint over
+  it, so widening the sample costs a wider read where raising the tint's alpha
+  costs the glass itself. A bar over running text wants more of it than a bar
+  over photographs does.
+- `LiquidNavigationBar.titleAlignment` and `titlePadding`. A title that names a
+  page belongs in the middle of its island; an identity does not. An avatar and
+  a name read as one object starting at the same edge, and dropping the leading
+  inset to zero lets an avatar of exactly the island's height share its circle
+  with the island's own rounded cap, rather than floating inside it.
+- `LiquidNavigationBar.isInteractive` and `LiquidNavigationAction.isInteractive`,
+  the flag `LiquidButton` already had. An island's press was unconditional, so
+  an app honouring a platform's reduced-motion setting could turn off the
+  deformation everywhere except its own chrome. False keeps the tap and drops
+  the squash, the lean and the glow the fused body carries.
+
 ## 0.1.23
 
 ### Added

@@ -75,6 +75,7 @@ export 'src/effects/blur.dart';
 export 'src/effects/color_filter.dart';
 export 'src/effects/custom_effect.dart';
 export 'src/effects/lens.dart';
+export 'src/effects/progressive_blur.dart';
 export 'src/gestures/drag_gesture_inspector.dart';
 export 'src/glass_layer.dart';
 export 'src/highlight/highlight.dart';

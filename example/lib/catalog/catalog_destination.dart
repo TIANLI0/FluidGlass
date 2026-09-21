@@ -10,6 +10,8 @@ enum CatalogDestination {
   menu,
   toolbar,
   dialog,
+  sheet,
+  highlight,
 
   lockScreen,
   controlCenter,

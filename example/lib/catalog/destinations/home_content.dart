@@ -73,6 +73,14 @@ class HomeContent extends StatelessWidget {
                   label: 'Dialog',
                   onTap: () => onNavigate(CatalogDestination.dialog),
                 ),
+                _ListItem(
+                  label: 'Sheet',
+                  onTap: () => onNavigate(CatalogDestination.sheet),
+                ),
+                _ListItem(
+                  label: 'Press feedback (glow, rows, ink)',
+                  onTap: () => onNavigate(CatalogDestination.highlight),
+                ),
                 const _Subtitle('System UIs'),
                 _ListItem(
                   label: 'Lock screen (SDF texture)',

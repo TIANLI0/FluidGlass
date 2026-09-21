@@ -27,3 +27,7 @@ flutter:
   shaders:
     - shaders/sdf.frag
     - shaders/progressive_blur.frag
+    - shaders/probe_texsize.frag
+    - shaders/probe_sdf_debug.frag
+    - shaders/probe_glass_onepass.frag
+    - shaders/probe_glass_spiral.frag

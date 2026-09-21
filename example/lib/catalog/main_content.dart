@@ -8,6 +8,7 @@ import 'destinations/bottom_tabs_content.dart';
 import 'destinations/buttons_content.dart';
 import 'destinations/control_center_content.dart';
 import 'destinations/dialog_content.dart';
+import 'destinations/highlight_content.dart';
 import 'destinations/fusion_content.dart';
 import 'destinations/glass_playground_content.dart';
 import 'destinations/home_content.dart';
@@ -20,6 +21,7 @@ import 'destinations/navigation_bar_content.dart';
 import 'destinations/progressive_blur_content.dart';
 import 'destinations/scroll_container_content.dart';
 import 'destinations/quality_content.dart';
+import 'destinations/sheet_content.dart';
 import 'destinations/slider_content.dart';
 import 'destinations/toggle_content.dart';
 import 'destinations/toolbar_content.dart';
@@ -83,6 +85,10 @@ class _MainContentState extends State<MainContent> {
         return const ToolbarContent();
       case CatalogDestination.dialog:
         return const DialogContent();
+      case CatalogDestination.sheet:
+        return const SheetContent();
+      case CatalogDestination.highlight:
+        return const HighlightContent();
       case CatalogDestination.lockScreen:
         return const LockScreenContent();
       case CatalogDestination.controlCenter:

@@ -119,9 +119,9 @@ class LiquidSheet extends StatelessWidget {
   /// bead of glass. A sheet is not small: it is a half-screen slab carrying
   /// rows of text, and it wants a heavy tint for those rows to stay readable
   /// over whatever it happens to cover. Behind such a tint there is nothing
-  /// left for a lens to bend, so the rim is the only part of the glass still
-  /// visible — a bright seam along the top edge, which on a half-screen sheet
-  /// reads as a misplaced highlight rather than as material.
+  /// left for a lens to bend, so there is little the glass path can still
+  /// show. (The rim is not the difference: the glass path draws no rim either,
+  /// because three of a sheet's four sides are against the screen.)
   ///
   /// This variant keeps everything else — the handle, the title, the rows, the
   /// selection mark — and replaces only the surface: a Gaussian blur behind
@@ -147,6 +147,17 @@ class LiquidSheet extends StatelessWidget {
           topStart: cornerRadius,
           topEnd: cornerRadius,
         ),
+        // No rim. A rim traces the whole outline, and three of this shape's
+        // four sides are against the screen: a bright seam runs down both
+        // bezels, and the square bottom corners meet the device's rounded
+        // ones at a hard bright point. The phone's own corner radius is not
+        // knowable from here, so there is no radius that would make those
+        // corners agree — the only correct amount of rim is none.
+        //
+        // The top edge loses its highlight with it. The drop shadow stays and
+        // does that job instead: it is the only side of the sheet the reader
+        // can see separate from the page anyway.
+        showHighlight: false,
         child: content,
       );
     }
