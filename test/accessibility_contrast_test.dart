@@ -109,8 +109,8 @@ void main() {
     );
     // Only the alpha moves: the app's colour is still the app's colour.
     expect(
-      contrast.container.value & 0x00FFFFFF,
-      plain.container.value & 0x00FFFFFF,
+      contrast.container.toARGB32() & 0x00FFFFFF,
+      plain.container.toARGB32() & 0x00FFFFFF,
     );
     expect(contrast.accent, plain.accent);
   });
@@ -137,7 +137,7 @@ void main() {
     );
     expect(seen.container.a, 1.0);
     expect(
-      seen.container.value & 0x00FFFFFF,
+      seen.container.toARGB32() & 0x00FFFFFF,
       0xFF0000,
       reason: 'the brand hue survives; only the transparency goes',
     );
