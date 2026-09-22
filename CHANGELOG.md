@@ -1,5 +1,32 @@
 # Changelog
 
+## 0.1.26
+
+### Fixed
+
+- The ink glow really does last as long as the finger now. Two things cut it
+  short. The pointer tracker registers its global route on first use, so the
+  first gesture of a session had no down event to claim and fell straight
+  through to Material's cancel — the first thing anybody pressed was the one
+  control whose light blinked. And the feature disposed itself from inside its
+  own spring's `notifyListeners`, which `ChangeNotifier` asserts on, taking the
+  glow with it. A gesture with no claim now adopts its finger from the first
+  move, and the disposal waits for a microtask. `test/ink_highlight_hold_test.dart`
+  holds a finger down for three seconds, drags it past the slop and watches the
+  glow stay — the assertions that were missing when this was first written.
+- The scroll that puts a glow out is a real scroll. The control was allowed to
+  drift one pixel under a held finger before the press was abandoned, and a
+  page still finishing its entrance, a list settling out of a fling or a
+  keyboard sliding in all move a control by more than that. The threshold is
+  now 12 logical pixels, which no amount of settling reaches and every scroll
+  passes within a frame or two.
+- A fused body no longer re-runs its layout callback every frame for the life
+  of any page that sits under a transform. 0.1.25 asked for a rebuild whenever
+  an ancestor's scale was not exactly 1, to keep the screen limit fresh through
+  a transition. It does not need to: that limit only ever errs *large* when it
+  is stale — a page caught mid-zoom at 0.8 maps the screen to 1.25 screens of
+  its own coordinates — and a limit that is too large clamps nothing.
+
 ## 0.1.25
 
 ### Changed

@@ -288,16 +288,14 @@ class LiquidFusion extends StatelessWidget {
     // straight vertical cut through the title island and no trailing island
     // at all. And because nothing rebuilt once the transition settled, the
     // cut stayed for the life of the page.
-    final Matrix4 toGlobal = self.getTransformTo(null);
-    final Matrix4? toLocal = Matrix4.tryInvert(toGlobal);
+    final Matrix4? toLocal = Matrix4.tryInvert(self.getTransformTo(null));
     if (toLocal == null) return Offset.zero & box;
-    // While an ancestor is still scaling — the transition is running — the
-    // answer changes every frame and this callback runs only when something
-    // marks it dirty, so ask for the next frame too. The chain ends when the
-    // transform settles to a pure translation.
-    if ((toGlobal.getMaxScaleOnAxis() - 1).abs() > 1e-3) {
-      _rebuildNextFrame(context);
-    }
+    // No retry while a transition is scaling, deliberately. This is a *limit*,
+    // and a stale one errs large: a page caught mid-zoom at 0.8 maps the
+    // screen to 1.25 screens of its own coordinates, which clamps nothing.
+    // Asking for a rebuild every frame the scale is not exactly 1 is how a
+    // fused body ends up re-running its whole layout callback for the life of
+    // any page that sits under a transform.
     return MatrixUtils.transformRect(toLocal, Offset.zero & screen);
   }
 
