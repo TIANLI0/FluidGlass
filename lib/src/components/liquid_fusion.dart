@@ -279,8 +279,26 @@ class LiquidFusion extends StatelessWidget {
         return Offset.zero & box;
       }
     }
-    final Offset origin = self.localToGlobal(Offset.zero);
-    return Rect.fromLTWH(-origin.dx, -origin.dy, screen.width, screen.height);
+    // The screen, brought into this widget's own coordinates through the
+    // full inverse transform — not `localToGlobal(Offset.zero)` and the
+    // screen's size. Those two live in different spaces whenever an ancestor
+    // scales: a page in the middle of a zoom transition is drawn at, say,
+    // 0.8×, so the screen's 360 logical pixels are 450 of this widget's, and
+    // taking them for 360 cut the element off at 80% of its width — a
+    // straight vertical cut through the title island and no trailing island
+    // at all. And because nothing rebuilt once the transition settled, the
+    // cut stayed for the life of the page.
+    final Matrix4 toGlobal = self.getTransformTo(null);
+    final Matrix4? toLocal = Matrix4.tryInvert(toGlobal);
+    if (toLocal == null) return Offset.zero & box;
+    // While an ancestor is still scaling — the transition is running — the
+    // answer changes every frame and this callback runs only when something
+    // marks it dirty, so ask for the next frame too. The chain ends when the
+    // transform settles to a pure translation.
+    if ((toGlobal.getMaxScaleOnAxis() - 1).abs() > 1e-3) {
+      _rebuildNextFrame(context);
+    }
+    return MatrixUtils.transformRect(toLocal, Offset.zero & screen);
   }
 
   /// Marks the `LayoutBuilder` this was built from dirty once the current

@@ -1,5 +1,33 @@
 # Changelog
 
+## 0.1.25
+
+### Changed
+
+- `LiquidInkHighlight` now behaves like the glow on a liquid control rather
+  than like a Material ripple: it comes on with the finger, **stays as long as
+  the finger does**, and **follows it** across the control. Material only
+  tells an ink feature where the pointer went down and when the tap confirmed
+  or cancelled — and it cancels the moment the finger drifts past the touch
+  slop, which is why a stock ripple dies under a finger that so much as
+  wobbles. The feature now watches the pointer itself through the gesture
+  binding's global route and lets go only when the finger lifts, or when the
+  control starts moving under the finger (a list being scrolled). The wash and
+  the radial glow keep the caller's ink colour, so it reads on a pale page
+  where an additive white glow would not.
+
+### Fixed
+
+- A fused body no longer freezes cut short after a page transition. Its
+  screen limit was built from `localToGlobal(Offset.zero)` and the screen's
+  size, two numbers in different spaces whenever an ancestor scales; a page
+  drawn at 0.8× mid-transition had its element clipped at 80% of its width — a
+  straight vertical cut through the title island and no trailing island at
+  all — and nothing rebuilt once the transition settled, so the cut stayed.
+  The screen is now mapped into the body's coordinates through the full
+  inverse transform, and the body asks for another frame while an ancestor is
+  still scaling.
+
 ## 0.1.24
 
 ### Changed
