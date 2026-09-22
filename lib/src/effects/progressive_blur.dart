@@ -3,8 +3,12 @@ import 'dart:ui' as ui;
 
 import 'package:flutter/widgets.dart';
 
+import '../backdrop.dart';
+import '../draw_backdrop.dart';
 import '../internal/blur_sigma.dart';
 import '../internal/shader_programs.dart';
+import '../shapes/rounded_rectangular_shape.dart';
+import 'blur.dart';
 
 /// Which end of the run is blurred.
 enum ProgressiveBlurDirection {
@@ -24,6 +28,16 @@ enum ProgressiveBlurDirection {
 /// ```
 ///
 /// ## How it is built
+///
+/// With [backdrop], each level samples that shared source and uses only
+/// Flutter's native Gaussian and a native linear-gradient [ShaderMask]. Levels
+/// use absolute sigma and overlap only adjacent blur strengths. The masks live
+/// in logical coordinates, so route scaling and opacity do not shift them.
+/// This is the preferred path when a page already has a shared backdrop, and
+/// it also works without runtime shader filters. Do not include this widget in
+/// its own source.
+///
+/// Without [backdrop], the compositor-only path below is used:
 ///
 /// A stack of ordinary Gaussian `BackdropFilter`s, each clipped to a shorter
 /// run from the blurred end and each reading the output of the one before
@@ -65,7 +79,7 @@ enum ProgressiveBlurDirection {
 /// bands over a bar this is roughly a third of the texture samples the
 /// single-shader version spent, with none of its aliasing. Fewer bands cost
 /// less and step more; three still reads as continuous under text.
-class ProgressiveBlur extends StatelessWidget {
+class ProgressiveBlur extends StatefulWidget {
   const ProgressiveBlur({
     super.key,
     this.maxBlurRadius = 20,
@@ -73,6 +87,7 @@ class ProgressiveBlur extends StatelessWidget {
     this.startOffset = 0,
     this.bands = 5,
     this.debugShowMask = false,
+    this.backdrop,
     this.child,
   }) : assert(maxBlurRadius >= 0, 'A blur radius is a distance.'),
        assert(
@@ -109,13 +124,53 @@ class ProgressiveBlur extends StatelessWidget {
   /// Drawn over the blur, unfiltered — a tint, a title, nothing.
   final Widget? child;
 
+  /// An explicit source enables native Gaussian filters and native gradient
+  /// masks only, with no runtime shader filter. The source must not contain
+  /// this blur. Prefer this when chrome already shares a [LayerBackdrop].
+  /// Unlike a masked BackdropFilter, a masked sampled source has real pixels
+  /// inside the mask's isolated layer, including during predictive back.
+  final Backdrop? backdrop;
+
+  @override
+  State<ProgressiveBlur> createState() => _ProgressiveBlurState();
+}
+
+class _ProgressiveBlurState extends State<ProgressiveBlur> {
+  // A filter materializes its native uniforms lazily, at paint time. Sharing
+  // one mutable shader across bands (or pages) makes them all read the last
+  // band's ramp. Keep one shader per live band, and release them with the owner.
+  final Map<int, ui.FragmentShader> _shaders = <int, ui.FragmentShader>{};
+  ui.FragmentProgram? _program;
+
+  @override
+  void initState() {
+    super.initState();
+    FluidGlassPrograms.instance.addListener(_programsChanged);
+  }
+
+  void _programsChanged() => setState(() {});
+
+  void _clearShaders() {
+    for (final ui.FragmentShader shader in _shaders.values) {
+      shader.dispose();
+    }
+    _shaders.clear();
+  }
+
+  @override
+  void dispose() {
+    FluidGlassPrograms.instance.removeListener(_programsChanged);
+    _clearShaders();
+    super.dispose();
+  }
+
   /// The sigma the first band adds, in logical pixels: what a sharp image can
   /// be mixed with before the mix reads as a ghost.
   static const double _firstBandSigma = 0.75;
 
   @override
   Widget build(BuildContext context) {
-    final Widget content = child ?? const SizedBox.expand();
+    final Widget content = widget.child ?? const SizedBox.expand();
     return LayoutBuilder(
       builder: (BuildContext context, BoxConstraints constraints) {
         final double run = constraints.maxHeight;
@@ -126,13 +181,19 @@ class ProgressiveBlur extends StatelessWidget {
         );
         final double dpr = MediaQuery.devicePixelRatioOf(context);
         final double sigmaMax = blurRadiusToSigma(
-          maxBlurRadius,
+          widget.maxBlurRadius,
           devicePixelRatio: dpr,
         );
         if (sigmaMax <= 0 || !run.isFinite || run <= 0) return content;
-        final ui.FragmentProgram? program = isRuntimeShaderSupported()
+        final ui.FragmentProgram? program =
+            (widget.backdrop == null || widget.backdrop!.isCompositorOnly) &&
+                isRuntimeShaderSupported()
             ? FluidGlassPrograms.instance.progressiveBlur
             : null;
+        if (!identical(program, _program)) {
+          _clearShaders();
+          _program = program;
+        }
         return Stack(
           fit: StackFit.expand,
           children: <Widget>[
@@ -141,11 +202,13 @@ class ProgressiveBlur extends StatelessWidget {
                 run: run,
                 dpr: dpr,
                 sigmaMax: sigmaMax,
-                startOffset: startOffset,
+                startOffset: widget.startOffset,
                 fractions: _fractions(sigmaMax),
-                up: direction == ProgressiveBlurDirection.blurredTopClearBottom,
+                up:
+                    widget.direction ==
+                    ProgressiveBlurDirection.blurredTopClearBottom,
                 program: program,
-                debug: debugShowMask,
+                debug: widget.debugShowMask,
               ),
               0,
             ),
@@ -161,6 +224,7 @@ class ProgressiveBlur extends StatelessWidget {
   /// ratio — the mix between any two neighbours is equally safe — and the
   /// first band adds only [_firstBandSigma].
   List<double> _fractions(double sigmaMax) {
+    final int bands = widget.bands;
     if (bands == 1) return const <double>[1];
     final double first = (_firstBandSigma / sigmaMax).clamp(0.02, 1.0);
     final double ratio = math.pow(1 / first, 1 / (bands - 1)).toDouble();
@@ -183,6 +247,63 @@ class ProgressiveBlur extends StatelessWidget {
     final double full = g.positionOf(target);
     final double clear = k == 0 ? g.run : g.positionOf(previous);
 
+    final Backdrop? source = widget.backdrop;
+    if (source != null && !source.isCompositorOnly) {
+      // Every level samples the same original content, so use its absolute
+      // sigma, not the incremental sigma of the nested backdrop-filter path.
+      final double radius = math.max(
+        0,
+        (g.sigmaMax * target - 0.5 / g.dpr) / kBlurSigmaScale,
+      );
+      final Widget blurred = DrawBackdrop.plain(
+        backdrop: source,
+        shape: () => const Rectangle(),
+        effects: (scope) => scope.blur(radius),
+        // Keep sampling even in the plain tier: a compositor filter would
+        // otherwise read the ShaderMask's empty save layer.
+        onDrawBackdrop: (_, draw) => draw(),
+        child: const SizedBox.expand(),
+      );
+      final Widget masked = k == 0
+          ? blurred
+          : ShaderMask(
+              blendMode: ui.BlendMode.dstIn,
+              shaderCallback: (bounds) => ui.Gradient.linear(
+                g.up ? Offset(0, full) : Offset(0, clear - full),
+                g.up ? Offset(0, clear) : Offset.zero,
+                const <Color>[Color(0xFFFFFFFF), Color(0x00FFFFFF)],
+              ),
+              child: blurred,
+            );
+      return Stack(
+        fit: StackFit.expand,
+        children: <Widget>[
+          if (g.debug)
+            DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: g.up ? Alignment.topCenter : Alignment.bottomCenter,
+                  end: g.up ? Alignment.bottomCenter : Alignment.topCenter,
+                  colors: const <Color>[Color(0xFFFF0000), Color(0xFF00FF00)],
+                  stops: <double>[full / clear, 1],
+                ),
+              ),
+            )
+          else
+            masked,
+          if (k < count - 1)
+            Align(
+              alignment: g.up ? Alignment.topCenter : Alignment.bottomCenter,
+              child: SizedBox(
+                width: double.infinity,
+                height: g.positionOf(target),
+                child: _band(g, k + 1),
+              ),
+            ),
+        ],
+      );
+    }
+
     ui.ImageFilter filter = ui.ImageFilter.blur(
       sigmaX: sigma,
       sigmaY: sigma,
@@ -198,8 +319,7 @@ class ProgressiveBlur extends StatelessWidget {
       // whole run is the ramp from sharp to its own sub-pixel sigma, and a
       // hard edge at the clear end of a 0.75 px blur is not one the eye can
       // find.
-      final ui.FragmentShader shader = _shaders[program] ??= program
-          .fragmentShader();
+      final ui.FragmentShader shader = _shaders[k] ??= program.fragmentShader();
       shader
         // Floats 0..1 are uTextureSize, which the engine overwrites.
         ..setFloat(0, 0)
@@ -232,12 +352,6 @@ class ProgressiveBlur extends StatelessWidget {
     );
   }
 }
-
-/// One shader per program, reused across frames: creating a
-/// [ui.FragmentShader] compiles nothing, but it does allocate, and this sits
-/// under chrome that repaints whenever the page behind it scrolls. Each band
-/// gets its uniforms re-set every build, which is the cheap part.
-final Expando<ui.FragmentShader> _shaders = Expando<ui.FragmentShader>();
 
 class _BandGeometry {
   const _BandGeometry({

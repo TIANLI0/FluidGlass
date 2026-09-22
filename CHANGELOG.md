@@ -1,5 +1,28 @@
 # Changelog
 
+## 0.1.29
+
+### Added
+
+- `ProgressiveBlur.backdrop`: share a page's existing source and render every
+  blur level with native Gaussian filters and native gradient masks, without
+  runtime shader image filters. Masks stay in logical coordinates under route
+  scaling, opacity and whole-page snapshots. The source must exclude the blur.
+
+### Fixed
+
+- Compositor progressive-blur bands own separate fragment shaders instead of
+  mutating one global instance before Flutter materializes their filters.
+- Progressive blur rebuilds when its shader programs finish loading, avoiding
+  a hard-edged fallback that persists until an unrelated rebuild.
+
+### Validation
+
+- Pixel regression tests cover a sampled source under scale and opacity.
+- CouCou's profile-mode route/Android predictive-back probe was exercised on
+  a OnePlus PKJ110 with Impeller Vulkan; the app pairs the sampled path with
+  complete-page transition snapshots to avoid recomputing blur each frame.
+
 ## 0.1.28
 
 ### Changed

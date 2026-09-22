@@ -2,6 +2,7 @@ import 'dart:ui' as ui;
 
 import 'package:fluid_glass/fluid_glass.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 /// The ramp is a stack of the engine's own Gaussian blurs, one per band,
@@ -10,6 +11,76 @@ import 'package:flutter_test/flutter_test.dart';
 /// the structure the widget builds and its no-shader fallback: hard-edged
 /// bands, never a single uniform slab.
 void main() {
+  testWidgets(
+    'sampled native masks preserve the source under scale and opacity',
+    (tester) async {
+      final LayerBackdrop source = LayerBackdrop();
+      addTearDown(source.dispose);
+      const Key imageKey = Key('image');
+      for (final double scale in <double>[1, 0.92]) {
+        await tester.pumpWidget(
+          Directionality(
+            textDirection: TextDirection.ltr,
+            child: MediaQuery(
+              data: const MediaQueryData(devicePixelRatio: 1),
+              child: RepaintBoundary(
+                key: imageKey,
+                child: ColoredBox(
+                  color: const Color(0xFF336699),
+                  child: Transform.scale(
+                    scale: scale,
+                    child: Opacity(
+                      opacity: 0.95,
+                      child: Stack(
+                        children: <Widget>[
+                          Positioned.fill(
+                            child: BackdropLayer(
+                              backdrop: source,
+                              child: const ColoredBox(color: Color(0xFF336699)),
+                            ),
+                          ),
+                          Positioned(
+                            top: 0,
+                            left: 0,
+                            right: 0,
+                            height: 200,
+                            child: ProgressiveBlur(
+                              backdrop: source,
+                              maxBlurRadius: 24,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        expect(find.byType(BackdropFilter), findsNothing);
+        expect(find.byType(DrawBackdrop), findsNWidgets(5));
+        expect(find.byType(ShaderMask), findsNWidgets(4));
+        final RenderRepaintBoundary boundary = tester.renderObject(
+          find.byKey(imageKey),
+        );
+        await tester.runAsync(() async {
+          final ui.Image image = await boundary.toImage();
+          final data = (await image.toByteData())!;
+          for (final int y in <int>[40, 80, 120, 180, 220]) {
+            final int offset = (y * image.width + image.width ~/ 2) * 4;
+            expect(data.getUint8(offset), closeTo(0x33, 2));
+            expect(data.getUint8(offset + 1), closeTo(0x66, 2));
+            expect(data.getUint8(offset + 2), closeTo(0x99, 2));
+          }
+          image.dispose();
+        });
+        expect(tester.takeException(), isNull);
+      }
+    },
+  );
+
   Widget host(Widget child) => Directionality(
     textDirection: TextDirection.ltr,
     child: MediaQuery(
