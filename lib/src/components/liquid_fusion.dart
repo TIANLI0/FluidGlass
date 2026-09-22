@@ -476,6 +476,25 @@ class _RenderLimitWatcher extends RenderProxyBox {
   /// nothing at all.
   Rect? _reported;
 
+  /// The limit seen on the previous paint, which is not the same thing.
+  ///
+  /// **A limit is only worth reporting once it has stopped changing.** Every
+  /// report costs a rebuild of the whole body — the layout callback, the
+  /// shapes, the shader's uniforms — and during a page transition the limit is
+  /// different on every single frame, which is the one time the frame budget
+  /// is already spent. Waiting for two paints to agree costs the transition
+  /// nothing and reports once, at the end, which is the only value that
+  /// matters anyway. Any decelerating curve ends with frames closer together
+  /// than the half-pixel tolerance, so the report lands slightly before the
+  /// animation formally finishes rather than after it.
+  Rect? _seen;
+
+  static bool _same(Rect a, Rect b) =>
+      (a.left - b.left).abs() < 0.5 &&
+      (a.top - b.top).abs() < 0.5 &&
+      (a.right - b.right).abs() < 0.5 &&
+      (a.bottom - b.bottom).abs() < 0.5;
+
   @override
   void paint(PaintingContext context, Offset offset) {
     super.paint(context, offset);
@@ -485,15 +504,11 @@ class _RenderLimitWatcher extends RenderProxyBox {
       toLocal,
       Offset.zero & _screen,
     );
-    final Rect? last = _reported;
-    // Half a pixel of drift is the transform's own rounding, not a move.
-    if (last != null &&
-        (last.left - limit.left).abs() < 0.5 &&
-        (last.top - limit.top).abs() < 0.5 &&
-        (last.right - limit.right).abs() < 0.5 &&
-        (last.bottom - limit.bottom).abs() < 0.5) {
-      return;
-    }
+    final Rect? seen = _seen;
+    _seen = limit;
+    if (seen == null || !_same(seen, limit)) return;
+    final Rect? reported = _reported;
+    if (reported != null && _same(reported, limit)) return;
     _reported = limit;
     // Not from inside paint: this ends in a `setState`.
     WidgetsBinding.instance.addPostFrameCallback((_) {

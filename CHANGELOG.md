@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.1.28
+
+### Changed
+
+- A fused body reports its screen limit only once the limit has stopped
+  changing, rather than on every frame it changes. Every report costs a rebuild
+  of the whole body — the layout callback, the shapes, the shader's uniforms —
+  and the limit is different on every frame of a page transition, which is the
+  one time the frame budget is already spent. Two paints have to agree before
+  anything is reported; any decelerating curve ends with frames closer together
+  than the half-pixel tolerance, so the report still lands at the end of the
+  transition, and a body that is standing still reports nothing at all.
+
 ## 0.1.27
 
 ### Fixed
