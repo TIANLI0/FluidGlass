@@ -117,7 +117,27 @@ class _ProbeAppState extends State<_ProbeApp> {
             Positioned(
               bottom: 40,
               left: 16,
-              child: Text('fired: $_log', style: const TextStyle(fontSize: 20)),
+              child: Row(
+                spacing: 16,
+                children: <Widget>[
+                  Text('fired: $_log', style: const TextStyle(fontSize: 20)),
+                  // **Push, do not just look.** The bar's screen limit comes
+                  // from its paint transform, and a route slides the whole
+                  // page across without rebuilding anything inside it — so a
+                  // bar measured mid-slide once kept a limit short by however
+                  // far it still had to travel, and ended in a straight
+                  // vertical cut for the life of that page. It looked perfect
+                  // until you navigated to it.
+                  ElevatedButton(
+                    onPressed: () => Navigator.of(context).push(
+                      MaterialPageRoute<void>(
+                        builder: (_) => const _ProbeApp(),
+                      ),
+                    ),
+                    child: const Text('push'),
+                  ),
+                ],
+              ),
             ),
           ],
         ),
