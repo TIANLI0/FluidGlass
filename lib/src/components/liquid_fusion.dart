@@ -4,6 +4,7 @@ import 'dart:ui' as ui;
 import 'package:flutter/foundation.dart';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 
 import '../../fluid_glass.dart';
 import '../internal/shader_programs.dart';
@@ -231,87 +232,15 @@ class LiquidFusion extends StatelessWidget {
       );
     }
 
-    return LayoutBuilder(
-      builder: (BuildContext context, BoxConstraints constraints) =>
-          _build(context, style, constraints.biggest),
-    );
+    return _MeasuredFusion(owner: this, style: style);
   }
 
-  /// What the element may not grow past, in this widget coordinates.
-  ///
-  /// The screen, not this widget own box. A fused body has every reason to
-  /// reach outside the box it was laid out in — a control leans out of its row
-  /// under a drag, two controls bulge towards each other — and clipping it to
-  /// the box cuts exactly that. What it may *not* do is reach past the screen:
-  /// the element layer is clipped there, and the shader maps fragments through
-  /// uTextureSize and uLayerSize, so a texture that is no longer the size the
-  /// element thinks it is puts the whole field somewhere else.
-  ///
-  /// Read from the last layout, which is a frame old and does not matter: this
-  /// is where the widget sits, not what is moving inside it.
-  Rect _limitFor(BuildContext context, Size box) {
-    final RenderObject? self = context.findRenderObject();
-    final Size screen = MediaQuery.sizeOf(context);
-    if (self is! RenderBox || !self.hasSize || !self.attached) {
-      return Offset.zero & box;
-    }
-    // This runs inside a layout callback, so an ancestor further up the tree
-    // may not have been laid out yet — a route transition's transform on the
-    // frame its page first appears is the ordinary case. `localToGlobal` walks
-    // that chain asking each ancestor to contribute its paint transform, and
-    // one that scales or translates about its own centre has to read its own
-    // size to answer, which asserts while it is still NEEDS-LAYOUT.
-    //
-    // Where this widget sits on screen is not knowable on such a frame, so
-    // fall back to the box for now — and ask to be built again next frame.
-    //
-    // The retry is not optional. This runs from a `LayoutBuilder`, which
-    // rebuilds only when its constraints change or something marks it dirty;
-    // a page that finishes its transition and then sits still never lays the
-    // bar out again, so without the retry the fallback taken on the first
-    // frame is the geometry the chrome keeps for the life of the page. On a
-    // navigation bar that showed as the islands vanishing after every push
-    // while a cold start on the same page drew them — the body was there, but
-    // mapped through a box that no longer described its layer.
-    for (RenderObject? node = self.parent; node != null; node = node.parent) {
-      if (node is RenderBox && !node.hasSize) {
-        _rebuildNextFrame(context);
-        return Offset.zero & box;
-      }
-    }
-    // The screen, brought into this widget's own coordinates through the
-    // full inverse transform — not `localToGlobal(Offset.zero)` and the
-    // screen's size. Those two live in different spaces whenever an ancestor
-    // scales: a page in the middle of a zoom transition is drawn at, say,
-    // 0.8×, so the screen's 360 logical pixels are 450 of this widget's, and
-    // taking them for 360 cut the element off at 80% of its width — a
-    // straight vertical cut through the title island and no trailing island
-    // at all. And because nothing rebuilt once the transition settled, the
-    // cut stayed for the life of the page.
-    final Matrix4? toLocal = Matrix4.tryInvert(self.getTransformTo(null));
-    if (toLocal == null) return Offset.zero & box;
-    // No retry while a transition is scaling, deliberately. This is a *limit*,
-    // and a stale one errs large: a page caught mid-zoom at 0.8 maps the
-    // screen to 1.25 screens of its own coordinates, which clamps nothing.
-    // Asking for a rebuild every frame the scale is not exactly 1 is how a
-    // fused body ends up re-running its whole layout callback for the life of
-    // any page that sits under a transform.
-    return MatrixUtils.transformRect(toLocal, Offset.zero & screen);
-  }
-
-  /// Marks the `LayoutBuilder` this was built from dirty once the current
-  /// frame is over, so [_limitFor] gets another go with laid-out ancestors.
-  /// One callback per frame while the ancestors are still mid-layout; the
-  /// chain ends the first frame the measurement succeeds, or when the widget
-  /// leaves the tree.
-  static void _rebuildNextFrame(BuildContext context) {
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!context.mounted) return;
-      (context as Element).markNeedsBuild();
-    });
-  }
-
-  Widget _build(BuildContext context, _FusionStyle style, Size box) {
+  Widget _build(
+    BuildContext context,
+    _FusionStyle style,
+    Size box,
+    Rect? limit,
+  ) {
     // The element is a plain rectangle — a fused body has no rounded-rect
     // outline to clip to, and the shader is transparent outside the field, so
     // the rectangle never shows. It is kept tight around the shapes all the
@@ -319,13 +248,15 @@ class LiquidFusion extends StatelessWidget {
     // shader runs over, so a group spanning the screen would read and shade
     // the screen to draw two controls.
     //
-    // And it is kept on screen — see [_limitFor]. It may leave the box it was
-    // laid out in, which is what lets a control lean out of a row under a
-    // drag; it may not leave the screen, because there its layer is clipped
+    // And it is kept on screen — see [_MeasuredFusion]. It may leave the box
+    // it was laid out in, which is what lets a control lean out of a row under
+    // a drag; it may not leave the screen, because there its layer is clipped
     // and the shader mapping goes with it.
     final Rect bounds = _clampToBox(
       _fusionBounds(blobs, smoothing, refractionAmount),
-      _limitFor(context, box),
+      // Until the watcher has painted once there is nothing better than the
+      // box, which for one frame loses only the headroom outside it.
+      limit ?? Offset.zero & box,
     );
     return Stack(
       clipBehavior: Clip.none,
@@ -449,6 +380,126 @@ class _FusionShadow extends CustomPainter {
 
   @override
   bool shouldRepaint(_FusionShadow old) => true;
+}
+
+/// Keeps a fused body's screen limit current.
+///
+/// The limit — the screen, in the body's own coordinates — is what stops the
+/// element growing past the edge of the display, where its layer would be
+/// clipped and the shader's mapping would go with it. Working it out needs the
+/// body's paint transform, and **that transform changes without the body ever
+/// rebuilding**: a route slides its whole page across the screen with one
+/// `Transform`, and nothing inside the page is laid out or built again for it.
+///
+/// Reading the transform once, from inside the layout callback, is therefore a
+/// trap with a long fuse. A bar measured on the frame its page was still 79
+/// pixels off-screen keeps a limit 79 pixels short **for the life of that
+/// page** — the body ends in a straight vertical cut through whatever island
+/// happens to be there, and any island further out is simply not drawn. That
+/// is invisible on a page you cold-start into and obvious on one you navigate
+/// to, which is exactly the kind of bug that survives a demo.
+///
+/// So the transform is read where it is known to be current: in `paint`, which
+/// is what a moving page does every frame. A change is reported after the
+/// frame, the body rebuilds with the new limit, and a body that is not moving
+/// reports nothing and rebuilds never.
+class _MeasuredFusion extends StatefulWidget {
+  const _MeasuredFusion({required this.owner, required this.style});
+
+  final LiquidFusion owner;
+  final _FusionStyle style;
+
+  @override
+  State<_MeasuredFusion> createState() => _MeasuredFusionState();
+}
+
+class _MeasuredFusionState extends State<_MeasuredFusion> {
+  Rect? _limit;
+
+  void _onLimit(Rect limit) {
+    if (!mounted || _limit == limit) return;
+    setState(() => _limit = limit);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return _LimitWatcher(
+      screen: MediaQuery.sizeOf(context),
+      onLimit: _onLimit,
+      child: LayoutBuilder(
+        builder: (BuildContext context, BoxConstraints constraints) => widget
+            .owner
+            ._build(context, widget.style, constraints.biggest, _limit),
+      ),
+    );
+  }
+}
+
+class _LimitWatcher extends SingleChildRenderObjectWidget {
+  const _LimitWatcher({
+    required this.screen,
+    required this.onLimit,
+    required Widget super.child,
+  });
+
+  final Size screen;
+  final ValueChanged<Rect> onLimit;
+
+  @override
+  RenderObject createRenderObject(BuildContext context) =>
+      _RenderLimitWatcher(screen, onLimit);
+
+  @override
+  void updateRenderObject(
+    BuildContext context,
+    _RenderLimitWatcher renderObject,
+  ) {
+    renderObject
+      ..screen = screen
+      ..onLimit = onLimit;
+  }
+}
+
+class _RenderLimitWatcher extends RenderProxyBox {
+  _RenderLimitWatcher(this._screen, this.onLimit);
+
+  Size _screen;
+  set screen(Size value) {
+    if (value == _screen) return;
+    _screen = value;
+    _reported = null;
+  }
+
+  ValueChanged<Rect> onLimit;
+
+  /// The last limit handed over, so a body that is standing still reports
+  /// nothing at all.
+  Rect? _reported;
+
+  @override
+  void paint(PaintingContext context, Offset offset) {
+    super.paint(context, offset);
+    final Matrix4? toLocal = Matrix4.tryInvert(getTransformTo(null));
+    if (toLocal == null) return;
+    final Rect limit = MatrixUtils.transformRect(
+      toLocal,
+      Offset.zero & _screen,
+    );
+    final Rect? last = _reported;
+    // Half a pixel of drift is the transform's own rounding, not a move.
+    if (last != null &&
+        (last.left - limit.left).abs() < 0.5 &&
+        (last.top - limit.top).abs() < 0.5 &&
+        (last.right - limit.right).abs() < 0.5 &&
+        (last.bottom - limit.bottom).abs() < 0.5) {
+      return;
+    }
+    _reported = limit;
+    // Not from inside paint: this ends in a `setState`.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (attached) onLimit(limit);
+    });
+  }
 }
 
 /// Keeps [bounds] inside [limit], so the element never hangs where its layer

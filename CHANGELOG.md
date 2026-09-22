@@ -1,5 +1,29 @@
 # Changelog
 
+## 0.1.27
+
+### Fixed
+
+- A fused body no longer keeps a screen limit measured while its page was
+  still sliding in. The limit — the screen, in the body's own coordinates — is
+  what stops the element growing past the edge of the display, where its layer
+  would be clipped and the shader's mapping would go with it. It was worked out
+  once, inside the layout callback, and **a page's paint transform changes
+  without anything inside that page being laid out or built again**: a route
+  slides the whole thing across with one `Transform`. A bar measured on a frame
+  where its page was still 79 logical pixels off-screen therefore kept a limit
+  79 pixels short for the life of that page — the body ended in a straight
+  vertical cut through whichever island happened to be there, and any island
+  further out was not drawn at all. Cold-starting onto the same page drew it
+  perfectly, which is what made it look like a shader problem rather than a
+  geometry one.
+
+  The transform is now read in `paint`, which is what a moving page does every
+  frame; a change is reported after the frame and the body rebuilds with the
+  new limit. A body that is standing still reports nothing and rebuilds never.
+  `example/lib/probe_navigation_bar.dart` has a **push** button for this: the
+  bug only ever showed on a page you navigated to.
+
 ## 0.1.26
 
 ### Fixed
