@@ -1,5 +1,70 @@
 # Changelog
 
+## 0.1.30
+
+### Added
+
+- `RimLightController` / `RimLight`: light that runs around a control's edge
+  as state — focus, loading comet, progress, success sweep, failure pulse.
+- `GlassLightScope` / `GlassLightReceiver`: a press lights the glass around
+  it, not only the control being pressed. `DrawBackdrop.receivesLight`.
+- `LiquidMorph` and `LiquidDialog.morph`: a surface grows out of the control
+  that opened it.
+- `LiquidGlassColors.glow` and `.success`; the fusion shader takes the glow
+  colour.
+- `LiquidBottomTabs.isInteractive`: with motion reduced the pill jumps to a
+  tab instead of springing, nothing swells under a press and the pill does not
+  drag; taps are unchanged.
+
+### Fixed
+
+- `LiquidBottomTabs`: a pressed selection pill no longer shows a white bar
+  across its bottom, a grey ghost of the tab label, or a pale band inside its
+  inner frame. Three causes, none of them in the look itself:
+  - the pill's backdrop was only as opaque as the page capture, which is
+    transparent wherever a page leaves its background to the scaffold, so the
+    bar under the pill showed through — the page is now laid on the scaffold
+    colour first;
+  - the accent copy's lens was told its texture was the pill's whole window
+    while the save-layer was cut back to the tab row the copy is clipped to,
+    so pressed it bent a 56-tall texture as if it were 100 and folded part of
+    the page over on itself inside the frame — the lens now gets the region
+    it really has, while the blur keeps the whole window (given only the row
+    it ran out of pixels at the row's edges and left the page almost sharp
+    along the pill's top and bottom);
+  - the copy was only redrawn when the page or the tab row changed, so during
+    a press it stayed at some earlier progress under a pill still scaling on
+    its layer — it now redraws on every frame of the press, as the Compose
+    original does.
+- The rim light's travelling comet is one continuous stroke whose brightness
+  comes from a sweep gradient, instead of ten stepped pieces under two blurred
+  blooms. Moving, the seams between the pieces crawled along the edge — round
+  caps adding up into beads, the halo changing width in steps — and the comet
+  read as a smeared mosaic rather than a light.
+- `LiquidSlider` with `divisions` can be dragged in small steps. Each drag
+  delta was added to the snapped value the parent echoed back, so a slow drag
+  never left its step.
+- A fused body always ends up with the room around its shapes, and is never
+  cut. The limit was only reported once two consecutive paints agreed
+  (0.1.28), which never happens for a body painted exactly once at rest: a
+  static page kept the body's own box as its limit (shadow cut off square,
+  press swell into a hard edge), and a page that slid in inside a transition
+  snapshot kept the limit measured while it was still off-screen, cutting the
+  body with a straight edge and dropping the shape at its far end. Now the
+  first limit is reported at once, a changed one is re-measured after 100 ms
+  without change, and no limit is ever applied tighter than the body's own
+  box.
+- A fused body stays inside any clip around it, not only inside the screen.
+  A layer cut short by a clip hands the shader a smaller texture than the
+  element it was told about, and the body came out shifted off its content.
+
+### Documentation
+
+- `LiquidFusion.backdrop` is not `emptyBackdrop`: the whole body is the
+  shader's output over the pixels it is handed, so filtering nothing draws
+  nothing. Over a flat page, pass a `CanvasBackdrop` filled with the page
+  colour.
+
 ## 0.1.29
 
 ### Added

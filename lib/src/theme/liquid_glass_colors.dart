@@ -33,6 +33,8 @@ class LiquidGlassColors {
     required this.content,
     required this.track,
     required this.destructive,
+    this.glow = const Color(0xFFFFFFFF),
+    this.success = const Color(0xFF34C759),
   });
 
   /// What the components drew on a light [Theme] before this type existed.
@@ -59,6 +61,7 @@ class LiquidGlassColors {
     content: const Color(0xFFFFFFFF),
     track: const Color(0xFF787880).withValues(alpha: 0.36),
     destructive: const Color(0xFFFF6369),
+    success: const Color(0xFF30D158),
   );
 
   /// The default palette for [brightness].
@@ -97,7 +100,23 @@ class LiquidGlassColors {
   final Color track;
 
   /// A row that removes something — see [LiquidMenuItem.isDestructive].
+  ///
+  /// Also the colour a [RimLight] pulses in when something failed.
   final Color destructive;
+
+  /// The colour of light itself: the glow under a finger, the light a press
+  /// spills onto neighbouring glass, the comet a [RimLight] runs while
+  /// something loads.
+  ///
+  /// White by default, which is what every glow was before this field
+  /// existed. Tint it and every light in the subtree takes the tint — an app
+  /// that gives each of its characters a colour can light the glass in the
+  /// colour of whoever is on screen. Keep it light: it is added to what is
+  /// under it, so a dark colour adds almost nothing.
+  final Color glow;
+
+  /// The colour a [RimLight] sweeps in when something succeeded.
+  final Color success;
 
   LiquidGlassColors copyWith({
     Color? accent,
@@ -106,6 +125,8 @@ class LiquidGlassColors {
     Color? content,
     Color? track,
     Color? destructive,
+    Color? glow,
+    Color? success,
   }) {
     return LiquidGlassColors(
       accent: accent ?? this.accent,
@@ -114,6 +135,8 @@ class LiquidGlassColors {
       content: content ?? this.content,
       track: track ?? this.track,
       destructive: destructive ?? this.destructive,
+      glow: glow ?? this.glow,
+      success: success ?? this.success,
     );
   }
 
@@ -125,15 +148,26 @@ class LiquidGlassColors {
       other.container == container &&
       other.content == content &&
       other.track == track &&
-      other.destructive == destructive;
+      other.destructive == destructive &&
+      other.glow == glow &&
+      other.success == success;
 
   @override
-  int get hashCode =>
-      Object.hash(accent, toggleAccent, container, content, track, destructive);
+  int get hashCode => Object.hash(
+    accent,
+    toggleAccent,
+    container,
+    content,
+    track,
+    destructive,
+    glow,
+    success,
+  );
 
   @override
   String toString() =>
       'LiquidGlassColors(accent: $accent, '
       'toggleAccent: $toggleAccent, container: $container, '
-      'content: $content, track: $track, destructive: $destructive)';
+      'content: $content, track: $track, destructive: $destructive, '
+      'glow: $glow, success: $success)';
 }

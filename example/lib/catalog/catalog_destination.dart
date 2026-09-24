@@ -25,4 +25,9 @@ enum CatalogDestination {
   progressiveBlur,
   lazyScrollContainer,
   scrollContainer,
+
+  labMorph,
+  labVelocityBlur,
+  labLightState,
+  labLightSpill,
 }

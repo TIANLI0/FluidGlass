@@ -79,13 +79,20 @@ class _StripePainter extends CustomPainter {
   bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
 
-Widget _host(LayerBackdrop backdrop) {
+Widget _host(
+  LayerBackdrop backdrop, {
+  Widget page = const _Stripes(),
+  Color? scaffold,
+}) {
   return Directionality(
     textDirection: TextDirection.ltr,
     child: MediaQuery(
       data: const MediaQueryData(),
       child: Theme(
-        data: ThemeData(brightness: Brightness.light),
+        data: ThemeData(
+          brightness: Brightness.light,
+          scaffoldBackgroundColor: scaffold,
+        ),
         child: Align(
           alignment: Alignment.topLeft,
           child: RepaintBoundary(
@@ -97,10 +104,7 @@ Widget _host(LayerBackdrop backdrop) {
                 clipBehavior: Clip.none,
                 children: <Widget>[
                   Positioned.fill(
-                    child: BackdropLayer(
-                      backdrop: backdrop,
-                      child: const _Stripes(),
-                    ),
+                    child: BackdropLayer(backdrop: backdrop, child: page),
                   ),
                   Positioned(
                     left: 0,
@@ -180,4 +184,55 @@ void main() {
       );
     });
   }
+
+  /// Regression (2026-09-24): a page leaves its background to the scaffold,
+  /// so its capture is transparent between the cards — and the pill's
+  /// backdrop was only as opaque as that capture. Under the pill is the bar,
+  /// so the bar showed through: its labels as a grey ghost behind the pill's,
+  /// its bright lower rim as a white bar across the pill. The pill must be
+  /// opaque whatever the page left clear.
+  testWidgets('a pressed pill stays opaque over a transparent page', (
+    WidgetTester tester,
+  ) async {
+    GlassDeviceTier.instance
+      ..debugCeiling = GlassQuality.liquid
+      ..pinnedQuality = GlassQuality.liquid;
+    final LayerBackdrop backdrop = LayerBackdrop();
+    addTearDown(backdrop.dispose);
+    const Color scaffold = Color(0xFFFF0000);
+    await tester.pumpWidget(
+      _host(backdrop, page: const SizedBox.expand(), scaffold: scaffold),
+    );
+    await tester.pump();
+
+    final TestGesture press = await tester.startGesture(_pill.center);
+    await tester.pump();
+    for (int i = 0; i < 30; i++) {
+      await tester.pump(const Duration(milliseconds: 16));
+    }
+
+    // Inside the pill, clear of its rim and of the tab's content: what shows
+    // here is the page the pill carries — the scaffold's red under the tint —
+    // not the bar beneath it.
+    final Uint8List p = await _pixels(tester);
+    int reddish = 0;
+    int total = 0;
+    for (int y = (_barTop + 20).round(); y < (_barTop + 26).round(); y++) {
+      for (int x = 22; x < 30; x++) {
+        final int i = (y * _w + x) * 4;
+        total++;
+        if (p[i] > p[i + 1] + 40 && p[i + 3] > 250) reddish++;
+      }
+    }
+    expect(
+      reddish,
+      greaterThan(total * 0.8),
+      reason:
+          'the pill is see-through: $reddish of $total pixels carry the '
+          'page, the rest show the bar under the pill',
+    );
+
+    await press.up();
+    await tester.pumpAndSettle();
+  });
 }

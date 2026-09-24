@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 import 'dart:ui' as ui;
 
@@ -130,6 +131,12 @@ class LiquidFusion extends StatelessWidget {
   static const int maxBlobs = 8;
 
   /// What the glass refracts.
+  ///
+  /// Not [emptyBackdrop]: the whole body — tint, rim and light as well as the
+  /// refraction — is what the shader makes of the pixels it is handed, and
+  /// filtering nothing produces nothing. A body over a flat page takes a
+  /// [CanvasBackdrop] that fills with the page colour; with an opaque
+  /// [surfaceColor] that costs a rectangle and captures nothing.
   final Backdrop backdrop;
 
   /// The shapes to fuse, in this widget's coordinate space.
@@ -248,15 +255,26 @@ class LiquidFusion extends StatelessWidget {
     // shader runs over, so a group spanning the screen would read and shade
     // the screen to draw two controls.
     //
-    // And it is kept on screen — see [_MeasuredFusion]. It may leave the box
-    // it was laid out in, which is what lets a control lean out of a row under
-    // a drag; it may not leave the screen, because there its layer is clipped
-    // and the shader mapping goes with it.
+    // And it is kept on screen and inside any clip around it — see
+    // [_MeasuredFusion]. It may leave the box it was laid out in, which is what
+    // lets a control lean out of a row under a drag; it may not leave what is
+    // visible, because there its layer is clipped and the shader mapping goes
+    // with it.
     final Rect bounds = _clampToBox(
       _fusionBounds(blobs, smoothing, refractionAmount),
       // Until the watcher has painted once there is nothing better than the
       // box, which for one frame loses only the headroom outside it.
-      limit ?? Offset.zero & box,
+      //
+      // **And never tighter than the box.** A limit can be stale or measured
+      // somewhere the body is not going to stay — a page is first painted,
+      // and snapshotted for its transition, while it is still sliding in from
+      // off-screen. Clamped to that, the body was cut with a straight edge
+      // and a shape at its far end was simply not drawn. The limit is only
+      // there to take away the room *around* the shapes; the shapes are laid
+      // out in the box, and the box is always kept.
+      limit == null
+          ? Offset.zero & box
+          : limit.expandToInclude(Offset.zero & box),
     );
     return Stack(
       clipBehavior: Clip.none,
@@ -286,6 +304,9 @@ class LiquidFusion extends StatelessWidget {
             backdrop: backdrop,
             shape: () => const Rectangle(),
             isolateSurface: false,
+            // The element is the body's bounding box, not its silhouette; the
+            // shader lights the fused rim itself.
+            receivesLight: false,
             quality: style.quality,
             repaint: repaint,
             effects: (BackdropEffectScope scope) {
@@ -476,18 +497,28 @@ class _RenderLimitWatcher extends RenderProxyBox {
   /// nothing at all.
   Rect? _reported;
 
-  /// The limit seen on the previous paint, which is not the same thing.
+  /// Pending report of a limit that changed, fired once the body has been
+  /// still for [_settle].
+  Timer? _settling;
+
+  /// How long a changed limit has to hold before it is reported.
   ///
-  /// **A limit is only worth reporting once it has stopped changing.** Every
-  /// report costs a rebuild of the whole body — the layout callback, the
-  /// shapes, the shader's uniforms — and during a page transition the limit is
-  /// different on every single frame, which is the one time the frame budget
-  /// is already spent. Waiting for two paints to agree costs the transition
-  /// nothing and reports once, at the end, which is the only value that
-  /// matters anyway. Any decelerating curve ends with frames closer together
-  /// than the half-pixel tolerance, so the report lands slightly before the
-  /// animation formally finishes rather than after it.
-  Rect? _seen;
+  /// **The first limit is reported straight away**, from the first paint:
+  /// until then the body has nothing but its own box, which cuts its shadow
+  /// square. **After that, a limit is only worth reporting once it has stopped
+  /// changing.** Every report costs a rebuild of the whole body — the layout
+  /// callback, the shapes, the shader's uniforms — and during a page
+  /// transition or a scroll the limit is different on every frame, which is
+  /// the one time the frame budget is already spent.
+  ///
+  /// It used to wait for two consecutive paints to agree. That never happens
+  /// for a body that is painted exactly once more at rest — a page that slides
+  /// in inside a snapshot is painted live once, when it lands — and the limit
+  /// from before the move stayed for the life of the page. So a change starts
+  /// a short timer instead, restarted by every paint that moves the limit
+  /// again, and when it fires the limit is measured afresh: the body is
+  /// wherever it came to rest, whether or not anything painted there twice.
+  static const Duration _settle = Duration(milliseconds: 100);
 
   static bool _same(Rect a, Rect b) =>
       (a.left - b.left).abs() < 0.5 &&
@@ -496,23 +527,88 @@ class _RenderLimitWatcher extends RenderProxyBox {
       (a.bottom - b.bottom).abs() < 0.5;
 
   @override
-  void paint(PaintingContext context, Offset offset) {
-    super.paint(context, offset);
+  void detach() {
+    _settling?.cancel();
+    _settling = null;
+    super.detach();
+  }
+
+  /// The limit as things stand: the visible region in this body's own
+  /// coordinates, or null while it is out of view or not invertible.
+  Rect? _measure() {
     final Matrix4? toLocal = Matrix4.tryInvert(getTransformTo(null));
-    if (toLocal == null) return;
-    final Rect limit = MatrixUtils.transformRect(
-      toLocal,
-      Offset.zero & _screen,
-    );
-    final Rect? seen = _seen;
-    _seen = limit;
-    if (seen == null || !_same(seen, limit)) return;
-    final Rect? reported = _reported;
-    if (reported != null && _same(reported, limit)) return;
+    if (toLocal == null) return null;
+    final Rect visible = _visibleRegion();
+    // Scrolled or slid entirely out of view: nothing it could draw is seen, and
+    // the last limit is as good as any until it comes back.
+    if (visible.width <= 0 || visible.height <= 0) return null;
+    return MatrixUtils.transformRect(toLocal, visible);
+  }
+
+  /// Hands [limit] over — from paint after the frame, because it ends in a
+  /// `setState`; from the settle timer directly, because a post-frame
+  /// callback added outside a frame waits for a frame that, on a page where
+  /// nothing moves, nobody schedules.
+  void _report(Rect limit, {required bool fromPaint}) {
     _reported = limit;
-    // Not from inside paint: this ends in a `setState`.
+    if (!fromPaint) {
+      onLimit(limit);
+      return;
+    }
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (attached) onLimit(limit);
+    });
+  }
+
+  /// The screen, cut down by every clip an ancestor paints this body under,
+  /// in global coordinates.
+  ///
+  /// **A clip is the screen edge again, closer in.** A layer cut short by one
+  /// hands the shader a smaller texture than the element it was told about,
+  /// and the body comes out shifted and stretched off the content drawn on it
+  /// — a card that ends a few pixels under the button it holds is enough.
+  /// Walking the ancestors is a handful of virtual calls per paint, and only a
+  /// clipping ancestor costs a transform.
+  Rect _visibleRegion() {
+    Rect region = Offset.zero & _screen;
+    RenderObject child = this;
+    RenderObject? ancestor = parent;
+    while (ancestor != null) {
+      final Rect? clip = ancestor.describeApproximatePaintClip(child);
+      if (clip != null) {
+        region = region.intersect(
+          MatrixUtils.transformRect(ancestor.getTransformTo(null), clip),
+        );
+      }
+      child = ancestor;
+      ancestor = ancestor.parent;
+    }
+    return region;
+  }
+
+  @override
+  void paint(PaintingContext context, Offset offset) {
+    super.paint(context, offset);
+    final Rect? limit = _measure();
+    if (limit == null) return;
+    final Rect? reported = _reported;
+    if (reported == null) {
+      _report(limit, fromPaint: true);
+      return;
+    }
+    if (_same(reported, limit)) {
+      _settling?.cancel();
+      _settling = null;
+      return;
+    }
+    _settling?.cancel();
+    _settling = Timer(_settle, () {
+      _settling = null;
+      if (!attached) return;
+      final Rect? now = _measure();
+      final Rect? last = _reported;
+      if (now == null || (last != null && _same(last, now))) return;
+      _report(now, fromPaint: false);
     });
   }
 }
@@ -553,7 +649,13 @@ Rect _fusionBounds(
 
 /// The colours and tier a fused body draws with, resolved once per build.
 class _FusionStyle {
-  const _FusionStyle(this.surface, this.rim, this.quality, this.program);
+  const _FusionStyle(
+    this.surface,
+    this.rim,
+    this.glow,
+    this.quality,
+    this.program,
+  );
 
   static _FusionStyle resolve(
     BuildContext context, {
@@ -570,12 +672,13 @@ class _FusionStyle {
     return _FusionStyle(
       surfaceColor ?? colors.container,
       rimColor ?? const Color(0xFFFFFFFF).withValues(alpha: 0.45),
+      colors.glow,
       resolved,
       resolved.hasShaders ? FluidGlassPrograms.instance.fusion : null,
     );
   }
 
-  final Color surface, rim;
+  final Color surface, rim, glow;
   final GlassQuality quality;
   final ui.FragmentProgram? program;
 }
@@ -649,6 +752,9 @@ void _configureFusion(
   put(press?.radius ?? 0);
   put(press?.progress ?? 0);
   put(press?.reach ?? (press?.radius ?? 0) * 3);
+  put(style.glow.r);
+  put(style.glow.g);
+  put(style.glow.b);
 }
 
 /// What a device with no runtime shaders draws: each shape on its own, over

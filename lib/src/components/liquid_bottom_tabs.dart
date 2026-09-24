@@ -101,6 +101,7 @@ class LiquidBottomTabs extends StatefulWidget {
     required this.backdrop,
     required this.tabsCount,
     required this.children,
+    this.isInteractive = true,
   });
 
   final int selectedTabIndex;
@@ -108,6 +109,12 @@ class LiquidBottomTabs extends StatefulWidget {
   final Backdrop backdrop;
   final int tabsCount;
   final List<Widget> children;
+
+  /// False keeps every tap and drops everything that moves, for a platform
+  /// asking for reduced motion: the pill jumps to the tab instead of springing
+  /// across, the panel and pill do not swell under a press, and the pill no
+  /// longer drags. Pass `!MediaQuery.disableAnimationsOf(context)`.
+  final bool isInteractive;
 
   @override
   State<LiquidBottomTabs> createState() => _LiquidBottomTabsState();
@@ -142,6 +149,11 @@ class _LiquidBottomTabsState extends State<LiquidBottomTabs>
 
   // Read in `build`, used by the pill's backdrop during paint.
   Color _containerColor = const Color(0x00000000);
+
+  /// What the page is painted on — the scaffold, behind a page whose own
+  /// background is transparent. Read in `build`, used by the pill's backdrop
+  /// during paint (see [_AccentGlassBackdrop.drawBackdrop]).
+  Color _pageColor = const Color(0xFFFFFFFF);
   bool _isLtr = true;
 
   @override
@@ -231,7 +243,11 @@ class _LiquidBottomTabsState extends State<LiquidBottomTabs>
   void _setCurrentIndex(int index, {bool notify = true}) {
     if (_currentIndex == index) return;
     _currentIndex = index;
-    _animation.animateToValue(index.toDouble());
+    if (widget.isInteractive) {
+      _animation.animateToValue(index.toDouble());
+    } else {
+      _animation.snapToValue(index.toDouble());
+    }
     if (notify) widget.onTabSelected(index);
   }
 
@@ -263,6 +279,7 @@ class _LiquidBottomTabsState extends State<LiquidBottomTabs>
   }
 
   void _panelLayerBlock(GlassLayer layer) {
+    if (!widget.isInteractive) return;
     layer.translationX = _panelOffset;
     final double scale = ui.lerpDouble(
       1.0,
@@ -274,6 +291,7 @@ class _LiquidBottomTabsState extends State<LiquidBottomTabs>
   }
 
   void _pillLayerBlock(GlassLayer layer) {
+    if (!widget.isInteractive) return;
     layer.scaleX = _animation.scaleX;
     layer.scaleY = _animation.scaleY;
     final double velocity = _animation.velocity / 10.0;
@@ -287,6 +305,7 @@ class _LiquidBottomTabsState extends State<LiquidBottomTabs>
     final LiquidGlassColors colors = LiquidGlassTheme.of(context);
     final Color accentColor = colors.accent;
     _containerColor = colors.container;
+    _pageColor = Theme.of(context).scaffoldBackgroundColor;
     _isLtr = Directionality.of(context) == TextDirection.ltr;
     final Color containerColor = _containerColor;
 
@@ -400,76 +419,85 @@ class _LiquidBottomTabsState extends State<LiquidBottomTabs>
                 // Both the press highlight and the drag animation need
                 // every event, so one inspector feeds both rather than two
                 // nested ones competing in the gesture arena.
-                child: DragInspector(
-                  onDragStart: (Offset position, Size size) {
-                    _interactiveHighlight.handleDown(position);
-                    _animation.handleDragStart(position);
-                  },
-                  onDrag: (Offset position, Offset delta, Size size) {
-                    _interactiveHighlight.handleMove(position);
-                    _animation.handleDrag(size, delta);
-                  },
-                  onDragEnd: () {
-                    _interactiveHighlight.handleUp();
-                    _animation.handleDragEnd();
-                  },
-                  onDragCancel: () {
-                    _interactiveHighlight.handleUp();
-                    _animation.handleDragEnd();
-                  },
-                  child: DrawBackdrop(
-                    backdrop: _pillBackdrop,
-                    shape: () => const Capsule(),
-                    effects: (BackdropEffectScope scope) {
-                      final double progress = _animation.pressProgress;
-                      scope.lens(
-                        10 * progress,
-                        14 * progress,
-                        chromaticAberration: true,
-                      );
-                      // The pill's own backdrop blurs the page by
-                      // [_AccentGlassBackdrop.blurRadius] *inside this
-                      // element's layer*, so that blur's reach has to be part
-                      // of what the element samples. Without it the blur runs
-                      // out of pixels at the pill's border and the pill wears
-                      // a ring of half-blurred, darkened backdrop.
-                      if (scope.padding < _AccentGlassBackdrop.blurRadius) {
-                        scope.padding = _AccentGlassBackdrop.blurRadius;
-                      }
+                //
+                // With motion reduced the pill takes no touches at all: a tap
+                // falls through to the tab under it, which is the selected
+                // one, and there is nothing to drag.
+                child: IgnorePointer(
+                  ignoring: !widget.isInteractive,
+                  child: DragInspector(
+                    onDragStart: (Offset position, Size size) {
+                      _interactiveHighlight.handleDown(position);
+                      _animation.handleDragStart(position);
                     },
-                    highlight: () => Highlight.standard.copyWith(
-                      alpha: _animation.pressProgress,
-                    ),
-                    shadow: () => GlassShadow.standard.copyWith(
-                      alpha: _animation.pressProgress,
-                    ),
-                    innerShadow: () => GlassInnerShadow(
-                      radius: 8 * _animation.pressProgress,
-                      alpha: _animation.pressProgress,
-                    ),
-                    layerBlock: _pillLayerBlock,
-                    onDrawSurface: (Canvas canvas, Size size) {
-                      final double progress = _animation.pressProgress;
-                      final Rect rect = Offset.zero & size;
-                      canvas.drawRect(
-                        rect,
-                        Paint()
-                          ..color =
-                              (isLight
-                                      ? const Color(0xFF000000)
-                                      : const Color(0xFFFFFFFF))
-                                  .withValues(alpha: 0.1 * (1 - progress)),
-                      );
-                      canvas.drawRect(
-                        rect,
-                        Paint()
-                          ..color = const Color(
-                            0xFF000000,
-                          ).withValues(alpha: 0.03 * progress),
-                      );
+                    onDrag: (Offset position, Offset delta, Size size) {
+                      _interactiveHighlight.handleMove(position);
+                      _animation.handleDrag(size, delta);
                     },
-                    isolateSurface: false,
-                    repaint: _repaint,
+                    onDragEnd: () {
+                      _interactiveHighlight.handleUp();
+                      _animation.handleDragEnd();
+                    },
+                    onDragCancel: () {
+                      _interactiveHighlight.handleUp();
+                      _animation.handleDragEnd();
+                    },
+                    child: DrawBackdrop(
+                      backdrop: _pillBackdrop,
+                      shape: () => const Capsule(),
+                      effects: (BackdropEffectScope scope) {
+                        final double progress = _animation.pressProgress;
+                        scope.lens(
+                          10 * progress,
+                          14 * progress,
+                          chromaticAberration: true,
+                        );
+                        // The pill's own backdrop blurs the page by
+                        // [_AccentGlassBackdrop.blurRadius] *inside this
+                        // element's layer*, so that blur's reach has to be part
+                        // of what the element samples. Without it the blur runs
+                        // out of pixels at the pill's border and the pill wears
+                        // a ring of half-blurred, darkened backdrop.
+                        if (scope.padding < _AccentGlassBackdrop.blurRadius) {
+                          scope.padding = _AccentGlassBackdrop.blurRadius;
+                        }
+                      },
+                      highlight: () => Highlight.standard.copyWith(
+                        alpha: _animation.pressProgress,
+                      ),
+                      shadow: () => GlassShadow.standard.copyWith(
+                        alpha: _animation.pressProgress,
+                      ),
+                      innerShadow: () => GlassInnerShadow(
+                        radius: 8 * _animation.pressProgress,
+                        alpha: _animation.pressProgress,
+                      ),
+                      layerBlock: _pillLayerBlock,
+                      // The pill carries the light; it is not lit by it.
+                      receivesLight: false,
+                      onDrawSurface: (Canvas canvas, Size size) {
+                        final double progress = _animation.pressProgress;
+                        final Rect rect = Offset.zero & size;
+                        canvas.drawRect(
+                          rect,
+                          Paint()
+                            ..color =
+                                (isLight
+                                        ? const Color(0xFF000000)
+                                        : const Color(0xFFFFFFFF))
+                                    .withValues(alpha: 0.1 * (1 - progress)),
+                        );
+                        canvas.drawRect(
+                          rect,
+                          Paint()
+                            ..color = const Color(
+                              0xFF000000,
+                            ).withValues(alpha: 0.03 * progress),
+                        );
+                      },
+                      isolateSurface: false,
+                      repaint: _repaint,
+                    ),
                   ),
                 ),
               ),
@@ -520,10 +548,25 @@ class _AccentGlassBackdrop extends Backdrop {
   @override
   bool get isCoordinatesDependent => true;
 
-  /// Repaints when either the page or the tab row changes.
+  /// Repaints when the page or the tab row changes — **and on every frame of
+  /// the press and the slide.**
+  ///
+  /// Everything the copy draws follows the press: its lens strength and rim
+  /// alpha, the tabs' scale, and the window it fills, which is the pill's
+  /// layer mapped into the row and so grows with the pill's scale and moves
+  /// with the pill. Listening to the page and the row alone, the copy was
+  /// only redrawn when one of them changed — on a still page, a few times
+  /// during a press and never while the pill was held. The pill kept scaling
+  /// on its layer over a copy frozen at some earlier progress, the copy's
+  /// lens bent along an edge that was no longer where the copy's frame
+  /// was, and part of the page came out twice: a pale band inside the frame,
+  /// plain white over a page of white cards. Compose redraws the copy on
+  /// every frame of the press because it reads the progress in its draw;
+  /// here that has to be said.
   late final Listenable _repaintNotifier = Listenable.merge(<Listenable>[
     ?page.repaintNotifier,
     tabs,
+    owner._repaint,
   ]);
 
   @override
@@ -533,6 +576,23 @@ class _AccentGlassBackdrop extends Backdrop {
   void drawBackdrop(BackdropDrawContext context) {
     final RenderBox? consumer = context.consumer;
     if (consumer == null || !consumer.attached) return;
+
+    // **The pill is opaque.** A captured page is only as opaque as what was
+    // painted into it, and a page usually leaves its background to the
+    // scaffold behind it: between the cards, around the text, the capture is
+    // transparent. The bar can live with that — under the bar *is* the
+    // scaffold. Under the pill is the bar. So wherever the page capture was
+    // clear, the pill let the bar show through it: the bar's own labels as a
+    // grey ghost behind the pill's, and the bar's bright lower rim with the
+    // text it refracts as a white bar across the bottom of the pill, in the
+    // strip a press uncovers past the row. The page is laid on the scaffold's
+    // colour first, the way it sits on the screen. Everything else below is
+    // the glass as designed: the copy's own lens magnifying the bar inside
+    // the inner frame, the pill's lens and dispersion round the outside.
+    context.canvas.drawRect(
+      (Offset.zero & context.size).inflate(context.sampleMargin),
+      Paint()..color = owner._pageColor,
+    );
 
     // The page under the pill. Where the pill is bigger than the bar — the
     // 11 logical pixels it grows past the row while pressed — this is what
@@ -597,9 +657,31 @@ class _AccentGlassBackdrop extends Backdrop {
       ..vibrancy()
       ..blur(blurRadius)
       ..lens(24 * progress, 24 * progress);
-    final List<ui.ImageFilter> filters = _scope.resolve(layerRect: window);
+    // **The layer is the window as far as the clips let it reach.** The
+    // copy is clipped to the row just above, so a save-layer asked for the
+    // whole window is cut back to the row — and the lens, told its texture
+    // was the window, bent a smaller texture as if it were the bigger one.
+    // At rest the window and the row agree and the lens is off, so nothing
+    // showed. Pressed, the pill grows to 78 against a 56 row: the lens was
+    // handed a 56-tall texture it read as 100, put the row's edge some
+    // twenty pixels from where it is, and folded the page over on itself
+    // inside the frame — a pale band that came out plain white over a page
+    // of white cards. Telling the effects the region they really get keeps
+    // the bend on the row's edge.
+    final Rect layer = window.intersect(canvas.getLocalClipBounds());
+    final List<ui.ImageFilter> filters = layer.isEmpty
+        ? const <ui.ImageFilter>[]
+        : _scope.resolve(layerRect: layer);
+    // Only the lens needs the narrower region: it is the one effect that
+    // places itself by geometry. The innermost stage — vibrancy and the blur —
+    // keeps the whole window. Given only the row, the blur ran out of pixels
+    // at the row's edges and the pill showed the page almost unblurred along
+    // its top and bottom at rest: the background seen straight through.
     for (int i = filters.length - 1; i >= 0; i--) {
-      canvas.saveLayer(window, Paint()..imageFilter = filters[i]);
+      canvas.saveLayer(
+        i == 0 ? window : layer,
+        Paint()..imageFilter = filters[i],
+      );
     }
     canvas.save();
     canvas.transform(toRow.storage);

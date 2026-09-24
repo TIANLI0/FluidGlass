@@ -12,6 +12,10 @@ import 'destinations/highlight_content.dart';
 import 'destinations/fusion_content.dart';
 import 'destinations/glass_playground_content.dart';
 import 'destinations/home_content.dart';
+import 'destinations/lab_light_spill_content.dart';
+import 'destinations/lab_light_state_content.dart';
+import 'destinations/lab_morph_content.dart';
+import 'destinations/lab_velocity_blur_content.dart';
 import 'destinations/lazy_scroll_container_content.dart';
 import 'destinations/live_background_content.dart';
 import 'destinations/lock_screen_content.dart';
@@ -111,6 +115,14 @@ class _MainContentState extends State<MainContent> {
         return const ScrollContainerContent();
       case CatalogDestination.lazyScrollContainer:
         return const LazyScrollContainerContent();
+      case CatalogDestination.labMorph:
+        return const LabMorphContent();
+      case CatalogDestination.labVelocityBlur:
+        return const LabVelocityBlurContent();
+      case CatalogDestination.labLightState:
+        return const LabLightStateContent();
+      case CatalogDestination.labLightSpill:
+        return const LabLightSpillContent();
     }
   }
 

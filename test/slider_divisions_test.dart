@@ -35,6 +35,8 @@ Future<void> _pump(
 }
 
 void main() {
+  group('echoed back by the caller', dragInSmallSteps);
+
   testWidgets('a continuous track reports whatever the finger lands on', (
     WidgetTester tester,
   ) async {
@@ -105,4 +107,75 @@ void main() {
     await tester.pumpAndSettle();
     expect(ended, hasLength(1));
   });
+}
+
+/// A caller that does what every real one does: feeds what the slider reports
+/// back in as its value.
+class _EchoHost extends StatefulWidget {
+  const _EchoHost({required this.divisions});
+
+  final int? divisions;
+
+  @override
+  State<_EchoHost> createState() => _EchoHostState();
+}
+
+class _EchoHostState extends State<_EchoHost> {
+  double value = 8;
+  final List<double> ended = <double>[];
+
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      home: Scaffold(
+        body: Center(
+          child: SizedBox(
+            width: 320,
+            child: LiquidSlider(
+              value: value,
+              valueRange: (start: 0, end: 16),
+              visibilityThreshold: 0.01,
+              divisions: widget.divisions,
+              backdrop: emptyBackdrop,
+              onValueChanged: (double v) => setState(() => value = v),
+              onChangeEnd: ended.add,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+void dragInSmallSteps() {
+  // A real drag arrives as many small moves — a few pixels each, far less
+  // than one 20px step of a 0–16 range on a 320px track. Snapping each move
+  // on its own rounds every one of them back to where it started, and the
+  // thumb never leaves its stop: the device-volume slider "cannot be dragged".
+  for (final int? divisions in <int?>[16, null]) {
+    testWidgets('a slow drag moves it (divisions: $divisions)', (
+      WidgetTester tester,
+    ) async {
+      await tester.pumpWidget(_EchoHost(divisions: divisions));
+      await tester.pumpAndSettle();
+      final _EchoHostState host = tester.state(find.byType(_EchoHost));
+
+      final TestGesture gesture = await tester.startGesture(
+        tester.getCenter(find.byType(LiquidSlider)),
+      );
+      for (int i = 0; i < 40; i++) {
+        await gesture.moveBy(const Offset(2, 0));
+        await tester.pump(const Duration(milliseconds: 16));
+      }
+      // 80px of a 320px track is a quarter of the range: four steps.
+      expect(host.value, closeTo(12, 1.01));
+      await gesture.up();
+      await tester.pumpAndSettle();
+      expect(host.value, closeTo(12, 1.01));
+      if (divisions != null) {
+        expect(host.value, host.value.roundToDouble(), reason: 'on a stop');
+        expect(host.ended.last, host.value);
+      }
+    });
+  }
 }

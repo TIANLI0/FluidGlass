@@ -104,6 +104,17 @@ class _LiquidSliderState extends State<LiquidSlider>
   bool _didDrag = false;
   double _trackWidth = 0;
 
+  /// Where the finger has taken the thumb during a drag, before snapping.
+  /// Null between drags.
+  ///
+  /// The drag has to accumulate in here rather than in the value the caller
+  /// hands back. With [LiquidSlider.divisions] that value is snapped, and a
+  /// finger moves a few pixels per event — far less than half a stop on a
+  /// short range (0–16 on a phone-width track is ~20px a stop) — so each move
+  /// computed from the caller's value rounds straight back to where it began
+  /// and the thumb never leaves its stop.
+  double? _dragValue;
+
   @override
   void initState() {
     super.initState();
@@ -115,9 +126,13 @@ class _LiquidSliderState extends State<LiquidSlider>
       initialScale: 1,
       pressedScale: 1.5,
       onDragStopped: () {
+        final double? raw = _dragValue;
+        _dragValue = null;
         // didDrag stays latched; only the toggle clears it.
         if (_didDrag) {
-          final double settled = _snap(_animation.targetValue);
+          final double settled = _snap(raw ?? _animation.targetValue);
+          // Let go between two stops: the thumb settles onto the one reported.
+          _animation.updateValue(settled);
           widget.onValueChanged(settled);
           widget.onChangeEnd?.call(settled);
         }
@@ -133,7 +148,10 @@ class _LiquidSliderState extends State<LiquidSlider>
   @override
   void didUpdateWidget(LiquidSlider oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (_animation.targetValue != widget.value) {
+    // Mid-drag the finger owns the thumb. The caller echoes back the snapped
+    // value, and following it would drag the thumb onto the stop and off the
+    // finger every frame.
+    if (_dragValue == null && _animation.targetValue != widget.value) {
       _animation.updateValue(widget.value);
     }
   }
@@ -169,12 +187,15 @@ class _LiquidSliderState extends State<LiquidSlider>
     if (_trackWidth == 0) return;
     final bool isLtr = Directionality.of(context) == TextDirection.ltr;
     final double delta = _span * (dragAmount.dx / _trackWidth);
-    final double next = isLtr
-        ? _animation.targetValue + delta
-        : _animation.targetValue - delta;
-    widget.onValueChanged(
-      _snap(next.clamp(widget.valueRange.start, widget.valueRange.end)),
+    final double base = _dragValue ?? _animation.targetValue;
+    final double raw = (isLtr ? base + delta : base - delta).clamp(
+      widget.valueRange.start,
+      widget.valueRange.end,
     );
+    _dragValue = raw;
+    // The thumb follows the finger; only what is reported lands on a stop.
+    _animation.updateValue(raw);
+    widget.onValueChanged(_snap(raw));
   }
 
   void _onTrackTap(Offset position) {

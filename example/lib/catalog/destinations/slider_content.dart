@@ -14,6 +14,10 @@ class SliderContent extends StatefulWidget {
 class _SliderContentState extends State<SliderContent> {
   double _value = 50;
 
+  /// A device volume: a short integer range on a finger-width track, one stop
+  /// per level — the case a slow drag used to be unable to move at all.
+  double _volume = 8;
+
   @override
   Widget build(BuildContext context) {
     final bool isLight = Theme.of(context).brightness == Brightness.light;
@@ -60,6 +64,37 @@ class _SliderContentState extends State<SliderContent> {
                       ),
                     ),
                   ),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 32),
+                child: Row(
+                  spacing: 12,
+                  children: <Widget>[
+                    Expanded(
+                      child: LiquidSlider(
+                        value: _volume,
+                        onValueChanged: (double value) =>
+                            setState(() => _volume = value),
+                        valueRange: (start: 0, end: 16),
+                        divisions: 16,
+                        visibilityThreshold: 0.01,
+                        backdrop: backdrop,
+                      ),
+                    ),
+                    SizedBox(
+                      width: 72,
+                      child: Text(
+                        'Vol ${_volume.round()}',
+                        textAlign: TextAlign.end,
+                        style: const TextStyle(
+                          color: Color(0xFFFFFFFF),
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ],

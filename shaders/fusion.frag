@@ -84,6 +84,9 @@ uniform vec4 uGlow;
 // without ever leaving one.
 uniform float uReach;
 
+// The colour of the light, un-premultiplied. White unless the theme tints it.
+uniform vec3 uGlowColor;
+
 uniform sampler2D uContent;
 
 out vec4 fragColor;
@@ -252,8 +255,22 @@ void main() {
         float reach = 1.0 - smoothstep(0.0, max(uReach, 1.0), d);
         reach = reach * reach;
 
-        glass.rgb += vec3(0.16 * press * core + 0.05 * press * reach) *
+        glass.rgb += uGlowColor * (0.16 * press * core + 0.05 * press * reach) *
             glass.a;
+
+        // The rim answers the press too — the stretch of it that faces the
+        // finger, brightest nearest it. On the pressed control that is the
+        // near edge; on a neighbour it is the edge turned towards the press,
+        // which is how one island lights the next across the gap without any
+        // light appearing *in* the gap: the rim is still inside the field.
+        if (uRimWidth > 0.0) {
+            vec2 toLight = uGlow.xy - p;
+            float dl = max(length(toLight), 0.0001);
+            float facing = clamp(dot(grad, toLight / dl), 0.0, 1.0);
+            float band = 1.0 - smoothstep(0.0, uRimWidth * 1.6, depth);
+            float lit = press * band * facing * reach;
+            glass.rgb += uGlowColor * (0.32 * lit) * glass.a;
+        }
     }
 
     // Premultiplied, so coverage is a straight multiply.

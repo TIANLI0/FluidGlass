@@ -12,6 +12,7 @@ import 'highlight/highlight.dart';
 import 'internal/glass_painters.dart';
 import 'internal/sampling_layer.dart';
 import 'internal/shader_programs.dart';
+import 'light/glass_light.dart';
 import 'quality/glass_device_tier.dart';
 import 'quality/glass_quality.dart';
 import 'shadow/shadow.dart';
@@ -75,6 +76,7 @@ class DrawBackdrop extends StatelessWidget {
     this.isolateSurface = true,
     this.quality,
     this.repaint,
+    this.receivesLight = true,
     this.child,
   });
 
@@ -95,6 +97,7 @@ class DrawBackdrop extends StatelessWidget {
     this.isolateSurface = true,
     this.quality,
     this.repaint,
+    this.receivesLight = true,
     this.child,
   }) : highlight = null,
        shadow = null,
@@ -142,6 +145,15 @@ class DrawBackdrop extends StatelessWidget {
 
   /// Repaints the element whenever it notifies.
   final Listenable? repaint;
+
+  /// Whether light from other glass lands on this element.
+  ///
+  /// Only inside a [GlassLightScope], and only with a [child] to draw over.
+  /// The light is drawn in a repaint boundary of its own over [child], inside
+  /// the element's clip and transform, so a moving light never repaints the
+  /// glass. Turn it off for an element that is itself the light — a selection
+  /// pill that carries the glow — or one too small to show it.
+  final bool receivesLight;
 
   final Widget? child;
 
@@ -193,7 +205,9 @@ class DrawBackdrop extends StatelessWidget {
       // backdrop instead of each taking its own. Only the native path can use
       // it; looking it up costs an inherited-widget dependency either way.
       backdropGroupKey: BackdropGroup.of(context)?.backdropKey,
-      child: child,
+      child: receivesLight && child != null
+          ? GlassLightReceiver(shape: shape, child: child!)
+          : child,
     );
     if (layerBlock == null) return core;
     // The layer block lives in an ancestor render object so the element's

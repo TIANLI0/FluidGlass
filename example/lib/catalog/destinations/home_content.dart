@@ -36,6 +36,23 @@ class HomeContent extends StatelessWidget {
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: <Widget>[
+                const _Subtitle('Light & motion lab'),
+                _ListItem(
+                  label: 'Morph: a button becomes its panel',
+                  onTap: () => onNavigate(CatalogDestination.labMorph),
+                ),
+                _ListItem(
+                  label: 'Velocity blur',
+                  onTap: () => onNavigate(CatalogDestination.labVelocityBlur),
+                ),
+                _ListItem(
+                  label: 'Light as state (load, succeed, fail, progress)',
+                  onTap: () => onNavigate(CatalogDestination.labLightState),
+                ),
+                _ListItem(
+                  label: 'Light spill onto neighbours (experiment)',
+                  onTap: () => onNavigate(CatalogDestination.labLightSpill),
+                ),
                 const _Subtitle('Liquid glass components'),
                 _ListItem(
                   label: 'Buttons',

@@ -90,6 +90,7 @@ class LiquidDialog extends StatelessWidget {
     this.titleStyle,
     this.messageStyle,
     this.actionStyle,
+    this.morph,
   });
 
   /// What the glass refracts.
@@ -147,6 +148,12 @@ class LiquidDialog extends StatelessWidget {
   /// unless this overrides them.
   final TextStyle? actionStyle;
 
+  /// Grows the panel out of what opened it (see [LiquidMorph]), driven by the
+  /// enclosing route's animation — so the route itself should not also fade
+  /// or scale the dialog. Null keeps the panel still and leaves the entrance
+  /// to the route.
+  final LiquidDialogMorph? morph;
+
   @override
   Widget build(BuildContext context) {
     final LiquidGlassColors colors = LiquidGlassTheme.of(context);
@@ -178,61 +185,64 @@ class LiquidDialog extends StatelessWidget {
       // raised.
       padding: MediaQuery.viewInsetsOf(context) + insetPadding,
       child: Center(
-        child: ConstrainedBox(
-          constraints: BoxConstraints(maxWidth: maxWidth),
-          child: LiquidPanel(
-            backdrop: backdrop,
-            surfaceColor: surfaceColor ?? colors.container,
-            shape: RoundedRectangle(cornerRadius),
-            // A dialog is large and looked at straight on, so the thicker
-            // reading of the rim is legible here in a way it is not on a bar.
-            blurRadius: 16,
-            refractionHeight: 24,
-            refractionAmount: 48,
-            depthEffect: true,
-            child: ClipPath(
-              // The body scrolls, and a panel's tint is drawn, not clipped —
-              // without this the text rides out over the rounded corners.
-              clipper: GlassShapeClipper(RoundedRectangle(cornerRadius)),
-              // Transparent, so the panel stays the only surface — but present,
-              // because [child] is free-form and the material widgets that show
-              // up in one (a field, a checkbox, a list tile) assert without a
-              // Material ancestor. The framework's own dialog does the same.
-              child: Material(
-                type: MaterialType.transparency,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: <Widget>[
-                    if (title case final String heading)
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(28, 24, 28, 12),
-                        child: Text(
-                          heading,
-                          style: TextStyle(
-                            color: colors.content,
-                            fontSize: 22,
-                            fontWeight: FontWeight.w600,
-                          ).merge(titleStyle),
+        child: _morphed(
+          context,
+          ConstrainedBox(
+            constraints: BoxConstraints(maxWidth: maxWidth),
+            child: LiquidPanel(
+              backdrop: backdrop,
+              surfaceColor: surfaceColor ?? colors.container,
+              shape: RoundedRectangle(cornerRadius),
+              // A dialog is large and looked at straight on, so the thicker
+              // reading of the rim is legible here in a way it is not on a bar.
+              blurRadius: 16,
+              refractionHeight: 24,
+              refractionAmount: 48,
+              depthEffect: true,
+              child: ClipPath(
+                // The body scrolls, and a panel's tint is drawn, not clipped —
+                // without this the text rides out over the rounded corners.
+                clipper: GlassShapeClipper(RoundedRectangle(cornerRadius)),
+                // Transparent, so the panel stays the only surface — but present,
+                // because [child] is free-form and the material widgets that show
+                // up in one (a field, a checkbox, a list tile) assert without a
+                // Material ancestor. The framework's own dialog does the same.
+                child: Material(
+                  type: MaterialType.transparency,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: <Widget>[
+                      if (title case final String heading)
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(28, 24, 28, 12),
+                          child: Text(
+                            heading,
+                            style: TextStyle(
+                              color: colors.content,
+                              fontSize: 22,
+                              fontWeight: FontWeight.w600,
+                            ).merge(titleStyle),
+                          ),
                         ),
-                      ),
-                    if (body != null) Flexible(child: body),
-                    if (actions.isNotEmpty)
-                      Padding(
-                        padding: EdgeInsets.fromLTRB(
-                          24,
-                          title == null && body == null ? 24 : 12,
-                          24,
-                          24,
+                      if (body != null) Flexible(child: body),
+                      if (actions.isNotEmpty)
+                        Padding(
+                          padding: EdgeInsets.fromLTRB(
+                            24,
+                            title == null && body == null ? 24 : 12,
+                            24,
+                            24,
+                          ),
+                          child: _Actions(
+                            actions: actions,
+                            axis: actionsAxis,
+                            colors: colors,
+                            labelStyle: actionStyle,
+                          ),
                         ),
-                        child: _Actions(
-                          actions: actions,
-                          axis: actionsAxis,
-                          colors: colors,
-                          labelStyle: actionStyle,
-                        ),
-                      ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -241,6 +251,43 @@ class LiquidDialog extends StatelessWidget {
       ),
     );
   }
+
+  Widget _morphed(BuildContext context, Widget panel) {
+    final LiquidDialogMorph? morph = this.morph;
+    final Animation<double>? animation = ModalRoute.of(context)?.animation;
+    if (morph == null || animation == null) return panel;
+    return LiquidMorph(
+      progress: animation,
+      origin: morph.origin,
+      originRadius: morph.originRadius,
+      radius: cornerRadius,
+      // The panel's drop shadow reaches this far past it.
+      outset: 32,
+      child: panel,
+    );
+  }
+}
+
+/// Where a [LiquidDialog] grows out of.
+@immutable
+class LiquidDialogMorph {
+  const LiquidDialogMorph({this.origin, this.originRadius = 24});
+
+  /// The rect of what opened the dialog, in global coordinates. Null grows it
+  /// out of its own centre.
+  final Rect? origin;
+
+  /// That thing's corner radius — half its height for a capsule.
+  final double originRadius;
+
+  @override
+  bool operator ==(Object other) =>
+      other is LiquidDialogMorph &&
+      other.origin == origin &&
+      other.originRadius == originRadius;
+
+  @override
+  int get hashCode => Object.hash(origin, originRadius);
 }
 
 class _Actions extends StatelessWidget {

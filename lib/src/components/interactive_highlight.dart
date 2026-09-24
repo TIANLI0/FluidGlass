@@ -5,8 +5,10 @@ import 'package:flutter/widgets.dart';
 import '../animation/spring.dart';
 import '../gestures/drag_gesture_inspector.dart';
 import '../internal/shader_programs.dart';
+import '../light/glass_light.dart';
 import '../quality/glass_device_tier.dart';
 import '../quality/glass_quality.dart';
+import '../theme/liquid_glass_theme.dart';
 
 /// The press highlight that follows a finger across a liquid component: a soft
 /// radial glow plus a flat brighten, both added over the glass surface.
@@ -88,9 +90,16 @@ class InteractiveHighlight extends ChangeNotifier {
   /// Paints the highlight directly, over a [size]-sized area at the canvas
   /// origin — what [wrapOverlay] draws, for a caller composing its own picture.
   ///
-  /// [quality] is the tier to draw at; null follows the device.
-  void paintOverlay(Canvas canvas, Size size, {GlassQuality? quality}) {
-    _paintInteractiveHighlight(canvas, size, this, quality);
+  /// [quality] is the tier to draw at; null follows the device. [color] is
+  /// the colour of the light, white by default — pass
+  /// `LiquidGlassTheme.of(context).glow` to follow the theme.
+  void paintOverlay(
+    Canvas canvas,
+    Size size, {
+    GlassQuality? quality,
+    Color color = const Color(0xFFFFFFFF),
+  }) {
+    _paintInteractiveHighlight(canvas, size, this, quality, color);
   }
 
   /// Attaches the pointer handling that drives the highlight.
@@ -118,7 +127,9 @@ class InteractiveHighlight extends ChangeNotifier {
   }
 }
 
-class _InteractiveHighlightOverlay extends StatelessWidget {
+/// Draws the glow, and — inside a [GlassLightScope] — lends it to the field so
+/// it lands on the glass around this element too.
+class _InteractiveHighlightOverlay extends StatefulWidget {
   const _InteractiveHighlightOverlay({
     required this.highlight,
     required this.child,
@@ -128,19 +139,114 @@ class _InteractiveHighlightOverlay extends StatelessWidget {
   final Widget child;
 
   @override
+  State<_InteractiveHighlightOverlay> createState() =>
+      _InteractiveHighlightOverlayState();
+}
+
+class _InteractiveHighlightOverlayState
+    extends State<_InteractiveHighlightOverlay> {
+  GlassLightField? _field;
+  _HighlightLightSource? _source;
+  Color _glow = const Color(0xFFFFFFFF);
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _glow = LiquidGlassTheme.of(context).glow;
+    _source?.color = _glow;
+    final GlassLightField? field = GlassLightScope.maybeOf(context);
+    if (field != _field) {
+      _unregister();
+      _field = field;
+      _register();
+    }
+  }
+
+  @override
+  void didUpdateWidget(_InteractiveHighlightOverlay oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.highlight != widget.highlight) {
+      _unregister();
+      _register();
+    }
+  }
+
+  void _register() {
+    final GlassLightField? field = _field;
+    if (field == null) return;
+    final _HighlightLightSource source = _HighlightLightSource(
+      widget.highlight,
+      this,
+      _glow,
+    );
+    _source = source;
+    field.add(source);
+  }
+
+  void _unregister() {
+    final _HighlightLightSource? source = _source;
+    if (source != null) _field?.remove(source);
+    _source = null;
+  }
+
+  @override
+  void dispose() {
+    _unregister();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return CustomPaint(
       painter: _InteractiveHighlightPainter(
-        highlight,
+        widget.highlight,
         GlassQualityScope.maybeOf(context),
+        _glow,
       ),
-      child: child,
+      child: widget.child,
+    );
+  }
+}
+
+/// A press glow, as a light the field can hand to other glass.
+class _HighlightLightSource implements GlassLightSource {
+  _HighlightLightSource(this.highlight, this.state, this.color);
+
+  final InteractiveHighlight highlight;
+  final State<StatefulWidget> state;
+  Color color;
+
+  @override
+  void addListener(VoidCallback listener) => highlight.addListener(listener);
+
+  @override
+  void removeListener(VoidCallback listener) =>
+      highlight.removeListener(listener);
+
+  @override
+  GlassLight? resolve() {
+    final double strength = highlight.pressProgress;
+    if (strength <= 0 || !state.mounted) return null;
+    final RenderObject? object = state.context.findRenderObject();
+    if (object is! RenderBox || !object.attached || !object.hasSize) {
+      return null;
+    }
+    final Size size = object.size;
+    // About three times the control's own size, within bounds: far enough to
+    // reach the next control over, not so far that a large panel lights the
+    // whole screen.
+    final double radius = (size.shortestSide * 3).clamp(140.0, 240.0);
+    return GlassLight(
+      position: object.localToGlobal(highlight.glowPosition(size)),
+      strength: strength,
+      radius: radius,
+      color: color,
     );
   }
 }
 
 class _InteractiveHighlightPainter extends CustomPainter {
-  _InteractiveHighlightPainter(this.highlight, this.pinnedQuality)
+  _InteractiveHighlightPainter(this.highlight, this.pinnedQuality, this.color)
     : super(
         // The tier is read at paint time, so a change to it has to reach the
         // paint that reads it — the same subscription every glass element
@@ -157,9 +263,12 @@ class _InteractiveHighlightPainter extends CustomPainter {
   /// device.
   final GlassQuality? pinnedQuality;
 
+  /// The colour of the light.
+  final Color color;
+
   @override
   void paint(Canvas canvas, Size size) =>
-      _paintInteractiveHighlight(canvas, size, highlight, pinnedQuality);
+      _paintInteractiveHighlight(canvas, size, highlight, pinnedQuality, color);
 
   @override
   bool shouldRepaint(covariant _InteractiveHighlightPainter oldDelegate) =>
@@ -182,6 +291,7 @@ void _paintInteractiveHighlight(
   Size size,
   InteractiveHighlight highlight,
   GlassQuality? pinnedQuality,
+  Color color,
 ) {
   final double progress = highlight.pressProgress;
   if (progress <= 0.0) return;
@@ -201,7 +311,7 @@ void _paintInteractiveHighlight(
     canvas.drawRect(
       Offset.zero & size,
       Paint()
-        ..color = const Color(0xFFFFFFFF).withValues(alpha: 0.25 * progress)
+        ..color = color.withValues(alpha: color.a * 0.25 * progress)
         ..blendMode = BlendMode.plus,
     );
     return;
@@ -210,7 +320,7 @@ void _paintInteractiveHighlight(
   canvas.drawRect(
     Offset.zero & size,
     Paint()
-      ..color = const Color(0xFFFFFFFF).withValues(alpha: 0.08 * progress)
+      ..color = color.withValues(alpha: color.a * 0.08 * progress)
       ..blendMode = BlendMode.plus,
   );
 
@@ -222,13 +332,13 @@ void _paintInteractiveHighlight(
   // layout(color) uniforms, and the shader's result has to stay a valid
   // premultiplied colour. Passing it un-premultiplied would add a full-white
   // disc under the finger instead of a soft glow.
-  final double alpha = 0.15 * progress;
+  final double alpha = 0.15 * progress * color.a;
   final ui.FragmentShader shader = _highlightShaders[program] ??= program
       .fragmentShader();
   shader
-    ..setFloat(0, alpha)
-    ..setFloat(1, alpha)
-    ..setFloat(2, alpha)
+    ..setFloat(0, color.r * alpha)
+    ..setFloat(1, color.g * alpha)
+    ..setFloat(2, color.b * alpha)
     ..setFloat(3, alpha)
     ..setFloat(4, size.shortestSide * 1.5)
     ..setFloat(5, position.dx.clamp(0.0, size.width))

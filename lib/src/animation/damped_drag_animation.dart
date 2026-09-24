@@ -156,6 +156,16 @@ class DampedDragAnimation extends ChangeNotifier {
     _valueAnimation.animateTo(_coerce(value), _valueSpec);
   }
 
+  /// Jumps to [value] with no press, no spring and no velocity — for a
+  /// platform asking for reduced motion.
+  void snapToValue(double value) {
+    ++_mutation;
+    _trackVelocity = false;
+    _valueAnimation.snapTo(_coerce(value));
+    _velocityAnimation.snapTo(0.0);
+    notifyListeners();
+  }
+
   /// Presses, springs to [value], and releases once it settles.
   void animateToValue(double value) {
     final int mutation = ++_mutation;

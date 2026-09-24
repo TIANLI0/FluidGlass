@@ -53,6 +53,7 @@ export 'src/components/liquid_ink_highlight.dart';
 export 'src/components/liquid_interaction.dart';
 export 'src/components/liquid_magnifier.dart';
 export 'src/components/liquid_menu.dart';
+export 'src/components/liquid_morph.dart';
 export 'src/components/liquid_navigation_bar.dart';
 export 'src/components/liquid_panel.dart';
 export 'src/components/liquid_segmented_control.dart';
@@ -83,6 +84,8 @@ export 'src/highlight/highlight_style.dart';
 export 'src/internal/blur_sigma.dart' show blurRadiusToSigma;
 export 'src/internal/shader_programs.dart'
     show FragmentShaderCache, isRenderEffectSupported, isRuntimeShaderSupported;
+export 'src/light/glass_light.dart';
+export 'src/light/rim_light.dart';
 export 'src/quality/glass_device_tier.dart';
 export 'src/quality/glass_quality.dart';
 export 'src/shadow/shadow.dart';
