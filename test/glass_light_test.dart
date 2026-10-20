@@ -24,7 +24,9 @@ Widget _buttons({GlassLightField? field, bool scoped = true}) {
     ],
   );
   if (scoped) row = GlassLightScope(field: field, child: row);
-  return MaterialApp(home: Scaffold(body: Center(child: row)));
+  return MaterialApp(
+    home: Scaffold(body: Center(child: row)),
+  );
 }
 
 /// A spring starts its clock on its first tick, so one long pump leaves it

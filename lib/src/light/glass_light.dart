@@ -103,9 +103,8 @@ class GlassLightScope extends StatefulWidget {
   final Widget child;
 
   /// The nearest field, or null outside any scope.
-  static GlassLightField? maybeOf(BuildContext context) => context
-      .dependOnInheritedWidgetOfExactType<_GlassLightInherited>()
-      ?.field;
+  static GlassLightField? maybeOf(BuildContext context) =>
+      context.dependOnInheritedWidgetOfExactType<_GlassLightInherited>()?.field;
 
   @override
   State<GlassLightScope> createState() => _GlassLightScopeState();
@@ -258,20 +257,16 @@ class _RenderLightLanding extends RenderBox {
       canvas.save();
       canvas.translate(offset.dx, offset.dy);
 
-      ui.Gradient gradient(double alpha) => ui.Gradient.radial(
-        local,
-        light.radius,
-        <Color>[
-          for (final double f in _falloff)
-            light.color.withValues(
-              alpha: (light.color.a * alpha * f * light.strength).clamp(
-                0.0,
-                1.0,
+      ui.Gradient gradient(double alpha) =>
+          ui.Gradient.radial(local, light.radius, <Color>[
+            for (final double f in _falloff)
+              light.color.withValues(
+                alpha: (light.color.a * alpha * f * light.strength).clamp(
+                  0.0,
+                  1.0,
+                ),
               ),
-            ),
-        ],
-        _stops,
-      );
+          ], _stops);
 
       canvas.drawPath(
         rim.path,

@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.1.31
+
+### Added
+
+- `LiquidBottomTabs.height`: the panel's height, 64 by default as before. The
+  tab row and the pill keep their 4dp inset, and a press swells the pill by the
+  same proportion at any height.
+
 ## 0.1.30
 
 ### Added

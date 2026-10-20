@@ -64,8 +64,10 @@ Future<RimLightController> _pump(
   await tester.pumpWidget(
     Directionality(
       textDirection: TextDirection.ltr,
-      child: _Host(onController: (RimLightController v) => c = v,
-          reduceMotion: reduceMotion),
+      child: _Host(
+        onController: (RimLightController v) => c = v,
+        reduceMotion: reduceMotion,
+      ),
     ),
   );
   return c;

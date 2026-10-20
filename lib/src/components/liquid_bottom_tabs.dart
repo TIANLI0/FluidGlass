@@ -102,7 +102,14 @@ class LiquidBottomTabs extends StatefulWidget {
     required this.tabsCount,
     required this.children,
     this.isInteractive = true,
-  });
+    this.height = defaultHeight,
+  }) : assert(
+         height > _inset * 2,
+         'The bar has to be taller than its insets, or there is no row.',
+       );
+
+  /// The height the bar has always had: a 56 row inside a 4dp inset.
+  static const double defaultHeight = 64.0;
 
   final int selectedTabIndex;
   final ValueChanged<int> onTabSelected;
@@ -116,14 +123,15 @@ class LiquidBottomTabs extends StatefulWidget {
   /// longer drags. Pass `!MediaQuery.disableAnimationsOf(context)`.
   final bool isInteractive;
 
+  /// The height of the panel. The tab row and the pill are this minus a 4dp
+  /// inset top and bottom, and a press swells the pill by the same proportion
+  /// at any height (78 against the default 56 row).
+  final double height;
+
   @override
   State<LiquidBottomTabs> createState() => _LiquidBottomTabsState();
 }
 
-/// The height of the accent tab row, and of the pill: the panel minus its 4dp
-/// inset on each side.
-const double _rowHeight = 56.0;
-const double _panelHeight = 64.0;
 const double _inset = 4.0;
 
 class _LiquidBottomTabsState extends State<LiquidBottomTabs>
@@ -142,6 +150,12 @@ class _LiquidBottomTabsState extends State<LiquidBottomTabs>
   late final InteractiveHighlight _interactiveHighlight;
   late _AccentGlassBackdrop _pillBackdrop;
   late final Listenable _repaint;
+
+  double get _panelHeight => widget.height;
+
+  /// The height of the accent tab row, and of the pill: the panel minus its
+  /// inset on each side.
+  double get _rowHeight => widget.height - _inset * 2;
 
   double _tabWidth = 0;
   double _maxWidth = 0;
