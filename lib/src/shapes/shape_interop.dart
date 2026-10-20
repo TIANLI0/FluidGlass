@@ -68,8 +68,11 @@ class GlassShapeBorder extends OutlinedBorder {
   @override
   void paint(Canvas canvas, Rect rect, {TextDirection? textDirection}) {
     if (side.style == BorderStyle.none) return;
+    // `strokeOffset` is negative for a stroke aligned inside, so the path is
+    // inflated by it — which moves it in — exactly as Flutter's own borders
+    // do. Deflating put an inside stroke entirely outside the shape.
     canvas.drawPath(
-      _pathFor(rect.deflate(side.strokeOffset / 2), textDirection),
+      _pathFor(rect.inflate(side.strokeOffset / 2), textDirection),
       side.toPaint(),
     );
   }

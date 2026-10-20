@@ -21,9 +21,13 @@ import '../../fluid_glass.dart';
 /// instead of stepping.
 ///
 /// The cost is one tiny picture per *sample*, not per frame — the recorder only
-/// arms itself again once the reader has consumed the last one. Reading pixels
-/// back is asynchronous, so [value] trails what is on screen by design; nothing
-/// here belongs on a per-frame path.
+/// arms itself again once the reader has consumed the last one — and nothing at
+/// all on a screen that is not painting: a reading is only taken of a
+/// thumbnail the glass recorded since the last one, so glass that is not
+/// repainted, or not on screen, costs no rasterisation and no readback, and no
+/// timer is left running for it. Reading pixels back is asynchronous, so
+/// [value] trails what is on screen by design; nothing here belongs on a
+/// per-frame path.
 ///
 /// Dispose it with the State that owns it.
 class BackdropLuminance extends ChangeNotifier {
@@ -40,7 +44,6 @@ class BackdropLuminance extends ChangeNotifier {
          visibilityThreshold: 0.001,
        ) {
     _luminance.addListener(notifyListeners);
-    _schedule();
   }
 
   /// The thumbnail is this many pixels on a side. Five is plenty: the reading
@@ -48,8 +51,9 @@ class BackdropLuminance extends ChangeNotifier {
   /// read back.
   final int resolution;
 
-  /// How often the thumbnail is read back.
-  final Duration interval;
+  /// How often the thumbnail is read back, at most. Takes effect from the next
+  /// reading.
+  Duration interval;
 
   /// How long [value] takes to travel to a new reading.
   final Duration smoothing;
@@ -89,43 +93,62 @@ class BackdropLuminance extends ChangeNotifier {
     context.backdrop.drawBackdrop(context.copyWith(canvas: canvas));
     _thumbnail?.dispose();
     _thumbnail = recorder.endRecording();
+    // A reading is due once there is something new to read.
+    if (_timer == null && _running) _schedule();
   }
 
   /// A cancellable timer rather than a `while` loop around `Future.delayed`:
   /// the loop would leave one delay pending past [dispose], which outlives the
   /// object, holds it alive until it fires, and fails any widget test that
   /// happens to end inside the window.
+  ///
+  /// One reading per thumbnail. The thumbnail is consumed by the reading, so
+  /// the loop stops as soon as the glass stops recording new ones — the next
+  /// [onDrawBackdrop] starts it again. Re-reading the same picture every
+  /// interval rasterised it and read it back once a second, for ever, on a
+  /// screen nobody was touching, and on routes that were not even showing.
   void _schedule() {
     _timer = Timer(interval, () async {
       if (!_running) return;
       await _measure();
-      if (_running) _schedule();
+      _timer = null;
+      // Something new arrived while this reading was being taken.
+      if (_running && _thumbnail != null) _schedule();
     });
   }
 
   Future<void> _measure() async {
     final ui.Picture? picture = _thumbnail;
-    if (picture == null) {
-      _wantsThumbnail = true;
-      return;
-    }
+    _thumbnail = null;
+    _wantsThumbnail = true;
+    if (picture == null) return;
     final ui.Image image = picture.toImageSync(resolution, resolution);
+    picture.dispose();
     final ByteData? bytes = await image.toByteData(
       format: ui.ImageByteFormat.rawRgba,
     );
     image.dispose();
     if (bytes == null || !_running) return;
 
+    // Premultiplied, so each pixel's colour is already scaled by its alpha:
+    // dividing by the total alpha rather than the pixel count is the
+    // alpha-weighted mean. A plain mean read transparent pixels — wherever a
+    // page leaves its background to the scaffold outside the capture — as
+    // black, and put white text on a light page.
     final Uint8List data = bytes.buffer.asUint8List();
     final int count = resolution * resolution;
     double sum = 0;
+    double coverage = 0;
     for (int i = 0; i < count; i++) {
       sum +=
           0.2126 * (data[i * 4] / 255.0) +
           0.7152 * (data[i * 4 + 1] / 255.0) +
           0.0722 * (data[i * 4 + 2] / 255.0);
+      coverage += data[i * 4 + 3] / 255.0;
     }
-    final double average = sum / count;
+    // Nothing drawn at all: no reading, rather than a reading of black.
+    if (coverage <= 0) return;
+    final double average = (sum / coverage).clamp(0.0, 1.0);
 
     // Retargeting unconditionally would restart the tween every interval, so
     // the ticker would never stop and the whole glass chain would re-run at
@@ -133,7 +156,6 @@ class BackdropLuminance extends ChangeNotifier {
     if ((average - _luminance.targetValue).abs() > 0.002) {
       _luminance.tweenTo(average, smoothing);
     }
-    _wantsThumbnail = true;
   }
 
   @override
@@ -212,11 +234,30 @@ class _LiquidAdaptivePanelState extends State<LiquidAdaptivePanel>
   late final BackdropLuminance _luminance = BackdropLuminance(
     vsync: this,
     interval: widget.interval,
+  )..addListener(_syncContentColor);
+
+  /// What the builder is handed, changed only when it flips. [BackdropLuminance]
+  /// notifies on every tick of its smoothing — some sixty per reading — and
+  /// the caller's whole subtree was rebuilt on each, for a colour that is one
+  /// of two values.
+  late final ValueNotifier<Color> _contentColor = ValueNotifier<Color>(
+    _luminance.contentColor,
   );
+
+  void _syncContentColor() => _contentColor.value = _luminance.contentColor;
+
+  @override
+  void didUpdateWidget(LiquidAdaptivePanel oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    _luminance.interval = widget.interval;
+  }
 
   @override
   void dispose() {
-    _luminance.dispose();
+    _luminance
+      ..removeListener(_syncContentColor)
+      ..dispose();
+    _contentColor.dispose();
     super.dispose();
   }
 
@@ -252,10 +293,10 @@ class _LiquidAdaptivePanelState extends State<LiquidAdaptivePanel>
           extra,
         ]),
       },
-      child: ListenableBuilder(
-        listenable: _luminance,
-        builder: (BuildContext context, Widget? _) =>
-            widget.builder(context, _luminance.contentColor),
+      child: ValueListenableBuilder<Color>(
+        valueListenable: _contentColor,
+        builder: (BuildContext context, Color color, Widget? _) =>
+            widget.builder(context, color),
       ),
     );
   }

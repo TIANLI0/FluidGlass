@@ -44,13 +44,14 @@ void main() {
     final List<double> ended = <double>[];
     await _pump(tester, reported: reported, ended: ended);
 
-    await tester.tapAt(tester.getCenter(find.byType(LiquidSlider)));
+    final Rect track = tester.getRect(find.byType(LiquidSlider));
+    await tester.tapAt(Offset(track.left + track.width / 3, track.center.dy));
     await tester.pumpAndSettle();
 
     expect(reported, isNotEmpty);
-    // Nothing rounds it, so a tap in the middle of a 0–16 range lands near 8
+    // Nothing rounds it, so a tap a third along a 0–16 range lands near 5.33
     // but is not required to be an integer.
-    expect(reported.last, closeTo(8, 1.5));
+    expect(reported.last, closeTo(16 / 3, 0.01));
   });
 
   testWidgets('divisions snap the reported value to a step', (

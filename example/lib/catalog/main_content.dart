@@ -7,11 +7,14 @@ import 'destinations/app_chrome_content.dart';
 import 'destinations/bottom_tabs_content.dart';
 import 'destinations/buttons_content.dart';
 import 'destinations/control_center_content.dart';
+import 'destinations/command_palette_content.dart';
+import 'destinations/component_kit_content.dart';
 import 'destinations/dialog_content.dart';
 import 'destinations/highlight_content.dart';
 import 'destinations/fusion_content.dart';
 import 'destinations/glass_playground_content.dart';
 import 'destinations/home_content.dart';
+import 'destinations/lab_corner_radii_content.dart';
 import 'destinations/lab_light_spill_content.dart';
 import 'destinations/lab_light_state_content.dart';
 import 'destinations/lab_morph_content.dart';
@@ -71,6 +74,10 @@ class _MainContentState extends State<MainContent> {
     switch (_destination) {
       case CatalogDestination.home:
         return HomeContent(onNavigate: _navigate);
+      case CatalogDestination.commandPalette:
+        return const CommandPaletteContent();
+      case CatalogDestination.componentKit:
+        return const ComponentKitContent();
       case CatalogDestination.buttons:
         return const ButtonsContent();
       case CatalogDestination.toggle:
@@ -123,6 +130,8 @@ class _MainContentState extends State<MainContent> {
         return const LabLightStateContent();
       case CatalogDestination.labLightSpill:
         return const LabLightSpillContent();
+      case CatalogDestination.labCornerRadii:
+        return const LabCornerRadiiContent();
     }
   }
 

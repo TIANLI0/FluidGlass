@@ -326,19 +326,24 @@ class BackdropLayer extends StatelessWidget {
 
   /// Resolution to capture the source at, relative to logical pixels.
   ///
-  /// Defaults to the device's pixel ratio. Capturing a large, animating source
-  /// costs a full-resolution rasterisation every frame it changes, so this is
-  /// the lever to trade sharpness for speed — 0.5 quarters the pixels, and
-  /// glass that blurs or shrinks what it samples hides the difference well.
+  /// Defaults to the device's pixel ratio. A lower ratio captures fewer pixels
+  /// — 0.5 quarters them — and glass that blurs or shrinks what it samples
+  /// hides the softness well.
+  ///
+  /// **It is not free speed.** Since captures were cut to the regions the
+  /// glass actually reads, the capture is no longer the larger cost of a live
+  /// backdrop; the glass draw is. Measured on a OnePlus PKJ110 over a scrolling
+  /// feed, halving the ratio took about two milliseconds off the capture's
+  /// stall and gave the same back in raster, upscaling the smaller texture. So
+  /// measure `totalSpan` — not raster time alone — on the device that matters
+  /// before lowering it.
   ///
   /// It is a separate decision from [GlassQuality], on purpose. The tier
   /// governs what each *element* draws — dropping to [GlassQuality.plain]
   /// removes the refraction, a fragment pass over the element's own texture —
-  /// while this governs what the *source* costs to capture, which for a
-  /// backdrop that changes every frame is the larger of the two by a wide
-  /// margin. A slow device wants both, and only this one is left to the app,
-  /// because halving the capture is a visible choice on a still backdrop where
-  /// it buys nothing per frame:
+  /// while this governs what the *source* costs to capture, and halving the
+  /// capture is a visible choice on a still backdrop where it buys nothing per
+  /// frame. An app that wants it on its cheap tier only can say so:
   ///
   /// ```dart
   /// BackdropLayer(

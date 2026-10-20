@@ -38,7 +38,8 @@ class Highlight {
 
   final HighlightStyle style;
 
-  /// A rim lit from the top-left.
+  /// A rim lit along the diagonal from the top-left to the bottom-right:
+  /// brightest at those two corners, fading towards the other two.
   static const Highlight standard = Highlight._(
     width: 0.5,
     blurRadius: 0.25,

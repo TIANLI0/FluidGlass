@@ -1,6 +1,5 @@
-import 'dart:ui';
-
 import 'package:fluid_glass/fluid_glass.dart';
+import 'package:flutter/painting.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -158,5 +157,36 @@ void main() {
       expect(bounds.left, closeTo(30, 0.5));
       expect(bounds.top, closeTo(40, 0.5));
     });
+
+    // Regression: the stroke's path was deflated by `strokeOffset / 2`, which
+    // is negative for an inside stroke, so an inside stroke was drawn wholly
+    // outside the shape and an outside one wholly inside it.
+    test('strokes on the side its alignment asks for', () {
+      final Rect rect = const Offset(0, 0) & const Size(100, 100);
+      Rect strokedPathFor(double strokeAlign) {
+        final _PathCanvas canvas = _PathCanvas();
+        GlassShapeBorder(
+          const RoundedRectangle(0),
+          side: BorderSide(width: 10, strokeAlign: strokeAlign),
+        ).paint(canvas, rect);
+        return canvas.path!.getBounds();
+      }
+
+      // The path runs down the middle of the stroke.
+      expect(strokedPathFor(BorderSide.strokeAlignInside), rect.deflate(5));
+      expect(strokedPathFor(BorderSide.strokeAlignCenter), rect);
+      expect(strokedPathFor(BorderSide.strokeAlignOutside), rect.inflate(5));
+    });
   });
+}
+
+/// Records the path a border strokes.
+class _PathCanvas implements Canvas {
+  Path? path;
+
+  @override
+  void drawPath(Path path, Paint paint) => this.path = path;
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => null;
 }

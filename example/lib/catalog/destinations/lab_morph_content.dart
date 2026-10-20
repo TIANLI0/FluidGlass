@@ -77,12 +77,7 @@ class _LabMorphContentState extends State<LabMorphContent> {
               height: 48,
             ),
             anchorRadius: 24,
-            target: Rect.fromLTWH(
-              12,
-              safe.top + 8,
-              screen.width - 24,
-              392,
-            ),
+            target: Rect.fromLTWH(12, safe.top + 8, screen.width - 24, 392),
             targetRadius: 30,
             alignment: Alignment.topCenter,
           ),
@@ -440,10 +435,7 @@ class _GlassMorphState extends State<_GlassMorph>
           effects: (BackdropEffectScope scope) => scope
             ..vibrancy()
             ..blur(ui.lerpDouble(2, 10, open)!)
-            ..lens(
-              ui.lerpDouble(12, 22, open)!,
-              ui.lerpDouble(24, 30, open)!,
-            ),
+            ..lens(ui.lerpDouble(12, 22, open)!, ui.lerpDouble(24, 30, open)!),
           onDrawSurface: (Canvas canvas, Size size) => canvas.drawRect(
             Offset.zero & size,
             Paint()
@@ -619,9 +611,21 @@ class _SearchPanel extends StatelessWidget {
             ),
           ),
         ),
-        _Row(icon: Icons.history_rounded, label: 'Trip to Kyoto', onTap: onPick),
-        _Row(icon: Icons.history_rounded, label: 'Quarterly plan', onTap: onPick),
-        _Row(icon: Icons.history_rounded, label: 'Glass shaders', onTap: onPick),
+        _Row(
+          icon: Icons.history_rounded,
+          label: 'Trip to Kyoto',
+          onTap: onPick,
+        ),
+        _Row(
+          icon: Icons.history_rounded,
+          label: 'Quarterly plan',
+          onTap: onPick,
+        ),
+        _Row(
+          icon: Icons.history_rounded,
+          label: 'Glass shaders',
+          onTap: onPick,
+        ),
         _Row(icon: Icons.history_rounded, label: 'Recipes', onTap: onPick),
       ],
     );

@@ -71,10 +71,7 @@ class _LabLightSpillContentState extends State<LabLightSpillContent>
                 side,
               ),
           ];
-          _field.orbHome ??= Offset(
-            screen.width / 2,
-            tiles.last.bottom + 70,
-          );
+          _field.orbHome ??= Offset(screen.width / 2, tiles.last.bottom + 70);
 
           return Stack(
             clipBehavior: Clip.none,
@@ -352,15 +349,11 @@ class _SpillPainter extends CustomPainter {
       final double dy = (local.dy.clamp(0.0, size.height) - local.dy).abs();
       if (dx * dx + dy * dy > light.radius * light.radius) continue;
 
-      ui.Gradient gradient(double alpha) => ui.Gradient.radial(
-        local,
-        light.radius,
-        <Color>[
-          for (final double f in _falloff)
-            light.color.withValues(alpha: alpha * f * light.strength),
-        ],
-        _stops,
-      );
+      ui.Gradient gradient(double alpha) =>
+          ui.Gradient.radial(local, light.radius, <Color>[
+            for (final double f in _falloff)
+              light.color.withValues(alpha: alpha * f * light.strength),
+          ], _stops);
 
       canvas.drawPath(
         rim.path,
@@ -411,9 +404,7 @@ class _Orb extends StatelessWidget {
       children: <Widget>[
         // The light it throws on the page around it.
         Positioned.fill(
-          child: IgnorePointer(
-            child: CustomPaint(painter: _OrbHaloPainter()),
-          ),
+          child: IgnorePointer(child: CustomPaint(painter: _OrbHaloPainter())),
         ),
         Positioned.fill(
           child: DrawBackdrop(

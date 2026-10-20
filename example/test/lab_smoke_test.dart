@@ -7,6 +7,7 @@
 // first build (a frame timestamp read from a pointer callback) is the kind of
 // thing it is here for: it threw on every scroll update of a real drag.
 import 'package:fluid_glass/fluid_glass.dart';
+import 'package:fluid_glass_example/catalog/destinations/lab_corner_radii_content.dart';
 import 'package:fluid_glass_example/catalog/destinations/lab_light_spill_content.dart';
 import 'package:fluid_glass_example/catalog/destinations/lab_light_state_content.dart';
 import 'package:fluid_glass_example/catalog/destinations/lab_morph_content.dart';
@@ -156,5 +157,21 @@ void main() {
     await tester.tap(find.byIcon(Icons.dark_mode_rounded));
     await tester.tap(find.byType(LiquidToggle));
     await tester.pumpAndSettle();
+  });
+
+  testWidgets('the corner-radius comparison builds and toggles', (
+    WidgetTester tester,
+  ) async {
+    await _pumpLab(tester, const LabCornerRadiiContent());
+    await tester.runAsync(
+      () => Future<void>.delayed(const Duration(milliseconds: 200)),
+    );
+    await tester.pump();
+    expect(find.text('Sheet — rounded top only'), findsOneWidget);
+    await tester.tap(find.byType(Switch).first);
+    await tester.pump();
+    await tester.tap(find.byType(Switch).last);
+    await tester.pump();
+    expect(tester.takeException(), isNull);
   });
 }

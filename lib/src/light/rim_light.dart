@@ -2,6 +2,7 @@ import 'dart:math' as math;
 import 'dart:typed_data';
 import 'dart:ui' as ui;
 
+import 'package:flutter/rendering.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter/widgets.dart';
 
@@ -95,7 +96,17 @@ class RimLightController extends ChangeNotifier {
   /// of orbiting (and stops its ticker once it has faded in), a success or
   /// failure is a glow that fades rather than a sweep or a pulse, and nothing
   /// shakes. Progress still fills — that is information, not decoration.
-  bool reduceMotion = false;
+  bool get reduceMotion => _reduceMotion;
+  bool _reduceMotion = false;
+  set reduceMotion(bool value) {
+    if (value == _reduceMotion) return;
+    _reduceMotion = value;
+    // The ticker is what repaints. A loading rim that had stopped it, glowing
+    // steadily, has to start it again to orbit — and one that was orbiting
+    // needs one more tick to notice it should stop. Nothing is notified here:
+    // this is set during a build.
+    if (_state != RimLightState.idle) _start();
+  }
 
   /// How long the orbiting comet takes per lap, in seconds.
   static const double lap = 1.35;
@@ -269,7 +280,7 @@ class RimLightController extends ChangeNotifier {
 /// tier and every backend. Colours come from [LiquidGlassTheme]:
 /// [LiquidGlassColors.glow] for loading and progress, `accent` for focus,
 /// `success` and `destructive` for the outcomes.
-class RimLight extends StatelessWidget {
+class RimLight extends StatefulWidget {
   const RimLight({
     super.key,
     required this.controller,
@@ -307,73 +318,283 @@ class RimLight extends StatelessWidget {
   final Widget child;
 
   @override
+  State<RimLight> createState() => _RimLightState();
+}
+
+class _RimLightState extends State<RimLight> {
+  /// Kept across builds: a painter is made fresh by every build, and a cache
+  /// on the painter re-measured the outline — `computeMetrics` and a search
+  /// along it — on the first paint after any rebuild of the parent, which a
+  /// progress bar driven by `setState` pays on every frame.
+  final _RimPaintCache _cache = _RimPaintCache();
+
+  @override
   Widget build(BuildContext context) {
-    controller.reduceMotion =
+    widget.controller.reduceMotion =
         MediaQuery.maybeDisableAnimationsOf(context) ?? false;
-    final LiquidGlassColors palette = colors ?? LiquidGlassTheme.of(context);
-    final Widget lit = Stack(
-      clipBehavior: Clip.none,
-      children: <Widget>[
-        child,
-        Positioned.fill(
-          child: IgnorePointer(
-            child: RepaintBoundary(
-              child: CustomPaint(
-                painter: _RimLightPainter(
-                  controller,
-                  shape,
-                  palette,
-                  blendMode,
+    final LiquidGlassColors palette =
+        widget.colors ?? LiquidGlassTheme.of(context);
+    return _RimSemantics(
+      controller: widget.controller,
+      textDirection: Directionality.maybeOf(context) ?? TextDirection.ltr,
+      child: _Shake(
+        controller: widget.controller,
+        enabled: widget.shake,
+        child: Stack(
+          // The child is laid out exactly as it would be without the light: a
+          // loosened constraint shrank a child meant to fill a tight slot, and
+          // the rim went on being drawn round the whole slot.
+          fit: StackFit.passthrough,
+          clipBehavior: Clip.none,
+          children: <Widget>[
+            widget.child,
+            Positioned.fill(
+              child: IgnorePointer(
+                child: RepaintBoundary(
+                  child: CustomPaint(
+                    painter: _RimLightPainter(
+                      widget.controller,
+                      widget.shape,
+                      palette,
+                      widget.blendMode,
+                      _cache,
+                      Directionality.maybeOf(context) ?? TextDirection.ltr,
+                    ),
+                  ),
                 ),
               ),
             ),
-          ),
+          ],
         ),
-      ],
-    );
-    if (!shake) return lit;
-    return AnimatedBuilder(
-      animation: controller,
-      child: lit,
-      builder: (BuildContext context, Widget? child) {
-        final double dx = controller.shake;
-        if (dx == 0) return child!;
-        return Transform.translate(offset: Offset(dx, 0), child: child);
-      },
+      ),
     );
   }
 }
 
+/// Tells a screen reader how far along a [RimLightState.progress] rim is.
+///
+/// The rim is drawn as the element's state, so a reader who cannot see it was
+/// told nothing. Only the progress is a value to report; the outcomes — a
+/// success, a failure — are the app's to announce, in its own words, when it
+/// sets them. Nothing is rebuilt per tick: the semantics are asked for again
+/// only when the rounded percentage changes.
+class _RimSemantics extends SingleChildRenderObjectWidget {
+  const _RimSemantics({
+    required this.controller,
+    required this.textDirection,
+    required super.child,
+  });
+
+  final RimLightController controller;
+  final TextDirection textDirection;
+
+  @override
+  _RenderRimSemantics createRenderObject(BuildContext context) =>
+      _RenderRimSemantics(controller, textDirection);
+
+  @override
+  void updateRenderObject(
+    BuildContext context,
+    _RenderRimSemantics renderObject,
+  ) {
+    renderObject
+      ..controller = controller
+      ..textDirection = textDirection;
+  }
+}
+
+class _RenderRimSemantics extends RenderProxyBox {
+  _RenderRimSemantics(this._controller, this._textDirection);
+
+  RimLightController _controller;
+  set controller(RimLightController value) {
+    if (identical(value, _controller)) return;
+    if (attached) _controller.removeListener(_onChange);
+    _controller = value;
+    if (attached) _controller.addListener(_onChange);
+    _onChange();
+  }
+
+  TextDirection _textDirection;
+  set textDirection(TextDirection value) {
+    if (value == _textDirection) return;
+    _textDirection = value;
+    markNeedsSemanticsUpdate();
+  }
+
+  String? _value;
+
+  String? _describe() => _controller.state == RimLightState.progress
+      ? '${(_controller.progress * 100).round()}%'
+      : null;
+
+  void _onChange() {
+    final String? value = _describe();
+    if (value == _value) return;
+    _value = value;
+    markNeedsSemanticsUpdate();
+  }
+
+  @override
+  void attach(PipelineOwner owner) {
+    super.attach(owner);
+    _controller.addListener(_onChange);
+    _value = _describe();
+  }
+
+  @override
+  void detach() {
+    _controller.removeListener(_onChange);
+    super.detach();
+  }
+
+  @override
+  void describeSemanticsConfiguration(SemanticsConfiguration config) {
+    super.describeSemanticsConfiguration(config);
+    final String? value = _value;
+    if (value == null) return;
+    config
+      ..value = value
+      ..textDirection = _textDirection;
+  }
+}
+
+/// Moves its child sideways by [RimLightController.shake].
+///
+/// A render object rather than a builder, and always in the tree. Returning
+/// the bare child at rest and a `Transform` while shaking swapped the widget in
+/// that slot twice per failure, which tore the child down and built it again —
+/// a sign-in form lost its focus and whatever had been typed into a field
+/// without a controller of its own, on exactly the frame it said "no". It also
+/// rebuilt on every tick of every state, an endless loading comet included.
+/// Here nothing rebuilds: the offset is applied at paint and hit-test time.
+class _Shake extends SingleChildRenderObjectWidget {
+  const _Shake({
+    required this.controller,
+    required this.enabled,
+    required super.child,
+  });
+
+  final RimLightController controller;
+  final bool enabled;
+
+  @override
+  _RenderShake createRenderObject(BuildContext context) =>
+      _RenderShake(controller, enabled);
+
+  @override
+  void updateRenderObject(BuildContext context, _RenderShake renderObject) {
+    renderObject
+      ..controller = controller
+      ..enabled = enabled;
+  }
+}
+
+class _RenderShake extends RenderProxyBox {
+  _RenderShake(this._controller, this._enabled);
+
+  RimLightController _controller;
+  set controller(RimLightController value) {
+    if (identical(value, _controller)) return;
+    if (attached) _controller.removeListener(_onTick);
+    _controller = value;
+    if (attached) _controller.addListener(_onTick);
+    _onTick();
+  }
+
+  bool _enabled;
+  set enabled(bool value) {
+    if (value == _enabled) return;
+    _enabled = value;
+    _onTick();
+  }
+
+  double _dx = 0;
+
+  void _onTick() {
+    final double dx = _enabled ? _controller.shake : 0;
+    if (dx == _dx) return;
+    _dx = dx;
+    markNeedsPaint();
+  }
+
+  @override
+  void attach(PipelineOwner owner) {
+    super.attach(owner);
+    _controller.addListener(_onTick);
+    _dx = _enabled ? _controller.shake : 0;
+  }
+
+  @override
+  void detach() {
+    _controller.removeListener(_onTick);
+    super.detach();
+  }
+
+  @override
+  void paint(PaintingContext context, Offset offset) {
+    super.paint(context, offset.translate(_dx, 0));
+  }
+
+  @override
+  bool hitTestChildren(BoxHitTestResult result, {required Offset position}) {
+    return result.addWithPaintOffset(
+      offset: Offset(_dx, 0),
+      position: position,
+      hitTest: (BoxHitTestResult result, Offset position) =>
+          super.hitTestChildren(result, position: position),
+    );
+  }
+
+  @override
+  void applyPaintTransform(RenderBox child, Matrix4 transform) {
+    transform.translateByDouble(_dx, 0, 0, 1);
+  }
+}
+
+/// What a [_RimLightPainter] keeps between paints, owned by the widget's
+/// state so it outlives the painter each build makes.
+class _RimPaintCache {
+  final RimPathCache rim = RimPathCache();
+
+  // Where a sweep leaves from is asked once per state, not once per frame.
+  Offset? originFor;
+  RimPath? originRim;
+  double originArc = 0;
+}
+
 class _RimLightPainter extends CustomPainter {
-  _RimLightPainter(this.controller, this.shape, this.colors, this.blendMode)
-    : super(repaint: controller);
+  _RimLightPainter(
+    this.controller,
+    this.shape,
+    this.colors,
+    this.blendMode,
+    this._cache,
+    this.textDirection,
+  ) : super(repaint: controller);
 
   final RimLightController controller;
   final RoundedRectangularShape shape;
   final LiquidGlassColors colors;
   final BlendMode blendMode;
+  final TextDirection textDirection;
 
-  final RimPathCache _cache = RimPathCache();
-
-  // Where a sweep leaves from is asked once per state, not once per frame.
-  Offset? _originFor;
-  RimPath? _originRim;
-  double _originArc = 0;
+  final _RimPaintCache _cache;
 
   double _startOf(RimPath rim, Offset? origin) {
     if (origin == null) return rim.topCentre;
-    if (origin != _originFor || !identical(rim, _originRim)) {
-      _originFor = origin;
-      _originRim = rim;
-      _originArc = rim.nearest(origin);
+    if (origin != _cache.originFor || !identical(rim, _cache.originRim)) {
+      _cache.originFor = origin;
+      _cache.originRim = rim;
+      _cache.originArc = rim.nearest(origin);
     }
-    return _originArc;
+    return _cache.originArc;
   }
 
   @override
   void paint(Canvas canvas, Size size) {
     if (size.isEmpty) return;
-    final RimPath rim = _cache.of(shape, size);
+    final RimPath rim = _cache.rim.of(shape, size, textDirection);
     final RimLightController c = controller;
     final double t = c.time;
     final bool still = c.reduceMotion;
@@ -809,7 +1030,8 @@ class _RimLightPainter extends CustomPainter {
       oldDelegate.controller != controller ||
       oldDelegate.shape != shape ||
       oldDelegate.colors != colors ||
-      oldDelegate.blendMode != blendMode;
+      oldDelegate.blendMode != blendMode ||
+      oldDelegate.textDirection != textDirection;
 }
 
 double _easeOutCubic(double t) {

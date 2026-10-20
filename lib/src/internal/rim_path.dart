@@ -16,30 +16,35 @@ import '../shapes/rounded_rectangular_shape.dart';
 /// helpers here speak in "clockwise on screen" so callers never have to know
 /// which way the outline was wound.
 class RimPath {
-  RimPath(this.shape, this.size)
-    : path = shape.createOutline(size, TextDirection.ltr).toPath() {
+  RimPath(this.shape, this.size, [this.textDirection = TextDirection.ltr])
+    : path = shape.createOutline(size, textDirection).toPath() {
     final Iterator<ui.PathMetric> metrics = path.computeMetrics().iterator;
     metrics.moveNext();
     metric = metrics.current;
     length = metric.length;
-    topCentre = nearest(Offset(size.width / 2, 0));
-    final Offset ahead = metric
-        .getTangentForOffset((topCentre + 2) % length)!
-        .position;
-    _clockwise = ahead.dx >= size.width / 2;
   }
 
   final RoundedRectangularShape shape;
   final Size size;
+
+  /// Resolves a shape whose corners are given by start and end, so the rim
+  /// traces the same corners the glass under it was drawn with.
+  final TextDirection textDirection;
+
   final Path path;
   late final ui.PathMetric metric;
   late final double length;
 
   /// The arc length of the top centre of the outline, where a progress rim
   /// starts filling and an unanchored sweep leaves from.
-  late final double topCentre;
+  ///
+  /// Found on first use: light landing from a neighbour needs only [path],
+  /// and this is a search of over a hundred points along the outline.
+  late final double topCentre = nearest(Offset(size.width / 2, 0));
 
-  late final bool _clockwise;
+  late final bool _clockwise =
+      metric.getTangentForOffset((topCentre + 2) % length)!.position.dx >=
+      size.width / 2;
 
   /// The arc length [distance] clockwise from [from]; negative goes back.
   double advance(double from, double distance) =>
@@ -47,9 +52,10 @@ class RimPath {
 
   /// The arc length of the outline point nearest [point], in element space.
   ///
-  /// A coarse search then a fine one, so it is exact to well under a pixel
-  /// without sampling the whole outline finely. Callers cache the answer:
-  /// it is asked once per gesture, not per frame.
+  /// A coarse search then a fine one: exact to a 768th of the outline's
+  /// length — well under a pixel for a control, a pixel or two round a
+  /// dialog-sized panel — without sampling the whole outline finely. Callers
+  /// cache the answer: it is asked once per gesture, not per frame.
   double nearest(Offset point) {
     const int coarse = 96;
     double best = 0;
@@ -113,9 +119,18 @@ class RimPath {
 class RimPathCache {
   RimPath? _last;
 
-  RimPath of(RoundedRectangularShape shape, Size size) {
+  RimPath of(
+    RoundedRectangularShape shape,
+    Size size, [
+    TextDirection textDirection = TextDirection.ltr,
+  ]) {
     final RimPath? last = _last;
-    if (last != null && last.size == size && last.shape == shape) return last;
-    return _last = RimPath(shape, size);
+    if (last != null &&
+        last.size == size &&
+        last.textDirection == textDirection &&
+        last.shape == shape) {
+      return last;
+    }
+    return _last = RimPath(shape, size, textDirection);
   }
 }

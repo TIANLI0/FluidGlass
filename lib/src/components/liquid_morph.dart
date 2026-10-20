@@ -114,9 +114,9 @@ class RenderLiquidMorph extends RenderProxyBox {
   Animation<double> _progress;
   set progress(Animation<double> value) {
     if (value == _progress) return;
-    if (attached) _progress.removeListener(markNeedsPaint);
+    if (attached) _progress.removeListener(_onProgress);
     _progress = value;
-    if (attached) _progress.addListener(markNeedsPaint);
+    if (attached) _progress.addListener(_onProgress);
     markNeedsPaint();
   }
 
@@ -170,15 +170,24 @@ class RenderLiquidMorph extends RenderProxyBox {
   static const Curve _x = Interval(0, 0.78, curve: Curves.easeOutCubic);
   static const Curve _y = Interval(0.14, 1, curve: Curves.easeOutCubic);
 
+  /// Held still — motion reduced — the surface is shown whole at every
+  /// progress, so a tick changes nothing. Repainting on it anyway repainted the
+  /// child on every frame of the route transition, and a glass child repaints
+  /// by reading its backdrop again.
+  void _onProgress() {
+    if (_still) return;
+    markNeedsPaint();
+  }
+
   @override
   void attach(PipelineOwner owner) {
     super.attach(owner);
-    _progress.addListener(markNeedsPaint);
+    _progress.addListener(_onProgress);
   }
 
   @override
   void detach() {
-    _progress.removeListener(markNeedsPaint);
+    _progress.removeListener(_onProgress);
     super.detach();
   }
 

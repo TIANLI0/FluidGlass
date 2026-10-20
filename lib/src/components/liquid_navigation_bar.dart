@@ -154,8 +154,12 @@ class LiquidNavigationBar extends StatefulWidget
 
   /// False keeps every tap and drops everything that moves — the squash, the
   /// lean and the glow travelling through the body — for a platform asking
-  /// for reduced motion. It reaches the islands this bar builds; an action
-  /// passed in carries its own flag.
+  /// for reduced motion.
+  ///
+  /// It reaches every island, the actions passed in included: the bar owns
+  /// the finger its islands answer to, so an action cannot go on deforming
+  /// in a bar that has stopped tracking one. An action can still turn the
+  /// motion off on its own through its own flag.
   final bool isInteractive;
 
   /// Whether the bar leaves room for the status bar itself. Pass false when a
@@ -453,8 +457,16 @@ class _LiquidNavigationBarState extends State<LiquidNavigationBar> {
 
     _hasLeading = hasLeading;
     _hasTrailing = hasTrailing;
-    final Rect leadingRect = Rect.fromLTWH(16, y, slot, height);
-    final Rect trailingRect = Rect.fromLTWH(width - 16 - slot, y, slot, height);
+    // Leading and trailing are ends of the reading direction, not of the
+    // screen: in a right-to-left layout the back action sits on the right,
+    // where the title's own alignment and padding already put its start.
+    final bool isLtr =
+        (Directionality.maybeOf(context) ?? TextDirection.ltr) ==
+        TextDirection.ltr;
+    final Rect startRect = Rect.fromLTWH(16, y, slot, height);
+    final Rect endRect = Rect.fromLTWH(width - 16 - slot, y, slot, height);
+    final Rect leadingRect = isLtr ? startRect : endRect;
+    final Rect trailingRect = isLtr ? endRect : startRect;
     final Rect titleRect = Rect.fromCenter(
       center: Offset(width / 2, y + height / 2),
       width: math.max(titleWidth, 0),
@@ -501,6 +513,7 @@ class _LiquidNavigationBarState extends State<LiquidNavigationBar> {
               rect: leadingRect,
               report: _report,
               touch: _touch,
+              interactive: widget.isInteractive,
               child: widget.leading!,
             ),
           ),
@@ -511,6 +524,7 @@ class _LiquidNavigationBarState extends State<LiquidNavigationBar> {
             rect: titleRect,
             report: _report,
             touch: _touch,
+            interactive: widget.isInteractive,
             child: _TitleIsland(
               title: widget.title,
               titleLeading: widget.titleLeading,
@@ -531,6 +545,7 @@ class _LiquidNavigationBarState extends State<LiquidNavigationBar> {
               rect: trailingRect,
               report: _report,
               touch: _touch,
+              interactive: widget.isInteractive,
               child: widget.trailing!,
             ),
           ),
@@ -597,6 +612,7 @@ class _ChromeSlot extends InheritedWidget {
     required this.rect,
     required this.report,
     required this.touch,
+    required this.interactive,
     required super.child,
   });
 
@@ -617,6 +633,12 @@ class _ChromeSlot extends InheritedWidget {
 
   final _ChromeTouch touch;
 
+  /// The bar's [LiquidNavigationBar.isInteractive].
+  ///
+  /// With it false the bar installs no pointer listener, so [touch] never
+  /// moves: an island that went on waiting for it would never fire.
+  final bool interactive;
+
   static _ChromeSlot? maybeOf(BuildContext context) =>
       context.dependOnInheritedWidgetOfExactType<_ChromeSlot>();
 
@@ -625,7 +647,8 @@ class _ChromeSlot extends InheritedWidget {
       oldWidget.slot != slot ||
       oldWidget.rect != rect ||
       oldWidget.report != report ||
-      oldWidget.touch != touch;
+      oldWidget.touch != touch ||
+      oldWidget.interactive != interactive;
 }
 
 /// The title island content: an avatar and a label, sized to what it holds.
@@ -812,6 +835,11 @@ class _ChromePressState extends State<_ChromePress>
     super.dispose();
   }
 
+  /// Whether this island deforms and glows: only when both it and the bar it
+  /// sits in do.
+  bool get _interactive =>
+      widget.isInteractive && (_chrome?.interactive ?? true);
+
   /// The bar's finger moved, arrived, left or lifted.
   ///
   /// Arriving from a neighbouring island counts as a fresh press here — the
@@ -820,7 +848,7 @@ class _ChromePressState extends State<_ChromePress>
   /// far the finger has travelled since it went down.
   void _onTouch() {
     final _ChromeSlot? chrome = _chrome;
-    if (chrome == null || !widget.isInteractive) return;
+    if (chrome == null || !_interactive) return;
     final _ChromeTouch touch = chrome.touch;
     final bool mine = touch.slot == chrome.slot;
     final Offset local = touch.position - chrome.rect.topLeft;
@@ -861,7 +889,7 @@ class _ChromePressState extends State<_ChromePress>
 
   @override
   Widget build(BuildContext context) {
-    if (!widget.isInteractive) {
+    if (!_interactive) {
       final VoidCallback? onPressed = widget.onPressed;
       if (onPressed == null) return widget.child;
       return Material(
@@ -907,9 +935,15 @@ class _PressDeformation extends StatelessWidget {
               offset: highlight.offset,
               pressProgress: highlight.pressProgress,
             );
-            if (press.isIdentity) return inner!;
+            // Always a `Transform`, the identity at rest. Returning the bare
+            // child there swapped the widget in this slot at the start and end
+            // of every press, which tears the island's content down and builds
+            // it again — an avatar's image, a badge's animation, any state
+            // inside it lost twice per tap.
             return Transform(
-              transform: press.transform,
+              transform: press.isIdentity
+                  ? Matrix4.identity()
+                  : press.transform,
               alignment: Alignment.center,
               child: inner,
             );
@@ -986,6 +1020,7 @@ class LiquidNavigationAction extends StatelessWidget {
 
     return Semantics(
       button: true,
+      enabled: onPressed != null,
       label: label,
       onTap: onPressed,
       excludeSemantics: true,

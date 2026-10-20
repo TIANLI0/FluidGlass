@@ -78,6 +78,7 @@ class SpringValue extends ChangeNotifier {
     } else {
       _velocity = 0.0;
     }
+    _settled();
   }
 
   /// Springs to [target], starting from the current value and velocity.
@@ -90,6 +91,7 @@ class SpringValue extends ChangeNotifier {
     if (withVelocity != null) _velocity = withVelocity;
     if (_value == target && _velocity == 0.0) {
       _stop();
+      _settled();
       return;
     }
     _simulation = SpringSimulation(
@@ -153,11 +155,7 @@ class SpringValue extends ChangeNotifier {
       _velocity = 0.0;
       _stop();
       notifyListeners();
-      final List<VoidCallback> done = List<VoidCallback>.of(_onDone);
-      _onDone.clear();
-      for (final VoidCallback callback in done) {
-        callback();
-      }
+      _settled();
       return;
     }
     notifyListeners();
@@ -170,7 +168,26 @@ class SpringValue extends ChangeNotifier {
     _lastElapsed = Duration.zero;
   }
 
-  void stop() => _stop();
+  /// Stops where it is. Counts as settling, for [whenSettled].
+  void stop() {
+    _stop();
+    _settled();
+  }
+
+  /// Runs what [whenSettled] queued.
+  ///
+  /// On every way the animation can come to rest — running out, a snap, a
+  /// stop, a retarget to where it already is. Only running out used to count,
+  /// so a callback queued before a snap waited for some unrelated later
+  /// animation to finish, and ran then.
+  void _settled() {
+    if (_onDone.isEmpty) return;
+    final List<VoidCallback> done = List<VoidCallback>.of(_onDone);
+    _onDone.clear();
+    for (final VoidCallback callback in done) {
+      callback();
+    }
+  }
 
   @override
   void dispose() {

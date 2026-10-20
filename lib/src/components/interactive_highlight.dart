@@ -104,16 +104,29 @@ class InteractiveHighlight extends ChangeNotifier {
 
   /// Attaches the pointer handling that drives the highlight.
   ///
-  /// [onTap] fires on release however far the pointer travelled, matching
-  /// Compose's slop-free `clickable`.
-  Widget wrapGestures({required Widget child, VoidCallback? onTap}) {
+  /// [onTap] follows Compose's slop-free `clickable`: it fires on release
+  /// however far the pointer wandered on the element, and not once it has
+  /// left it or a scroll has taken the gesture — see [DragInspector.onTap].
+  ///
+  /// With [enabled] false no press starts, but the handler stays in the tree:
+  /// a control disabled under a finger still hears that finger lift and lets
+  /// its press go, and nothing below it is torn down and rebuilt on the way.
+  Widget wrapGestures({
+    required Widget child,
+    VoidCallback? onTap,
+    bool enabled = true,
+  }) {
     return DragInspector(
       behavior: HitTestBehavior.translucent,
-      onDragStart: (Offset position, Size size) => _down(position),
-      onDrag: (Offset position, Offset delta, Size size) => _move(position),
+      onDragStart: enabled
+          ? (Offset position, Size size) => _down(position)
+          : null,
+      onDrag: enabled
+          ? (Offset position, Offset delta, Size size) => _move(position)
+          : null,
       onDragEnd: _up,
       onDragCancel: _up,
-      onTap: onTap,
+      onTap: enabled ? onTap : null,
       child: child,
     );
   }

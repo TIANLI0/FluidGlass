@@ -35,6 +35,7 @@ class _ToggleContentState extends State<ToggleContent> {
                   selected: _selected,
                   onSelect: (bool value) => setState(() => _selected = value),
                   backdrop: backdrop,
+                  semanticLabel: 'Enable glass effect',
                 ),
               ),
               Padding(
@@ -52,6 +53,7 @@ class _ToggleContentState extends State<ToggleContent> {
                         onSelect: (bool value) =>
                             setState(() => _selected = value),
                         backdrop: flatBackdrop(backgroundColor),
+                        semanticLabel: 'Enable glass effect',
                       ),
                     ),
                   ),

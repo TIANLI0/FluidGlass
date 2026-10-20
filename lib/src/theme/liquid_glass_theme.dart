@@ -69,8 +69,10 @@ class LiquidGlassTheme extends InheritedWidget {
     BuildContext context,
     LiquidGlassColors colors,
   ) {
-    final MediaQueryData? media = MediaQuery.maybeOf(context);
-    if (media == null || !media.highContrast) return colors;
+    // Only this aspect: a dependency on the whole `MediaQueryData` rebuilt
+    // every component reading its colours here on every frame the keyboard
+    // animated its inset.
+    if (!(MediaQuery.maybeHighContrastOf(context) ?? false)) return colors;
     if (colors.container.a >= 1.0) return colors;
     return colors.copyWith(container: colors.container.withValues(alpha: 1.0));
   }

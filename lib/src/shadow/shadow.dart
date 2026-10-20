@@ -71,6 +71,26 @@ class GlassShadow {
     );
   }
 
+  /// Interpolates between two shadows, as [GlassInnerShadow.lerp] does.
+  static GlassShadow lerp(
+    GlassShadow start,
+    GlassShadow stop,
+    double fraction,
+  ) {
+    return GlassShadow._(
+      radius: lerpDouble(start.radius, stop.radius, fraction)!,
+      offset: Offset.lerp(start.offset, stop.offset, fraction)!,
+      color: Color.lerp(start.color, stop.color, fraction)!,
+      alpha: lerpDouble(start.alpha, stop.alpha, fraction)!,
+      blendMode: fraction < 0.5 ? start.blendMode : stop.blendMode,
+    );
+  }
+
+  @override
+  String toString() =>
+      'GlassShadow(radius: $radius, offset: $offset, color: $color, '
+      'alpha: $alpha, blendMode: $blendMode)';
+
   @override
   bool operator ==(Object other) =>
       other is GlassShadow &&
@@ -155,6 +175,11 @@ class GlassInnerShadow {
       blendMode: fraction < 0.5 ? start.blendMode : stop.blendMode,
     );
   }
+
+  @override
+  String toString() =>
+      'GlassInnerShadow(radius: $radius, offset: $offset, color: $color, '
+      'alpha: $alpha, blendMode: $blendMode)';
 
   @override
   bool operator ==(Object other) =>

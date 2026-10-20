@@ -53,7 +53,19 @@ class HomeContent extends StatelessWidget {
                   label: 'Light spill onto neighbours (experiment)',
                   onTap: () => onNavigate(CatalogDestination.labLightSpill),
                 ),
+                _ListItem(
+                  label: 'Corner radii: today vs the radiusAt fix',
+                  onTap: () => onNavigate(CatalogDestination.labCornerRadii),
+                ),
                 const _Subtitle('Liquid glass components'),
+                _ListItem(
+                  label: 'UI essentials · forms, choices & feedback',
+                  onTap: () => onNavigate(CatalogDestination.componentKit),
+                ),
+                _ListItem(
+                  label: 'Command center · fluid studio',
+                  onTap: () => onNavigate(CatalogDestination.commandPalette),
+                ),
                 _ListItem(
                   label: 'Buttons',
                   onTap: () => onNavigate(CatalogDestination.buttons),

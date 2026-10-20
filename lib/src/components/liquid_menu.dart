@@ -491,7 +491,17 @@ class _LiquidMenuState extends State<LiquidMenu> with TickerProviderStateMixin {
           ? OverlayChildLocation.rootOverlay
           : OverlayChildLocation.nearestOverlay,
       overlayChildBuilder: buildOverlayChild,
-      child: anchor,
+      // Back closes an open menu, as it closes any other popup. The menu is
+      // not a route of its own, so without this the system back button — and
+      // a screen reader's back or escape gesture, which arrive the same way —
+      // popped the page underneath and left the menu nothing to belong to.
+      child: PopScope(
+        canPop: !_isOpen,
+        onPopInvokedWithResult: (bool didPop, Object? _) {
+          if (!didPop) _close();
+        },
+        child: anchor,
+      ),
     );
   }
 }

@@ -243,6 +243,8 @@ void main() {
           isSelected: true,
           hasSelectedState: true,
           isInMutuallyExclusiveGroup: true,
+          // A screen reader can choose it, not only hear it.
+          hasTapAction: true,
           label: 'Follow system, English',
         ),
       );

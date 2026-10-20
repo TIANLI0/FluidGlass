@@ -98,4 +98,45 @@ void main() {
     expect(r, greaterThan(g + 30));
     expect(r, greaterThan(b + 30));
   });
+
+  // Regression: every tick of a slide rebuilt the panel, every segment's
+  // interaction and the thumb's glass, and moved the thumb by
+  // `Positioned`, laying the whole stack out again.
+  testWidgets('a slide rebuilds no segment or glass per tick', (
+    WidgetTester tester,
+  ) async {
+    Widget control(int selected) => MaterialApp(
+      home: Center(
+        child: SizedBox(
+          width: 300,
+          child: LiquidSegmentedControl(
+            selectedIndex: selected,
+            onSelected: (_) {},
+            backdrop: emptyBackdrop,
+            segments: const <Widget>[Text('A'), Text('B'), Text('C')],
+          ),
+        ),
+      ),
+    );
+    await tester.pumpWidget(control(0));
+    await tester.pumpAndSettle();
+    await tester.pumpWidget(control(2));
+
+    final Map<Type, int> builds = <Type, int>{};
+    debugOnRebuildDirtyWidget = (Element element, bool builtOnce) {
+      final Type type = element.widget.runtimeType;
+      // Not the labels' own text style: the selected label animating its
+      // weight is a transition of its own, and meant.
+      if (type == LiquidInteraction || type == DrawBackdrop) {
+        builds[type] = (builds[type] ?? 0) + 1;
+      }
+    };
+    addTearDown(() => debugOnRebuildDirtyWidget = null);
+    for (int i = 0; i < 30; i++) {
+      await tester.pump(const Duration(milliseconds: 16));
+    }
+    debugOnRebuildDirtyWidget = null;
+    expect(builds, isEmpty, reason: '$builds');
+    await tester.pumpAndSettle();
+  });
 }

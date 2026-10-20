@@ -31,3 +31,5 @@ flutter:
     - shaders/probe_sdf_debug.frag
     - shaders/probe_glass_onepass.frag
     - shaders/probe_glass_spiral.frag
+    - shaders/lab_refraction_centered.frag
+    - shaders/lab_highlight_centered.frag

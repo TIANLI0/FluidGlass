@@ -77,15 +77,20 @@ class PlainHighlightStyle extends HighlightStyle {
   int get hashCode => Object.hash(color, blendMode);
 }
 
-/// A rim lit from a given direction, brightest where the edge normal faces the
-/// light.
+/// A rim lit along a direction, brightest where the edge's normal runs with it
+/// — facing the light or facing straight away — and faintest where the edge
+/// runs across it.
 class DefaultHighlightStyle extends HighlightStyle {
   const DefaultHighlightStyle({
     this.color = const Color(0x80FFFFFF), // white, alpha 0.5
     this.blendMode = BlendMode.plus,
     this.angle = 45.0,
     this.falloff = 1.0,
-  });
+  }) : assert(
+         falloff > 0,
+         'falloff must be positive: the shader raises to it, and pow(0, 0) '
+         'is undefined where the edge runs across the light.',
+       );
 
   @override
   final Color color;
@@ -93,7 +98,9 @@ class DefaultHighlightStyle extends HighlightStyle {
   @override
   final BlendMode blendMode;
 
-  /// The direction of the light, in degrees.
+  /// The direction of the light, in degrees clockwise from the positive x axis
+  /// on screen, where y points down: the default 45° runs from the top-left to
+  /// the bottom-right.
   final double angle;
 
   /// How sharply the rim fades away from the lit direction.
@@ -157,13 +164,24 @@ class DefaultHighlightStyle extends HighlightStyle {
 /// A rim that is white where the edge faces the light and black where it faces
 /// away, composited normally rather than added.
 class AmbientHighlightStyle extends HighlightStyle {
-  const AmbientHighlightStyle({this.intensity = 0.38});
+  const AmbientHighlightStyle({this.intensity = 0.38})
+    : assert(
+        intensity >= 0 && intensity <= 1,
+        'intensity is an opacity, 0 to 1.',
+      );
 
   /// The opacity of the rim.
   final double intensity;
 
   @override
-  Color get color => Color.fromARGB((intensity * 255).round(), 255, 255, 255);
+  Color get color => Color.fromARGB(
+    // Clamped: `fromARGB` keeps the low eight bits, so 1.01 became an alpha of
+    // 2 on the flat fallback — a rim that all but vanished.
+    (intensity.clamp(0.0, 1.0) * 255).round(),
+    255,
+    255,
+    255,
+  );
 
   @override
   BlendMode get blendMode => BlendMode.srcOver;

@@ -1,5 +1,185 @@
 # Changelog
 
+## Unreleased
+
+### UI essentials
+
+- Added 15 reusable widgets and `showLiquidToast`: native Form-aware text and
+  search inputs; checkbox, typed radio, choice/filter chips; controlled generic
+  select and a separate Form-owned select; settings section/row/switch/slider;
+  inline notices, progress and empty state. No added package dependency.
+- Explicit controlled values, nullable disabled actions, borrowed controller
+  and focus ownership, native IME and keyboard behavior. Search supports
+  debounce/submit flush and cancels stale pending edits. Select preserves the
+  current choice on dismissal and rejects options removed/disabled while open.
+- Settings rows share a glass pane, switches expose one activation path, and
+  labeled sliders support units and start/end callbacks. Progress animates from
+  its current display and rests when settled; decorative motion supports system
+  reduced-motion settings. Toasts use ScaffoldMessenger and native actions.
+- Added a mist-white/system-blue workspace demo with responsive forms,
+  validation/reset, cancellable local save feedback, searchable choices,
+  project filters, empty state, dark appearance and large-text coverage.
+- Single-child buttons now constrain long labels and treat height as a minimum,
+  allowing large text to wrap. Existing ordinary-size and square-button layouts
+  remain unchanged; parent constraints still apply.
+- Added the UI essentials integration guide, screenshots and regression tests.
+
+### Command center
+
+- Added `LiquidCommand`, `LiquidCommandPaletteLabels`, `LiquidCommandPalette`
+  and `showLiquidCommandPalette`: grouped, ranked multi-term search across
+  labels, descriptions, categories and keywords; keyboard, touch and screen
+  reader activation; lazy result construction; async execution, errors and
+  retry; localization and theme overrides.
+- The new surface uses one glass shell and a continuous spring-driven selection
+  beam. Search results crossfade in a fixed viewport. Modal entry and exit
+  share a reversible `LiquidMorph` anchored to the launcher. Compact mode
+  preserves input state when keyboard space is limited; reduced motion skips
+  decorative animation.
+- Added a Fluid studio catalog screen, light/dark/mobile screenshots and focused
+  interaction, lifecycle, accessibility and animation regression tests.
+
+### Component usability
+
+- `LiquidButton` accepts `child` as an alternative to `children`, plus a
+  tooltip. Buttons, toggles, sliders and segmented controls support keyboard
+  focus, visible focus borders and application-owned `FocusNode`s.
+- Toggles and buttons activate with Enter/Space; sliders and segmented controls
+  support arrows and Home/End, respecting RTL for horizontal keys.
+- Toggle, slider and segmented-control actions can be null to disable every
+  input method. Toggle track taps work across its full width, and cancelled
+  toggle drags no longer commit a choice.
+- Sliders default to range 0..1 and visibility threshold 0.001, accept
+  `onChangeStart`, `semanticLabel` and `semanticFormatterCallback`, and reserve
+  a 48-pixel touch target. Set `touchTargetHeight: 24` for the old layout.
+  Snapped values are deduplicated; cancellation does not call `onChangeEnd`.
+- Segmented controls validate their selection and dimensions and use a finite
+  fallback width inside unconstrained rows.
+- Slider, toggle and segmented-control translations run in the render tree
+  without building widgets on spring ticks. Untinted buttons skip surface
+  isolation, removing an offscreen pass while preserving tinted blending.
+
+### Fixed
+
+- A slider, switch, segmented control or tab-bar pill inside a list keeps a
+  sideways drag: the list no longer scrolls under the finger as the drag
+  drifts, and no longer cancels the drag halfway. `DragInspector.claimAxis`
+  enters the gesture arena for drags along that axis, as Flutter's own
+  `Slider` does — whichever axis passes the touch slop first takes the pointer,
+  so a vertical swipe that starts on one of them still scrolls the list. The
+  events still arrive with no slop, so the controls answer as soon as they are
+  touched. Apps that wrapped these controls in an empty horizontal-drag
+  `GestureDetector` to get this can drop it.
+- `LiquidSlider` reports nothing until the arena gives it the drag
+  (`DragInspector.onClaim`): the sideways wobble at the start of a vertical
+  swipe over the thumb used to move the caller's value before the list took
+  the gesture. On its own, a slider still reports from the first movement.
+- A tap on a `LiquidToggle`'s knob flips it once. The knob committed its taps
+  from a raw listener the arena never saw, so a switch in a tappable row was
+  flipped again by the row and sprang back; every tap on the switch now goes
+  through one recogniser that wins over the row's. A knob dragged and let go on
+  the side it started from no longer reports its unchanged value.
+- `LiquidSearchField` delivers a pending value right after the frame in which
+  its debounce changes to zero, instead of on a zero timer that waited for the
+  clock to move.
+- A glass element fading through its `layerBlock` no longer escapes an
+  ancestor's transform or clip. The fade was an `OpacityLayer` even when
+  nothing in the element composited, and a layer never sees what an ancestor
+  applied straight to the canvas: under a plain `Transform.scale(0.5)` a fading
+  element drew at full size, and under a `ClipRect` outside it, for every frame
+  its alpha was below one. The fade is now a save-layer on the canvas there.
+- `LiquidNavigationBar(isInteractive: false)` fires its actions. The bar
+  installs no pointer listener with its motion off, and an action left at its
+  own default went on waiting for the bar's finger — a reader who asked for
+  reduced motion could not go back. The bar's flag now reaches every island.
+- `LiquidToggle` and `LiquidSegmentedControl` stop asking for frames when their
+  value changes under a muted ticker. On any route covered by an opaque one the
+  settle loop re-armed itself every frame, forever, waiting for a value that a
+  muted ticker never moves. The release now waits on the value's own ticks.
+- A press is cancelled once the finger leaves the element or a scroll takes it
+  over, as Compose's `clickable` is — a finger wandering *inside* the element
+  still fires it. Before, lifting fired whatever the finger went down on: a row
+  of a scrolling sheet, a button slid off to think better of it, Cancel after
+  sliding to OK.
+- A child is no longer torn down and rebuilt by a `RimLight` failure shake, a
+  press on a navigation-bar island, or a `LiquidButton` being enabled or
+  disabled — each switched the widget in one slot between the bare child and a
+  wrapper. A sign-in form lost what had been typed on the frame it said "no".
+- `GlassShapeBorder` strokes on the side its `strokeAlign` asks for; inside and
+  outside were swapped.
+- `LiquidFusion` builds its fused body once the fragment programs load, follows
+  a device-tier change, and drops to plain under high contrast unless its own
+  `quality` is pinned. It chose once, at build, so without
+  `FluidGlass.ensureInitialized` a first screen stayed three separate panels
+  until something unrelated rebuilt it.
+- A component follows a configuration that changes after it was built:
+  `LiquidBottomTabs.tabsCount`, a segmented control's segment count and height,
+  `LiquidSlider.valueRange`, the backdrop of a toggle or slider, and
+  `LiquidAdaptivePanel.interval`. `DampedDragAnimation.valueRange` and
+  `pressedScale` are settable for this.
+- `LiquidSlider`: a track too short for the thumb no longer throws, a slider
+  given no width falls back to a 200-pixel track, an empty range sits at its
+  start instead of drawing full, and a reversed range can be dragged.
+- `LiquidToggle`: a parent rebuilding mid-drag no longer springs the knob off
+  the finger.
+- `RimLight` lays its child out as if the light were not there (a tight slot
+  used to shrink it), keeps its outline measurements across rebuilds, traces
+  start/end corners in right-to-left layouts, and resumes a loading comet when
+  reduced motion is turned off again.
+- A button disabled under a finger lets its press go; `LiquidInteraction`
+  disabled mid-press no longer fires.
+- `SpringValue.whenSettled` runs on a snap, a stop or a retarget to where the
+  value already is, not only when a spring runs out.
+- The Material ink glow no longer shows a hard arc on a control squarer than
+  3:2.
+- One fragment program failing to load no longer disables every effect, and the
+  error reported is the one for the path a consumer asked for.
+- Two uses of one shader key in an effect chain each get their own shader, and
+  a key reused with a different program gets that program.
+- `LiquidMenu` closes on the system back button (and a screen reader's back or
+  escape) instead of popping the page underneath it.
+
+### Performance
+
+- Glass no longer rebuilds on every frame of the keyboard sliding in:
+  `DrawBackdrop` and `LiquidGlassTheme.of` read `MediaQuery.highContrastOf`
+  rather than depending on the whole `MediaQueryData`.
+- `LiquidSlider` stops re-capturing its track on every frame of a press: 29
+  captures in 30 frames of a thumb held still, 49 for one press, now one or two
+  while the thumb grows. The fill repaints only when its width changes.
+- `LiquidSegmentedControl` rebuilds three translations per tick instead of the
+  panel, every segment and the thumb's glass, and moves the thumb without a
+  layout.
+- `LiquidAdaptivePanel` stops rasterising and reading back its thumbnail every
+  second on a static screen, weights its reading by alpha (transparent capture
+  pixels read as black), and rebuilds its content only when the colour flips.
+- `LiquidBottomTabs` keeps its accent copy's outlines instead of re-solving the
+  continuous-corner paths on every frame of a press or slide.
+- `LiquidMorph` no longer repaints its child on every tick under reduced
+  motion; `GlassLightField` no longer repaints every receiver when a dark
+  source leaves; the fused body's shadow no longer repaints on every rebuild.
+
+### Accessibility
+
+- `LiquidSlider` is a slider to a screen reader: its value and a step either
+  way. `LiquidToggle` can be flipped, not only read. Bottom tabs and segments
+  are selectable buttons of a set. `LiquidButton` is a button, disabled or not;
+  a sheet row can be chosen; `LiquidDialog` names its route by its title; a
+  progress `RimLight` reports how far along it is; a disabled navigation action
+  says so.
+- `LiquidToggle`, `LiquidSlider` and `LiquidSegmentedControl` honour reduced
+  motion: a value they move to on their own jumps there.
+- `LiquidNavigationBar` places leading and trailing by reading direction.
+
+### Documentation
+
+- `RenderDrawBackdrop.useCompositorLens` and `BackdropLayer.pixelRatio` no
+  longer quote synthetic or pre-region-capture numbers as wins; the README's
+  live-source section says what the measurements show now.
+- `DragInspector.onTap`, the highlight styles' light direction,
+  `LiquidMagnifier.size` and the fusion shader's blur taps describe what the
+  code does.
+
 ## 0.1.30
 
 ### Added

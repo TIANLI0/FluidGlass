@@ -148,6 +148,28 @@ void main() {
           'stops',
     );
   });
+
+  // Regression: only a spring running out ran what `whenSettled` queued, so a
+  // callback queued before a snap waited for an unrelated later animation.
+  test('a snap or a stop settles what was waiting for it', () {
+    final SpringValue spring = SpringValue(vsync: const TestVSync(), value: 0);
+    addTearDown(spring.dispose);
+    int settled = 0;
+
+    spring.animateTo(1, springOf(1, 300));
+    spring.whenSettled(() => settled++);
+    spring.snapTo(1);
+    expect(settled, 1);
+
+    spring.animateTo(0, springOf(1, 300));
+    spring.whenSettled(() => settled++);
+    spring.stop();
+    expect(settled, 2);
+
+    // Idle already: immediately, as before.
+    spring.whenSettled(() => settled++);
+    expect(settled, 3);
+  });
 }
 
 class _Vsync extends StatefulWidget {

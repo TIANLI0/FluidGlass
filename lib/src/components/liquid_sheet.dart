@@ -289,6 +289,10 @@ class _SheetRowState extends State<_SheetRow> {
       inMutuallyExclusiveGroup: true,
       selected: item.isSelected,
       label: item.detail == null ? item.label : '${item.label}, ${item.detail}',
+      // The row's tap goes to the pointer inspector below, which a screen
+      // reader cannot reach; without this the row said "button" and could not
+      // be pressed.
+      onTap: () => widget.onSelected(item),
       child: ExcludeSemantics(
         child: DragInspector(
           behavior: HitTestBehavior.opaque,

@@ -35,6 +35,22 @@ class LiquidBottomTabScale extends InheritedNotifier<Listenable> {
   }
 }
 
+/// Tells a [LiquidBottomTab] whether it is the selected one, for the screen
+/// reader. Placed round each child of the visible row; the accent copy the pill
+/// magnifies has none, and is excluded from semantics anyway.
+class _TabSelection extends InheritedWidget {
+  const _TabSelection({required this.selected, required super.child});
+
+  final bool selected;
+
+  static _TabSelection? maybeOf(BuildContext context) =>
+      context.dependOnInheritedWidgetOfExactType<_TabSelection>();
+
+  @override
+  bool updateShouldNotify(_TabSelection oldWidget) =>
+      oldWidget.selected != selected;
+}
+
 /// One tab of a [LiquidBottomTabs].
 class LiquidBottomTab extends StatelessWidget {
   const LiquidBottomTab({
@@ -52,27 +68,38 @@ class LiquidBottomTab extends StatelessWidget {
     final Listenable? notifier = context
         .dependOnInheritedWidgetOfExactType<LiquidBottomTabScale>()
         ?.notifier;
+    final _TabSelection? selection = _TabSelection.maybeOf(context);
     return Expanded(
-      child: ClipPath(
-        clipper: const GlassShapeClipper(Capsule()),
-        // Slop-free, like Compose's `clickable`: nudging a tab label sideways
-        // must not silently swallow the tap.
-        child: DragInspector(
-          onTap: onPressed,
-          behavior: HitTestBehavior.opaque,
-          child: ListenableBuilder(
-            listenable: notifier ?? const AlwaysStoppedAnimation<double>(0),
-            builder: (BuildContext context, Widget? _) {
-              return Transform.scale(
-                scale: scale(),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  spacing: 2,
-                  children: children,
-                ),
-              );
-            },
+      // A tab, as a screen reader should hear it: one of a set, this one
+      // selected or not, and activated the way a tap activates it. Without it
+      // the bar read as loose labels with nothing to press.
+      child: Semantics(
+        container: true,
+        button: true,
+        inMutuallyExclusiveGroup: selection != null,
+        selected: selection?.selected ?? false,
+        onTap: onPressed,
+        child: ClipPath(
+          clipper: const GlassShapeClipper(Capsule()),
+          // Slop-free, like Compose's `clickable`: nudging a tab label
+          // sideways must not silently swallow the tap.
+          child: DragInspector(
+            onTap: onPressed,
+            behavior: HitTestBehavior.opaque,
+            child: ListenableBuilder(
+              listenable: notifier ?? const AlwaysStoppedAnimation<double>(0),
+              builder: (BuildContext context, Widget? _) {
+                return Transform.scale(
+                  scale: scale(),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    spacing: 2,
+                    children: children,
+                  ),
+                );
+              },
+            ),
           ),
         ),
       ),
@@ -102,7 +129,15 @@ class LiquidBottomTabs extends StatefulWidget {
     required this.tabsCount,
     required this.children,
     this.isInteractive = true,
-  });
+  }) : assert(tabsCount > 0, 'A tab bar needs at least one tab.'),
+       assert(
+         children.length == tabsCount,
+         'tabsCount must match the number of children.',
+       ),
+       assert(
+         selectedTabIndex >= 0 && selectedTabIndex < tabsCount,
+         'selectedTabIndex must name one of the tabs.',
+       );
 
   final int selectedTabIndex;
   final ValueChanged<int> onTabSelected;
@@ -189,6 +224,14 @@ class _LiquidBottomTabsState extends State<LiquidBottomTabs>
   @override
   void didUpdateWidget(LiquidBottomTabs oldWidget) {
     super.didUpdateWidget(oldWidget);
+    // Before the index: a tab added after sign-in has to be in range by the
+    // time the pill is sent to it, or it is clamped onto the old last tab.
+    if (widget.tabsCount != oldWidget.tabsCount) {
+      _animation.valueRange = (
+        start: 0,
+        end: (widget.tabsCount - 1).toDouble(),
+      );
+    }
     if (widget.selectedTabIndex != _currentIndex) {
       _setCurrentIndex(widget.selectedTabIndex, notify: false);
     }
@@ -357,7 +400,13 @@ class _LiquidBottomTabsState extends State<LiquidBottomTabs>
                       padding: const EdgeInsets.all(_inset),
                       child: Row(
                         crossAxisAlignment: CrossAxisAlignment.center,
-                        children: widget.children,
+                        children: <Widget>[
+                          for (int i = 0; i < widget.children.length; i++)
+                            _TabSelection(
+                              selected: i == widget.selectedTabIndex,
+                              child: widget.children[i],
+                            ),
+                        ],
                       ),
                     ),
                   ),
@@ -426,6 +475,8 @@ class _LiquidBottomTabsState extends State<LiquidBottomTabs>
                 child: IgnorePointer(
                   ignoring: !widget.isInteractive,
                   child: DragInspector(
+                    // The pill is dragged along the bar.
+                    claimAxis: Axis.horizontal,
                     onDragStart: (Offset position, Size size) {
                       _interactiveHighlight.handleDown(position);
                       _animation.handleDragStart(position);
@@ -545,6 +596,35 @@ class _AccentGlassBackdrop extends Backdrop {
   final FragmentShaderCache _rimShaders = FragmentShaderCache();
   final BakedDecoration _shadowBake = BakedDecoration();
 
+  // The copy's outlines, kept while their sizes hold — which is always, short
+  // of a resize. A continuous-corner capsule is twelve cubics solved afresh,
+  // and a new path every frame also misses Impeller's tessellation cache: the
+  // row's outline (clip and rim) and one per tab under the pill were rebuilt
+  // on every frame of a press or a slide. The same memo `DrawBackdrop` keeps.
+  static const RoundedRectangularShape _shape = Capsule();
+  (Size, TextDirection)? _rowKey;
+  GlassOutline? _rowOutline;
+  RectangleCorners? _rowCorners;
+  (Size, TextDirection)? _tabKey;
+  GlassOutline? _tabOutline;
+
+  GlassOutline _rowOutlineFor(Size size, TextDirection direction) {
+    if (_rowKey != (size, direction)) {
+      _rowKey = (size, direction);
+      _rowOutline = _shape.createOutline(size, direction);
+      _rowCorners = _shape.corners(size, direction);
+    }
+    return _rowOutline!;
+  }
+
+  GlassOutline _tabOutlineFor(Size size, TextDirection direction) {
+    if (_tabKey != (size, direction)) {
+      _tabKey = (size, direction);
+      _tabOutline = _shape.createOutline(size, direction);
+    }
+    return _tabOutline!;
+  }
+
   @override
   bool get isCoordinatesDependent => true;
 
@@ -620,8 +700,8 @@ class _AccentGlassBackdrop extends Backdrop {
     final TextDirection direction = context.textDirection;
     final double dpr = context.devicePixelRatio;
     final GlassQuality quality = context.quality;
-    const RoundedRectangularShape shape = Capsule();
-    final GlassOutline outline = shape.createOutline(rowSize, direction);
+    const RoundedRectangularShape shape = _shape;
+    final GlassOutline outline = _rowOutlineFor(rowSize, direction);
     final double progress = owner._animation.pressProgress;
 
     final Canvas canvas = context.canvas;
@@ -715,7 +795,7 @@ class _AccentGlassBackdrop extends Backdrop {
       if (!tab.overlaps(window)) continue;
       canvas.save();
       canvas.translate(tab.left, tab.top);
-      shape.createOutline(tab.size, direction).clip(canvas);
+      _tabOutlineFor(tab.size, direction).clip(canvas);
       canvas.translate(-tab.left, -tab.top);
       if (scale != 1.0) {
         final Offset centre = tab.center;
@@ -735,7 +815,7 @@ class _AccentGlassBackdrop extends Backdrop {
       rowSize,
       outline,
       Highlight.standard.copyWith(alpha: progress),
-      shape.corners(rowSize, direction),
+      _rowCorners!,
       _rimShaders,
       dpr,
       shadeRim: quality.hasShadedRim,

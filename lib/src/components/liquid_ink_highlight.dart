@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
@@ -190,9 +191,13 @@ class LiquidInkHighlight extends InteractiveInkFeature {
       rect,
       Paint()..color = color.withValues(alpha: color.a * opacity * 0.35),
     );
+    // At least as far as the gradient reaches, one and a half short sides
+    // out. A circle of the long side alone stopped short of that on anything
+    // squarer than 3:2 — a hard arc across a square button pressed near a
+    // corner, where the glow was still a third on.
     canvas.drawCircle(
       position,
-      rect.longestSide,
+      math.max(rect.longestSide, rect.shortestSide * 1.5),
       Paint()
         ..shader =
             RadialGradient(

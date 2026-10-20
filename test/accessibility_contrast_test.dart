@@ -182,4 +182,62 @@ void main() {
       reason: 'a showcase screen may hold the liquid tier deliberately',
     );
   });
+
+  // Regression: both halves read the whole `MediaQueryData`, so every glass
+  // element — and every component reading its colours — rebuilt on each frame
+  // of the keyboard sliding in, for a flag that had not changed.
+  testWidgets('a keyboard inset animating does not rebuild the glass', (
+    WidgetTester tester,
+  ) async {
+    final ValueNotifier<double> inset = ValueNotifier<double>(0);
+    addTearDown(inset.dispose);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: ValueListenableBuilder<double>(
+          valueListenable: inset,
+          builder: (BuildContext context, double bottom, Widget? child) =>
+              MediaQuery(
+                data: MediaQuery.of(
+                  context,
+                ).copyWith(viewInsets: EdgeInsets.only(bottom: bottom)),
+                child: child!,
+              ),
+          child: Scaffold(
+            resizeToAvoidBottomInset: false,
+            body: Column(
+              children: <Widget>[
+                LiquidButton(
+                  onPressed: () {},
+                  backdrop: emptyBackdrop,
+                  children: const <Widget>[Text('A')],
+                ),
+                LiquidToggle(
+                  selected: false,
+                  onSelect: (_) {},
+                  backdrop: emptyBackdrop,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    int glassBuilds = 0;
+    debugOnRebuildDirtyWidget = (Element element, bool builtOnce) {
+      if (element.widget is DrawBackdrop ||
+          element.widget is LiquidToggle ||
+          element.widget is LiquidButton) {
+        glassBuilds++;
+      }
+    };
+    addTearDown(() => debugOnRebuildDirtyWidget = null);
+    for (int frame = 1; frame <= 10; frame++) {
+      inset.value = frame * 30.0;
+      await tester.pump(const Duration(milliseconds: 16));
+    }
+    debugOnRebuildDirtyWidget = null;
+    expect(glassBuilds, 0);
+  });
 }

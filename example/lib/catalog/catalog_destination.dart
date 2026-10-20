@@ -1,6 +1,9 @@
 enum CatalogDestination {
   home,
 
+  commandPalette,
+  componentKit,
+
   buttons,
   toggle,
   slider,
@@ -30,4 +33,5 @@ enum CatalogDestination {
   labVelocityBlur,
   labLightState,
   labLightSpill,
+  labCornerRadii,
 }

@@ -179,6 +179,22 @@ class LiquidDialog extends StatelessWidget {
       if (scrollable) body = SingleChildScrollView(child: body);
     }
 
+    // As the framework's own dialog does: the route is scoped here, and named by
+    // the title, so a screen reader announces the dialog as it opens.
+    return Semantics(
+      scopesRoute: true,
+      namesRoute: title != null,
+      explicitChildNodes: true,
+      label: title,
+      child: _buildDialog(context, colors, body),
+    );
+  }
+
+  Widget _buildDialog(
+    BuildContext context,
+    LiquidGlassColors colors,
+    Widget? body,
+  ) {
     return Padding(
       // The keyboard is added to the inset, as the framework's own dialog does:
       // a dialog with a field in it otherwise sits under the keyboard it just

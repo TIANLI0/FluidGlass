@@ -44,7 +44,8 @@ class LiquidMagnifier extends StatelessWidget {
   /// here, and [CombinedBackdrop] is usually what a loupe wants.
   final Backdrop backdrop;
 
-  /// The size of the loupe itself. Ignored when [child] sizes itself.
+  /// The size of the loupe itself, when it has no [child]. With one, the
+  /// child's own size is the loupe's and this is not read.
   final Size size;
 
   /// How far the sampled pixels are scaled up, about the loupe's centre.

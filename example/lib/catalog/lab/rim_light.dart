@@ -54,8 +54,8 @@ class RimPath {
     double bestDistance = double.infinity;
     for (int i = 0; i < samples; i++) {
       final double s = length * i / samples;
-      final double d = (metric.getTangentForOffset(s)!.position - point)
-          .distanceSquared;
+      final double d =
+          (metric.getTangentForOffset(s)!.position - point).distanceSquared;
       if (d < bestDistance) {
         bestDistance = d;
         best = s;
@@ -223,14 +223,10 @@ void paintFaceWash(
     c,
     r,
     Paint()
-      ..shader = ui.Gradient.radial(
-        c,
-        r,
-        <Color>[
-          color.withValues(alpha: color.a * strength),
-          color.withValues(alpha: 0),
-        ],
-      )
+      ..shader = ui.Gradient.radial(c, r, <Color>[
+        color.withValues(alpha: color.a * strength),
+        color.withValues(alpha: 0),
+      ])
       ..blendMode = BlendMode.plus,
   );
   canvas.restore();
@@ -242,7 +238,8 @@ double easeOutCubic(double t) {
   return 1 - u * u * u;
 }
 
-double easeInOutSine(double t) => -(math.cos(math.pi * t.clamp(0.0, 1.0)) - 1) / 2;
+double easeInOutSine(double t) =>
+    -(math.cos(math.pi * t.clamp(0.0, 1.0)) - 1) / 2;
 
 /// A lab screen's backdrop: the catalog wallpaper, dimmed so that light drawn
 /// over the glass has something to be brighter than.

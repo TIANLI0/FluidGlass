@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../fluid_glass.dart';
+import '../internal/control_focus.dart';
 import '../internal/drag_deformation.dart';
 
 /// A capsule of liquid glass that squashes and slides under the finger.
@@ -15,8 +16,17 @@ class LiquidButton extends StatefulWidget {
     this.height = 48,
     this.padding = const EdgeInsets.symmetric(horizontal: 16),
     this.spacing = 8,
-    required this.children,
-  });
+    this.child,
+    this.children = const <Widget>[],
+    this.tooltip,
+    this.focusNode,
+    this.autofocus = false,
+  }) : assert(
+         child == null || children.length == 0,
+         'Supply child or children, not both.',
+       ),
+       assert(height > 0 && height < double.infinity),
+       assert(spacing >= 0 && spacing < double.infinity);
 
   /// Null disables the button: no gestures, no press deformation, no highlight.
   ///
@@ -32,7 +42,8 @@ class LiquidButton extends StatefulWidget {
   final Color? tint;
   final Color? surfaceColor;
 
-  /// The button's height. Its width comes from [children] plus [padding].
+  /// The button's minimum height. Content can grow for large text, within the
+  /// parent's constraints. Its width comes from [child]/[children] and [padding].
   ///
   /// A square button — [height] with children that measure the same across —
   /// is a circle, since the shape is a capsule.
@@ -46,6 +57,15 @@ class LiquidButton extends StatefulWidget {
   final double spacing;
 
   final List<Widget> children;
+
+  /// Content for a single label or icon, constrained to the available width.
+  /// Long labels can wrap. Use [children] for an explicitly laid-out spaced row.
+  final Widget? child;
+
+  /// A hover hint and accessible description, useful for icon buttons.
+  final String? tooltip;
+  final FocusNode? focusNode;
+  final bool autofocus;
 
   @override
   State<LiquidButton> createState() => _LiquidButtonState();
@@ -89,41 +109,88 @@ class _LiquidButtonState extends State<LiquidButton>
 
   @override
   Widget build(BuildContext context) {
-    Widget content = SizedBox(
-      height: widget.height,
+    Widget content = ConstrainedBox(
+      constraints: BoxConstraints(minHeight: widget.height),
       child: Padding(
         padding: widget.padding,
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          mainAxisAlignment: MainAxisAlignment.center,
-          crossAxisAlignment: CrossAxisAlignment.center,
-          spacing: widget.spacing,
-          children: widget.children,
-        ),
+        child: widget.child != null
+            ? Center(widthFactor: 1, heightFactor: 1, child: widget.child)
+            : Row(
+                mainAxisSize: MainAxisSize.min,
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.center,
+                spacing: widget.spacing,
+                children: widget.children,
+              ),
       ),
     );
 
     final VoidCallback? onPressed = widget.onPressed;
     final bool isEnabled = onPressed != null;
 
-    if (!isEnabled) {
-      // Nothing wrapped: no gesture arena entry, no press animation to leave
-      // running, and no InkWell that would swallow the tap without acting on it.
-    } else if (widget.isInteractive) {
+    if (widget.isInteractive) {
       // The tap is reported by the same slop-free inspector that drives the
       // press highlight, so pushing the glass around under a finger and then
       // releasing still counts as a press, as it does in Compose. A
       // GestureDetector would enter the arena and self-reject past kTouchSlop.
-      content = _interactiveHighlight.wrapOverlay(
-        child: _interactiveHighlight.wrapGestures(
-          child: content,
-          onTap: onPressed,
+      //
+      // Wrapped whether or not the button is enabled, so enabling it keeps
+      // the tree it had. Leaving a disabled button unwrapped rebuilt its
+      // children from scratch on every change, and a button disabled while
+      // pressed never heard the finger lift and stayed swollen and lit.
+      //
+      // Disabled, it ignores pointers, so it is inert rather than absorbing: a
+      // tap reaches whatever is behind it. A finger already down keeps the
+      // route it was given, so it is still heard lifting.
+      content = IgnorePointer(
+        ignoring: !isEnabled,
+        child: _interactiveHighlight.wrapOverlay(
+          child: _interactiveHighlight.wrapGestures(
+            child: content,
+            onTap: onPressed,
+            enabled: isEnabled,
+          ),
         ),
       );
+    } else if (!isEnabled) {
+      // Nothing wrapped: no InkWell that would swallow the tap without acting
+      // on it.
     } else {
       content = Material(
         type: MaterialType.transparency,
-        child: InkWell(onTap: onPressed, child: content),
+        child: InkWell(
+          onTap: onPressed,
+          canRequestFocus: false,
+          child: content,
+        ),
+      );
+    }
+
+    // A button, as a screen reader should hear it, disabled or not. The slop-free
+    // inspector reports taps to nothing but the pointer, so the action is given
+    // here; an InkWell brings its own.
+    content = Semantics(
+      button: true,
+      enabled: isEnabled,
+      tooltip: widget.tooltip,
+      onTap: widget.isInteractive && isEnabled ? onPressed : null,
+      child: content,
+    );
+    content = ControlFocus(
+      enabled: isEnabled,
+      focusNode: widget.focusNode,
+      autofocus: widget.autofocus,
+      onActivate: onPressed,
+      child: content,
+    );
+    if (widget.tooltip != null) {
+      content = IgnorePointer(
+        ignoring: !isEnabled,
+        child: Tooltip(
+          message: widget.tooltip!,
+          excludeFromSemantics: true,
+          child: content,
+        ),
       );
     }
 
@@ -140,8 +207,14 @@ class _LiquidButtonState extends State<LiquidButton>
               ..vibrancy()
               ..blur(2)
               ..lens(12, 24),
-      layerBlock: widget.isInteractive && isEnabled ? _layerBlock : null,
-      onDrawSurface: _drawSurface,
+      // Kept while disabled: a disabled button does not press, so the block is
+      // the identity, and dropping it would put a transform in and out of the
+      // tree above the content.
+      layerBlock: widget.isInteractive ? _layerBlock : null,
+      onDrawSurface: widget.tint != null || widget.surfaceColor != null
+          ? _drawSurface
+          : null,
+      isolateSurface: widget.tint != null,
       repaint: _interactiveHighlight,
       child: content,
     );

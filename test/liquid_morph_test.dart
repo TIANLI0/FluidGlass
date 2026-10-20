@@ -201,4 +201,54 @@ void main() {
     await tester.pumpAndSettle();
     expect(morphOf(tester).debugClipRect, isNull);
   });
+
+  // Regression: every tick of the progress repainted the child, although with
+  // motion reduced the surface is shown whole at every progress. A glass child
+  // repaints by reading its backdrop again, for every frame of the route.
+  testWidgets('with motion reduced a tick repaints nothing', (
+    WidgetTester tester,
+  ) async {
+    final AnimationController progress = AnimationController(
+      vsync: const TestVSync(),
+      duration: const Duration(milliseconds: 300),
+    );
+    addTearDown(progress.dispose);
+    int paints = 0;
+    await tester.pumpWidget(
+      MediaQuery(
+        data: const MediaQueryData(disableAnimations: true),
+        child: Directionality(
+          textDirection: TextDirection.ltr,
+          child: Center(
+            child: LiquidMorph(
+              progress: progress,
+              radius: 28,
+              child: CustomPaint(
+                painter: _CountingPainter(() => paints++),
+                child: const SizedBox(width: 200, height: 100),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    final int first = paints;
+    progress.forward();
+    for (int i = 0; i < 20; i++) {
+      await tester.pump(const Duration(milliseconds: 16));
+    }
+    expect(paints, first);
+  });
+}
+
+class _CountingPainter extends CustomPainter {
+  _CountingPainter(this.onPaint);
+
+  final VoidCallback onPaint;
+
+  @override
+  void paint(Canvas canvas, Size size) => onPaint();
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }

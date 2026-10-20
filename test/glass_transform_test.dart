@@ -9,8 +9,19 @@ import 'package:flutter_test/flutter_test.dart';
 const Key _boundary = Key('boundary');
 
 /// A 200×200 view holding a 100×100 opaque glass element at the top left,
-/// transformed by [block].
-Widget _host(GlassLayerBlock block) {
+/// transformed by [block], and wrapped by [around] when given.
+Widget _host(GlassLayerBlock block, {Widget Function(Widget glass)? around}) {
+  final Widget glass = DrawBackdrop.plain(
+    backdrop: emptyBackdrop,
+    shape: () => const RoundedRectangle(0),
+    effects: (BackdropEffectScope scope) {},
+    layerBlock: block,
+    child: const SizedBox(
+      width: 100,
+      height: 100,
+      child: ColoredBox(color: Color(0xFF000000)),
+    ),
+  );
   return Directionality(
     textDirection: TextDirection.ltr,
     child: Align(
@@ -23,17 +34,7 @@ Widget _host(GlassLayerBlock block) {
           color: const Color(0xFFFFFFFF),
           child: Align(
             alignment: Alignment.topLeft,
-            child: DrawBackdrop.plain(
-              backdrop: emptyBackdrop,
-              shape: () => const RoundedRectangle(0),
-              effects: (BackdropEffectScope scope) {},
-              layerBlock: block,
-              child: const SizedBox(
-                width: 100,
-                height: 100,
-                child: ColoredBox(color: Color(0xFF000000)),
-              ),
-            ),
+            child: around == null ? glass : around(glass),
           ),
         ),
       ),
@@ -122,5 +123,66 @@ void main() {
       lessThan(55),
       reason: 'the fade must not undo the scale — $faded',
     );
+  });
+
+  // Regression: the fade was an `OpacityLayer` even when nothing in the element
+  // composited, and a layer never sees what an ancestor applied straight to
+  // the canvas. A fading element under a plain `Transform` or `ClipRect` drew
+  // at full size, or outside the clip, for every frame its alpha was below 1.
+  testWidgets('a fading glass element stays under an ancestor transform', (
+    WidgetTester tester,
+  ) async {
+    tester.view.physicalSize = const Size(200, 200);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+
+    for (final double alpha in <double>[1.0, 0.6]) {
+      await tester.pumpWidget(
+        _host(
+          (GlassLayer layer) => layer.alpha = alpha,
+          around: (Widget glass) => Transform.scale(
+            scale: 0.5,
+            alignment: Alignment.topLeft,
+            child: glass,
+          ),
+        ),
+      );
+      final _Coverage coverage = await _coverage(tester);
+      expect(coverage.isEmpty, isFalse);
+      expect(coverage.right, lessThan(55), reason: 'alpha $alpha: $coverage');
+      expect(coverage.bottom, lessThan(55), reason: 'alpha $alpha: $coverage');
+    }
+  });
+
+  testWidgets('a fading glass element stays inside an ancestor clip', (
+    WidgetTester tester,
+  ) async {
+    tester.view.physicalSize = const Size(200, 200);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+
+    for (final double alpha in <double>[1.0, 0.6]) {
+      await tester.pumpWidget(
+        _host(
+          (GlassLayer layer) => layer.alpha = alpha,
+          around: (Widget glass) => SizedBox(
+            width: 50,
+            height: 50,
+            child: ClipRect(
+              child: OverflowBox(
+                alignment: Alignment.topLeft,
+                maxWidth: 100,
+                maxHeight: 100,
+                child: glass,
+              ),
+            ),
+          ),
+        ),
+      );
+      final _Coverage coverage = await _coverage(tester);
+      expect(coverage.isEmpty, isFalse);
+      expect(coverage.right, lessThan(50), reason: 'alpha $alpha: $coverage');
+      expect(coverage.bottom, lessThan(50), reason: 'alpha $alpha: $coverage');
+    }
   });
 }

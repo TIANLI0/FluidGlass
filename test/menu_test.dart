@@ -485,4 +485,59 @@ void main() {
     expect(find.byKey(bar), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
+
+  // Regression: the menu is no route of its own, so the system back button
+  // popped the page under an open menu instead of closing it.
+  testWidgets('back closes an open menu and keeps the page', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Builder(
+          builder: (BuildContext context) => Center(
+            child: TextButton(
+              onPressed: () => Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (BuildContext context) => Scaffold(
+                    body: Center(
+                      child: LiquidMenu(
+                        backdrop: emptyBackdrop,
+                        items: <LiquidMenuItem>[
+                          LiquidMenuItem(label: 'One', onSelected: () {}),
+                        ],
+                        anchorBuilder:
+                            (
+                              BuildContext context,
+                              bool isOpen,
+                              VoidCallback t,
+                            ) => GestureDetector(
+                              onTap: t,
+                              child: Text(isOpen ? 'Open' : 'Closed'),
+                            ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              child: const Text('push'),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('push'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Closed'));
+    await tester.pumpAndSettle();
+    expect(find.text('Open'), findsOneWidget);
+
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+    expect(find.text('Closed'), findsOneWidget, reason: 'the menu closed');
+    expect(find.text('push'), findsNothing, reason: 'the page stayed');
+
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+    expect(find.text('push'), findsOneWidget, reason: 'then back pops');
+  });
 }

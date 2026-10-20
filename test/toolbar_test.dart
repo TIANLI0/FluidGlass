@@ -36,12 +36,14 @@ void main() {
     await tester.pump(const Duration(milliseconds: 16));
     expect(pressed, <String>['share']);
 
-    // A press that drifts well past the touch slop must still fire.
+    // A press that drifts well past the touch slop must still fire, as long
+    // as it stays on the action: leaving it cancels the press, as Compose's
+    // `clickable` does.
     final TestGesture gesture = await tester.startGesture(
       tester.getCenter(find.byIcon(Icons.arrow_back_ios_new)),
     );
     for (int i = 0; i < 5; i++) {
-      await gesture.moveBy(const Offset(6, 4));
+      await gesture.moveBy(const Offset(4, 2));
       await tester.pump(const Duration(milliseconds: 16));
     }
     await gesture.up();
@@ -210,7 +212,9 @@ void main() {
       );
       await tester.pump();
 
-      await tester.tap(find.text('Month'));
+      // The labels are transparent to touch by design: the tap lands on the
+      // segment's target beneath the text, which is the point.
+      await tester.tap(find.text('Month'), warnIfMissed: false);
       await tester.pump(const Duration(milliseconds: 16));
       await tester.pump(const Duration(seconds: 1));
       expect(reported, <int>[2]);

@@ -12,8 +12,8 @@ produces the same picture on both platforms. See
 
 ## The demo
 
-Captured on a 1440x3168 device. `example/` is the Backdrop Catalog, all fifteen
-screens: buttons, toggle, slider, bottom tabs, menu, dialog, lock screen (SDF
+Captured on a 1440x3168 device. `example/` is the Backdrop Catalog, with
+screens for buttons, toggle, slider, bottom tabs, menu, dialog, lock screen (SDF
 texture), control centre, magnifier, glass playground, adaptive-luminance
 glass, progressive blur and the two scroll containers.
 
@@ -90,12 +90,12 @@ Column(
     LiquidButton(
       backdrop: backdrop,
       onPressed: () {},
-      children: const <Widget>[Text('Press me')],
+      child: const Text('Press me'),
     ),
     LiquidToggle(
       backdrop: backdrop,
-      value: isOn,
-      onChanged: (bool value) => setState(() => isOn = value),
+      selected: isOn,
+      onSelect: (bool value) => setState(() => isOn = value),
     ),
   ],
 )
@@ -104,6 +104,15 @@ Column(
 | Widget | |
 | --- | --- |
 | `LiquidPanel` | The plain glass surface. Host anything — a card, a popover, a sheet. |
+| `LiquidCommandPalette` | A complete command center: grouped search, keyboard navigation, touch targets, async execution and retry. Use inline or present with `showLiquidCommandPalette`. |
+| `LiquidTextField`, `LiquidSearchField` | Native text editing and IME, Form validation/save/reset, controller ownership, search clearing and optional debounce. |
+| `LiquidCheckbox`, `LiquidRadioGroup<T>` | Controlled choices with labels, mixed/disabled states and native keyboard/semantic behavior. |
+| `LiquidChoiceChip`, `LiquidFilterChip` | Exclusive-choice and independent-filter building blocks for responsive `Wrap` layouts. |
+| `LiquidSelect<T>`, `LiquidSelectFormField<T>` | Typed searchable selection, either controlled by your model or owned by a Form. |
+| `LiquidSettingsSection`, `LiquidSettingsTile` | Shared glass grouping and general information/navigation rows. |
+| `LiquidSwitchTile`, `LiquidSliderTile` | Accessible labeled settings, single row activation, units and change lifecycle hooks. |
+| `LiquidNotice`, `LiquidProgress`, `LiquidEmptyState` | Inline recovery, continuous/cancellable progress and a useful next action when there is no content. |
+| `showLiquidToast` | Themed notifications using ScaffoldMessenger's native queue, actions and dismissal. |
 | `LiquidButton` | A capsule that squashes and slides under the finger. A square one (`height` with `padding: EdgeInsets.zero`) is a circle; `onPressed: null` disables it. |
 | `LiquidButtonGroup` | A row of actions sharing one pane of glass. |
 | `LiquidMenu` | A pop-up menu that blooms out of its anchor. Flips side rather than hanging off an edge; `margin` keeps it clear of one, `rootOverlay` escapes a nested navigator's overlay. |
@@ -118,11 +127,122 @@ Column(
 
 Two things they need that an ordinary widget does not:
 
-- **A `Backdrop`**, passed explicitly. There is no inherited lookup; a glass
+- **A `Backdrop`**, passed explicitly for the original effect primitives. The
+  new input and settings components default to `nativeBackdrop` for easy use.
+  There is no inherited lookup; a glass
   widget cannot invent what it refracts. If threading it through gets tedious,
   put the `LayerBackdrop` in an `InheritedWidget` of your own.
 - **`clipBehavior: Clip.none`** on any enclosing `Stack`. Glass paints its rim
   and shadow outside its own box, and Flutter's `Stack` clips by default.
+
+#### Input and accessibility
+
+The [UI essentials guide](doc/component-kit.md) covers all 15 new widgets and
+the toast helper, with working form/settings examples and state ownership
+contracts. Try **UI essentials · forms, choices & feedback** in the catalog:
+mist white and system blue, light/dark appearance, responsive forms, a searchable
+selector, cancellable save feedback and project filters with an empty state.
+
+`LiquidSelect` is controlled; `LiquidSelectFormField` follows native
+`initialValue`/Form reset behavior. External controllers and focus nodes remain
+application-owned. New components preserve native input/keyboard semantics,
+disable through explicit state or null selection callbacks, and support reduced
+motion. Set both theme `accent` and `toggleAccent` for a single brand color.
+
+`LiquidButton` accepts either a single `child` or a spaced `children` row.
+A single child receives the available width, and `height` is a minimum so
+large labels can wrap and grow within the parent's constraints. Use `Flexible`
+explicitly when composing long labels inside the `children` row.
+Add `tooltip` to describe an icon-only action. Buttons, toggles, sliders and
+segmented controls accept `focusNode` and `autofocus`, participate in Tab
+traversal and show a border when focused from the keyboard. Enter and Space
+activate buttons and toggles; arrows adjust sliders and segmented controls,
+with Left/Right following text direction. Home and End select either endpoint.
+
+Disable a control by passing a null action: `onPressed`, `onSelect`,
+`onValueChanged` or `onSelected`, respectively. Disabled controls retain their
+state for screen readers and cannot activate from any input method. An empty
+slider range is also disabled. Use `semanticLabel` on toggles and sliders to
+name the setting.
+
+```dart
+LiquidSlider(
+  backdrop: backdrop,
+  value: volume, // The default range is 0..1.
+  onValueChanged: (double v) => setState(() => volume = v),
+  onChangeEnd: saveVolume, // Persist after a completed adjustment.
+  semanticLabel: 'Volume',
+  semanticFormatterCallback: (double v) => '${(v * 100).round()} percent',
+)
+```
+
+`onChangeStart` runs before an adjustment; `onChangeEnd` runs once on normal
+release or a completed track tap, keyboard step or screen-reader adjustment.
+Cancelling a drag or disabling it midway does not call `onChangeEnd`. Values
+already delivered by `onValueChanged` remain owned by the caller. Stepped
+sliders report only changes to the snapped value, so tiny movements within one
+step do not repeatedly rebuild the parent.
+
+The slider reserves a 48-pixel-high input area around its 24-pixel thumb.
+Set `touchTargetHeight: 24` to retain the earlier compact layout. A segmented
+control fills a bounded width; inside an unconstrained Row it uses 100 pixels
+per segment plus its horizontal insets. Use `Expanded` to fit the available
+space.
+
+See [performance and component design notes](doc/optimization.md) for the
+rendering changes, verification commands and device-profiling limits.
+
+#### Command center
+
+A complete action surface with its own quiet visual language: a single glass
+shell, a fine accent seam and a spring-driven selection beam. The search field
+stays in place while results crossfade; the beam can reverse midway through a
+movement without snapping. The catalog's **Command center · fluid studio**
+screen demonstrates the inline and floating forms, light/dark appearance,
+Ctrl/Cmd K, loading and recoverable failure.
+
+```dart
+final command = await showLiquidCommandPalette(
+  context: context,
+  commands: const <LiquidCommand>[
+    LiquidCommand(
+      id: 'create',
+      label: 'Create a canvas',
+      description: 'A fresh space for your next idea',
+      icon: Icons.add_rounded,
+      group: 'Workspace',
+      keywords: <String>['new', 'design', '创建'],
+    ),
+    LiquidCommand(
+      id: 'settings',
+      label: 'Appearance',
+      group: 'Preferences',
+      icon: Icons.contrast_rounded,
+    ),
+  ],
+);
+if (!context.mounted || command == null) return;
+// Navigate or update your application using command.id.
+```
+
+Supply an asynchronous `onSelected` to run an operation before closing; failures
+stay in the palette with a Retry action. Navigate after the returned future so
+the palette closes before the next route opens. Pass the launcher's global
+`origin` rectangle to unfold the panel from it and fold it back on dismissal.
+`nativeBackdrop` is the default; pass an existing `LayerBackdrop` for refraction.
+
+The inline `LiquidCommandPalette` takes the same command data and a required
+`onSelected`. It supports application-owned input controllers and focus nodes,
+localized `LiquidCommandPaletteLabels`, and per-instance accent/surface colors.
+Command IDs must be unique; command lists and keyword lists are immutable
+inputs. Shortcut strings are display hints; register application shortcuts with
+Flutter's `Shortcuts`/`Actions`, as the example does.
+
+![Fluid studio command center](doc/screenshots/command_palette_light.png)
+
+See [command center design and behavior](doc/command-palette.md) and the
+[component roadmap](doc/component-roadmap.md) for the design decisions and
+remaining opportunities for the library.
 
 #### Colours
 
@@ -274,7 +394,8 @@ painting, and the two would mark each other dirty every frame — so that is
 reported as an error rather than drawn wrong.
 
 A live source is not free, and it is worth knowing what the cost actually is.
-Flinging a feed under pinned glass chrome on a 120 Hz phone, mean ms per frame:
+Flinging a feed under pinned glass chrome on a 120 Hz phone, mean ms per frame,
+**as measured before captures were limited to the regions the glass reads**:
 
 |                  | raster | build | total |
 | ---------------- | ------ | ----- | ----- |
@@ -282,14 +403,17 @@ Flinging a feed under pinned glass chrome on a 120 Hz phone, mean ms per frame:
 | glass, capture 1 | 1.46   | 0.68  | 14.17 |
 | glass, capture ½ | 2.05   | 1.20  | 5.37  |
 
-Raster and build are both tiny, and `totalSpan` is twelve milliseconds larger
-than the two together — the cost is the stall from `toImageSync`, a synchronous
-capture in the middle of a frame, and it scales with the pixels captured rather
-than with how much glass is drawn. So `BackdropLayer.pixelRatio` is the lever
-that matters for a source that changes every frame: halving it was worth 2.5×
-here and is close to invisible, since the glass blurs what it samples anyway.
-Turning off `addRepaintBoundaries` on the list made no difference, in case that
-was the next guess.
+Raster and build were both tiny, and `totalSpan` twelve milliseconds larger
+than the two together — the cost was the stall from `toImageSync`, a
+synchronous capture in the middle of a frame, and it scaled with the pixels
+captured rather than with how much glass was drawn. That is what region capture
+fixed: a pinned bar now captures the strip it reads, not the page. Measured
+again since, the capture is no longer the larger cost — the glass draw is — and
+halving `BackdropLayer.pixelRatio` cuts the stall by about two milliseconds and
+gives the same back in raster, upscaling the smaller texture. So do not reach
+for `pixelRatio` first on a scrolling source; measure `totalSpan`, not raster
+time alone, before and after. Turning off `addRepaintBoundaries` on the list
+made no difference either way, in case that was the next guess.
 
 Three things keep that cost down without touching a pixel at rest. A request is
 captured together with any region it overlapped last frame, so glass elements
@@ -334,9 +458,9 @@ and pinch — with pinned glass over both. **Quality tiers & device** shows both
 tiers side by side with the classification and its evidence, and **App chrome
 over a live feed** is the expensive case — pinned chrome over content that repaints every frame,
 where the backdrop snapshot is invalidated and re-captured on every frame of
-the scroll. That screen is also where `BackdropLayer(pixelRatio:)` earns its
-keep: halving it quarters the pixels the capture costs, and glass that blurs
-what it samples hides the difference well.
+the scroll. It is the screen to measure a change on: `pixelRatio` and
+`motionPixelRatio` trade the capture's pixels against the raster time spent
+upscaling them, and which side wins depends on the device — see above.
 
 ### Effects
 

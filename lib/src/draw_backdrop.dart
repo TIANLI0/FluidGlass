@@ -174,8 +174,9 @@ class DrawBackdrop extends StatelessWidget {
   /// liquid tier deliberately.
   GlassQuality? _resolveQuality(BuildContext context) {
     final GlassQuality? pinned = quality ?? GlassQualityScope.maybeOf(context);
-    final MediaQueryData? media = MediaQuery.maybeOf(context);
-    if (media == null || !media.highContrast) return pinned;
+    // The one aspect read, not the whole `MediaQueryData`: depending on all of
+    // it rebuilt every glass element on every frame of the keyboard sliding in.
+    if (!(MediaQuery.maybeHighContrastOf(context) ?? false)) return pinned;
     if (quality != null) return quality;
     return (pinned ?? GlassDeviceTier.instance.quality).atMost(
       GlassQuality.plain,
@@ -298,32 +299,54 @@ class RenderGlassTransform extends RenderProxyBox {
     final double alpha = layer.alpha.clamp(0.0, 1.0);
     if (alpha <= 0.0) return;
 
+    // The fade is a layer only when this subtree composites anyway, and a
+    // save-layer on the canvas otherwise.
+    //
+    // A layer pushed from here is appended to the enclosing *container* layer,
+    // and a container layer never sees what an ancestor applied straight to
+    // the canvas. This object does not report `alwaysNeedsCompositing` — the
+    // alpha is only known during paint, too late for the compositing bits — so
+    // its ancestors may well have clipped or transformed the canvas instead
+    // of pushing layers. An `OpacityLayer` escaped all of it: a fading element
+    // under a plain `Transform.scale(0.5)` drew at full size, and one under a
+    // `ClipRect` drew outside it, for exactly the frames its alpha was below
+    // one. A menu blooming out of its anchor used to flash twice per
+    // open/close for the same reason, when the transform went to the canvas
+    // and the fade to a layer.
+    //
+    // On the canvas the fade composites exactly as the layer did — both are
+    // one offscreen pass modulated by alpha — and it stays inside whatever the
+    // ancestors set up.
     void paintChild(PaintingContext context, Offset offset) {
       if (alpha >= 1.0) {
+        _opacityLayer.layer = null;
         super.paint(context, offset);
-      } else {
+      } else if (needsCompositing) {
         _opacityLayer.layer = context.pushOpacity(
           offset,
           (alpha * 255).round(),
           super.paint,
           oldLayer: _opacityLayer.layer,
         );
+      } else {
+        _opacityLayer.layer = null;
+        final Canvas canvas = context.canvas;
+        canvas.saveLayer(
+          null,
+          Paint()..color = Color.fromARGB((alpha * 255).round(), 0, 0, 0),
+        );
+        super.paint(context, offset);
+        canvas.restore();
       }
     }
 
     if (!layer.hasTransform) {
+      _transformLayer.layer = null;
       paintChild(context, offset);
       return;
     }
-    // The transform has to become a real layer whenever the fade does.
-    // `pushOpacity` appends a layer to the enclosing *container* layer, which
-    // never sees a matrix that `pushTransform` applied straight to the canvas
-    // — so an element that scaled and faded at the same time snapped to full
-    // size the instant its alpha left 1.0, and snapped back when it returned.
-    // A menu blooming out of its anchor flashed twice per open/close because
-    // of it.
     _transformLayer.layer = context.pushTransform(
-      needsCompositing || alpha < 1.0,
+      needsCompositing,
       offset,
       layer.toMatrix(),
       paintChild,
@@ -474,13 +497,21 @@ class RenderDrawBackdrop extends RenderProxyBox {
   /// of capturing its source.
   ///
   /// The capture — an `OffsetLayer.toImageSync` that flushes the pipeline
-  /// mid-frame — is what a live backdrop actually costs. When the backdrop is
-  /// already painted behind the element, the whole chain can go to the
-  /// compositor as nested [BackdropFilterLayer]s instead, which costs no
-  /// capture at all. Measured on a OnePlus PKJ110: +1.85 ms per element
-  /// becomes +0.14 ms, with the picture unchanged.
+  /// mid-frame — is what a live backdrop costs, and when the backdrop is
+  /// already painted behind the element the whole chain can go to the
+  /// compositor as nested [BackdropFilterLayer]s instead, with no capture at
+  /// all. The picture matches.
   ///
-  /// **Opt-in for now.** Turning it on changes which path every liquid-tier
+  /// **It is not faster on a real component.** A bare two-filter probe
+  /// measured +1.85 ms per element becoming +0.14 ms on a OnePlus PKJ110, and
+  /// that did not survive contact with a [LiquidPanel] — tint, rim, shadow and
+  /// a three-effect chain — which measured +2.90 ms on this path against
+  /// +2.66 ms capturing, with raster 3.2–4.2 ms against 0.9–1.6 ms. The
+  /// suspected cost is the extra offscreen passes: a clip *layer* around a
+  /// continuous-corner path and a [BackdropFilterLayer] per stage, where the
+  /// capture runs the whole chain over one element-sized texture.
+  ///
+  /// **Opt-in, and off.** Turning it on changes which path every liquid-tier
   /// element takes, and the two paths do not mean quite the same thing: a
   /// capture refracts *the source subtree*, while a compositor filter refracts
   /// *whatever happens to be beneath the element*. Those coincide in the
@@ -831,10 +862,10 @@ class RenderDrawBackdrop extends RenderProxyBox {
   // invalidation to get right, and the blur is the engine's own separable,
   // downsampled Gaussian.
   //
-  // It cannot replace the liquid tier: a fragment shader in a backdrop filter
-  // is handed the whole screen rather than the element's texture, so the lens
-  // would have nothing to anchor its geometry to. Hence exactly the tier that
-  // has given up the shaders is the tier that can use it.
+  // The liquid tier stays on the capture by default. A lens nested as its own
+  // `BackdropFilterLayer` inside the clip does anchor correctly — see
+  // `_usesNativeFilter` and `useCompositorLens` — but on a real component the
+  // extra offscreen passes cost more than the capture they save.
   // ---------------------------------------------------------------------------
 
   /// Whether this element draws its backdrop with a [BackdropFilterLayer].

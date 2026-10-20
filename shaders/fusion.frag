@@ -62,7 +62,9 @@ uniform float uSmoothing;
 uniform float uRefractionHeight;
 uniform float uRefractionAmount;
 
-// Half-extent of the interior blur taps. Zero skips them entirely.
+// Half-extent of the interior blur taps. Zero skips them entirely — and zero is
+// what the library writes: the blur is a real Gaussian in the effect chain,
+// ahead of this shader, so the taps below are not taken.
 uniform float uBlur;
 
 uniform float uSaturation;
@@ -162,8 +164,8 @@ void main() {
         }
     }
 
-    // One logical pixel of coverage, so the silhouette is not stair-stepped —
-    // there is no path here for the canvas to anti-alias.
+    // About a pixel and a half of coverage, so the silhouette is not
+    // stair-stepped — there is no path here for the canvas to anti-alias.
     float inside = 1.0 - smoothstep(-0.7, 0.7, sd);
     if (inside <= 0.0) {
         fragColor = vec4(0.0);

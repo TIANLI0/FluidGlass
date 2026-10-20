@@ -47,7 +47,9 @@ export 'src/components/liquid_adaptive_panel.dart';
 export 'src/components/liquid_bottom_tabs.dart';
 export 'src/components/liquid_button.dart';
 export 'src/components/liquid_button_group.dart';
+export 'src/components/liquid_command_palette.dart';
 export 'src/components/liquid_dialog.dart';
+export 'src/components/liquid_feedback.dart';
 export 'src/components/liquid_fusion.dart';
 export 'src/components/liquid_ink_highlight.dart';
 export 'src/components/liquid_interaction.dart';
@@ -57,8 +59,12 @@ export 'src/components/liquid_morph.dart';
 export 'src/components/liquid_navigation_bar.dart';
 export 'src/components/liquid_panel.dart';
 export 'src/components/liquid_segmented_control.dart';
+export 'src/components/liquid_select.dart';
+export 'src/components/liquid_selection.dart';
+export 'src/components/liquid_settings.dart';
 export 'src/components/liquid_sheet.dart';
 export 'src/components/liquid_slider.dart';
+export 'src/components/liquid_text_field.dart';
 export 'src/components/liquid_toggle.dart';
 export 'src/draw_backdrop.dart'
     show
@@ -107,6 +113,7 @@ abstract final class FluidGlass {
   /// unrefracted frame.
   static Future<void> ensureInitialized() => FluidGlassPrograms.instance.load();
 
-  /// Whether the fragment programs have finished loading.
+  /// Whether every fragment program has loaded. Stays false after a program
+  /// fails to load; the ones that did are used regardless.
   static bool get isReady => FluidGlassPrograms.instance.isReady;
 }

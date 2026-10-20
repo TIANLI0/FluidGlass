@@ -222,6 +222,22 @@ class LiquidFusion extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Which body to build — the shader's or the plain fallback — depends on
+    // two things that change without anything here being rebuilt: the fragment
+    // programs finishing their asynchronous load, and the device tier. Read
+    // once, a first screen built before the load drew three separate panels
+    // until something unrelated rebuilt it, and then swapped the whole body
+    // mid-press.
+    return ListenableBuilder(
+      listenable: Listenable.merge(<Listenable>[
+        FluidGlassPrograms.instance,
+        GlassDeviceTier.instance,
+      ]),
+      builder: _buildForTier,
+    );
+  }
+
+  Widget _buildForTier(BuildContext context, Widget? _) {
     final _FusionStyle style = _FusionStyle.resolve(
       context,
       surfaceColor: surfaceColor,
@@ -330,7 +346,6 @@ class LiquidFusion extends StatelessWidget {
                   style: style,
                   smoothing: smoothing,
                   saturation: saturation,
-                  blurRadius: blurRadius,
                   refractionHeight: refractionHeight,
                   refractionAmount: refractionAmount,
                   rimWidth: rimWidth,
@@ -399,8 +414,15 @@ class _FusionShadow extends CustomPainter {
     canvas.restore();
   }
 
+  // Its own animation reaches it through `repaint`; a rebuild of the parent
+  // with the same shapes is not a reason to blur them all again.
   @override
-  bool shouldRepaint(_FusionShadow old) => true;
+  bool shouldRepaint(_FusionShadow old) =>
+      !listEquals(old.blobs, blobs) ||
+      old.origin != origin ||
+      old.color != color ||
+      old.offset != offset ||
+      old.blur != blur;
 }
 
 /// Keeps a fused body's screen limit current.
@@ -626,8 +648,9 @@ Rect _clampToBox(Rect bounds, Rect limit) {
     math.min(bounds.right, limit.right),
     math.min(bounds.bottom, limit.bottom),
   );
-  // A shape entirely outside the box leaves nothing to draw; the element still
-  // needs a sane rectangle, so fall back to the box itself.
+  // Shapes entirely outside the limit leave nothing to draw; the element still
+  // needs a sane rectangle, so it falls back to the limit itself — the visible
+  // region, not the body's own box.
   if (clamped.width <= 0 || clamped.height <= 0) return limit;
   return clamped;
 }
@@ -665,9 +688,17 @@ class _FusionStyle {
   }) {
     final GlassQuality? pinned = quality ?? GlassQualityScope.maybeOf(context);
     final GlassDeviceTier tier = GlassDeviceTier.instance;
-    final GlassQuality resolved = pinned == null
+    GlassQuality resolved = pinned == null
         ? tier.quality
         : pinned.atMost(tier.ceiling);
+    // As on [DrawBackdrop]: a reader who asked for more contrast has asked the
+    // refraction to stop, and only a tier pinned on this widget itself
+    // overrules that. The resolved tier is what the element is then pinned
+    // to, so without this the fused body kept its lens — and its capture — to
+    // paint an opaque tint.
+    if (quality == null && (MediaQuery.maybeHighContrastOf(context) ?? false)) {
+      resolved = resolved.atMost(GlassQuality.plain);
+    }
     final LiquidGlassColors colors = LiquidGlassTheme.of(context);
     return _FusionStyle(
       surfaceColor ?? colors.container,
@@ -693,7 +724,6 @@ void _configureFusion(
   required _FusionStyle style,
   required double smoothing,
   required double saturation,
-  required double blurRadius,
   required double refractionHeight,
   required double refractionAmount,
   required double rimWidth,
@@ -729,8 +759,9 @@ void _configureFusion(
   put(smoothing);
   put(refractionHeight);
   put(refractionAmount);
-  // The blur is a pass of its own now; the taps stay in the shader only as a
-  // way to soften a sample the rim magnifies, and the chain does that better.
+  // `uBlur`, always zero: the blur is a real Gaussian in the effect chain,
+  // ahead of this shader (`scope.blur(blurRadius)` above), and the shader's own
+  // taps are skipped.
   put(0);
   put(saturation);
 

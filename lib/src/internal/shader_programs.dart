@@ -56,7 +56,8 @@ class FluidGlassPrograms extends ChangeNotifier {
       _fusion != null &&
       _progressiveBlur != null;
 
-  /// The error thrown while loading the programs, if any.
+  /// The first error thrown while loading the programs, if any. The programs
+  /// that did load are still used.
   Object? get error => _error;
 
   ui.FragmentProgram? get refraction {
@@ -91,8 +92,9 @@ class FluidGlassPrograms extends ChangeNotifier {
     return _fusion;
   }
 
-  /// A Gaussian whose radius varies along the pass — chrome that dissolves
-  /// into the content it sits over instead of ending on a line.
+  /// The alpha ramp that fades one band of a progressive blur in along its
+  /// length, so a stack of Gaussians reads as one blur that grows — chrome that
+  /// dissolves into the content it sits over instead of ending on a line.
   ui.FragmentProgram? get progressiveBlur {
     _kick();
     return _progressiveBlur;
@@ -119,49 +121,62 @@ class FluidGlassPrograms extends ChangeNotifier {
   static Future<ui.FragmentProgram> _programFromAsset(String asset) async {
     try {
       return await ui.FragmentProgram.fromAsset(asset);
-    } catch (error) {
+    } catch (error, stack) {
       try {
         return await ui.FragmentProgram.fromAsset(
           asset.replaceFirst(_packagePrefix, ''),
         );
       } catch (_) {
-        rethrow;
+        // The prefixed spelling's failure, not the fallback's: `rethrow` here
+        // would report the bare path, which no consumer ever asked for.
+        Error.throwWithStackTrace(error, stack);
       }
     }
   }
 
-  Future<void> _load() async {
+  /// Loads one program, reporting and swallowing a failure.
+  ///
+  /// Each on its own: loaded together, one program that failed to compile on
+  /// some driver took every effect down with it — the refraction, the rim and
+  /// the fused body all stayed flat because, say, the progressive blur did not
+  /// build. Now only the effect whose program failed falls back.
+  Future<ui.FragmentProgram?> _loadOne(String asset) async {
     try {
-      final List<ui.FragmentProgram> programs =
-          await Future.wait(<Future<ui.FragmentProgram>>[
-            _programFromAsset(_refractionAsset),
-            _programFromAsset(_dispersionAsset),
-            _programFromAsset(_highlightDefaultAsset),
-            _programFromAsset(_highlightAmbientAsset),
-            _programFromAsset(_interactiveHighlightAsset),
-            _programFromAsset(_fusionAsset),
-            _programFromAsset(_progressiveBlurAsset),
-          ]);
-      _refraction = programs[0];
-      _dispersion = programs[1];
-      _highlightDefault = programs[2];
-      _highlightAmbient = programs[3];
-      _interactiveHighlight = programs[4];
-      _fusion = programs[5];
-      _progressiveBlur = programs[6];
+      return await _programFromAsset(asset);
     } catch (e, stack) {
-      _error = e;
+      _error ??= e;
       FlutterError.reportError(
         FlutterErrorDetails(
           exception: e,
           stack: stack,
           library: 'fluid_glass',
           context: ErrorDescription(
-            'while loading the FluidGlass fragment programs',
+            'while loading the fragment program $asset',
           ),
         ),
       );
+      return null;
     }
+  }
+
+  Future<void> _load() async {
+    final List<ui.FragmentProgram?> programs =
+        await Future.wait(<Future<ui.FragmentProgram?>>[
+          _loadOne(_refractionAsset),
+          _loadOne(_dispersionAsset),
+          _loadOne(_highlightDefaultAsset),
+          _loadOne(_highlightAmbientAsset),
+          _loadOne(_interactiveHighlightAsset),
+          _loadOne(_fusionAsset),
+          _loadOne(_progressiveBlurAsset),
+        ]);
+    _refraction = programs[0];
+    _dispersion = programs[1];
+    _highlightDefault = programs[2];
+    _highlightAmbient = programs[3];
+    _interactiveHighlight = programs[4];
+    _fusion = programs[5];
+    _progressiveBlur = programs[6];
     notifyListeners();
   }
 }
@@ -181,10 +196,20 @@ bool isRenderEffectSupported() => true;
 /// frame without recompiling.
 class FragmentShaderCache {
   final Map<String, ui.FragmentShader> _shaders = <String, ui.FragmentShader>{};
+  final Map<String, ui.FragmentProgram> _programs =
+      <String, ui.FragmentProgram>{};
 
   /// Returns the cached shader for [key], creating it from [program] if needed.
+  ///
+  /// A key names one program: asked for with a different one — a custom
+  /// effect that happens to share a built-in effect's name — the old shader is
+  /// replaced rather than handed out, which would run the wrong program.
   ui.FragmentShader obtain(String key, ui.FragmentProgram program) {
-    return _shaders.putIfAbsent(key, program.fragmentShader);
+    final ui.FragmentShader? cached = _shaders[key];
+    if (cached != null && identical(_programs[key], program)) return cached;
+    cached?.dispose();
+    _programs[key] = program;
+    return _shaders[key] = program.fragmentShader();
   }
 
   /// Returns the cached shader for [key], or null when [program] is null.
@@ -198,5 +223,6 @@ class FragmentShaderCache {
       shader.dispose();
     }
     _shaders.clear();
+    _programs.clear();
   }
 }

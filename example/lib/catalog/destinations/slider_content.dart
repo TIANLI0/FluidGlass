@@ -42,6 +42,7 @@ class _SliderContentState extends State<SliderContent> {
                   valueRange: (start: 0, end: 100),
                   visibilityThreshold: 0.01,
                   backdrop: backdrop,
+                  semanticLabel: 'Level',
                 ),
               ),
               Padding(
@@ -61,6 +62,7 @@ class _SliderContentState extends State<SliderContent> {
                         valueRange: (start: 0, end: 100),
                         visibilityThreshold: 0.01,
                         backdrop: flatBackdrop(backgroundColor),
+                        semanticLabel: 'Level',
                       ),
                     ),
                   ),
@@ -80,6 +82,9 @@ class _SliderContentState extends State<SliderContent> {
                         divisions: 16,
                         visibilityThreshold: 0.01,
                         backdrop: backdrop,
+                        semanticLabel: 'Volume',
+                        semanticFormatterCallback: (double value) =>
+                            '${value.round()} of 16',
                       ),
                     ),
                     SizedBox(

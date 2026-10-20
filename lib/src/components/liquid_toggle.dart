@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 
 import '../../fluid_glass.dart';
+import '../internal/animated_translation.dart';
+import '../internal/control_focus.dart';
 
 /// A switch whose knob is a bead of liquid glass: it squashes as you press,
 /// stretches with its velocity, and refracts the track underneath.
@@ -13,11 +15,19 @@ class LiquidToggle extends StatefulWidget {
     required this.selected,
     required this.onSelect,
     required this.backdrop,
+    this.semanticLabel,
+    this.focusNode,
+    this.autofocus = false,
   });
 
   final bool selected;
-  final ValueChanged<bool> onSelect;
+
+  /// Null disables pointer, keyboard and accessibility actions.
+  final ValueChanged<bool>? onSelect;
   final Backdrop backdrop;
+  final String? semanticLabel;
+  final FocusNode? focusNode;
+  final bool autofocus;
 
   @override
   State<LiquidToggle> createState() => _LiquidToggleState();
@@ -33,9 +43,16 @@ class _LiquidToggleState extends State<LiquidToggle>
   final LayerBackdrop _trackBackdrop = LayerBackdrop(extendEdges: false);
 
   late final DampedDragAnimation _animation;
-  late final Backdrop _knobBackdrop;
+  late Backdrop _knobBackdrop;
 
+  /// Whether the arena gave the knob's gesture over as a drag (see
+  /// [DragInspector.onClaim]). Short of that, the knob follows the finger but
+  /// letting go commits nothing from here: a gesture still under the slop is a
+  /// tap, and taps are [_onTap]'s.
   bool _didDrag = false;
+
+  /// Whether a finger is on the knob. While it is, the finger owns [_fraction].
+  bool _dragging = false;
   double _fraction = 0;
 
   @override
@@ -49,22 +66,57 @@ class _LiquidToggleState extends State<LiquidToggle>
       visibilityThreshold: 0.001,
       initialScale: 1,
       pressedScale: 1.5,
+      onDragStarted: (_) => _dragging = true,
       onDragStopped: _onDragStopped,
       onDrag: _onDrag,
     );
-    _knobBackdrop = CombinedBackdrop.of(
-      widget.backdrop,
-      WrappedBackdrop(_trackBackdrop, _drawScaledTrack),
-    );
+    _knobBackdrop = _combineKnobBackdrop();
+  }
+
+  Backdrop _combineKnobBackdrop() => CombinedBackdrop.of(
+    widget.backdrop,
+    WrappedBackdrop(_trackBackdrop, _drawScaledTrack),
+  );
+
+  /// Whether the platform asked for reduced motion, as of the last build.
+  ///
+  /// With it, a value the control moves to on its own — set by the caller,
+  /// settled after a drag, chosen by a tap or a screen reader — jumps there
+  /// instead of springing. A finger dragging the control still moves it: that
+  /// is the control following the hand, not decoration.
+  bool _reduceMotion = false;
+
+  /// Moves to [value] as the reader's motion setting allows.
+  void _settleTo(double value) {
+    if (_reduceMotion) {
+      _animation.snapToValue(value);
+    } else {
+      _animation.animateToValue(value);
+    }
   }
 
   @override
   void didUpdateWidget(LiquidToggle oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (widget.backdrop != oldWidget.backdrop) {
+      _knobBackdrop = _combineKnobBackdrop();
+    }
+    if (widget.onSelect == null && oldWidget.onSelect != null) {
+      _dragging = false;
+      _didDrag = false;
+      _fraction = widget.selected ? 1 : 0;
+      _animation.cancelDrag();
+      _animation.snapToValue(_fraction);
+    }
+    // Mid-drag the knob is wherever the finger has it. A parent rebuilding
+    // for any reason of its own — a clock, a stream — used to find that
+    // position different from `selected` and spring the knob back off the
+    // finger, releasing the press while the finger was still down.
+    if (_dragging) return;
     final double target = widget.selected ? 1 : 0;
     if (target != _fraction) {
       _fraction = target;
-      _animation.animateToValue(target);
+      _settleTo(target);
     }
   }
 
@@ -75,15 +127,22 @@ class _LiquidToggleState extends State<LiquidToggle>
     super.dispose();
   }
 
+  /// Springs on from where the finger left it, or jumps under reduced motion.
+  void _springOrSnap(double value) {
+    if (_reduceMotion) {
+      _animation.snapToValue(value);
+    } else {
+      _animation.updateValue(value);
+    }
+  }
+
   void _setFraction(double value) {
     _fraction = value;
     _animation.updateValue(value);
   }
 
   void _onDrag(Size size, Offset dragAmount) {
-    if (!_didDrag) {
-      _didDrag = dragAmount.dx != 0;
-    }
+    if (widget.onSelect == null || !_dragging) return;
     final bool isLtr = Directionality.of(context) == TextDirection.ltr;
     final double delta = dragAmount.dx / _dragWidth;
     _setFraction(
@@ -92,16 +151,34 @@ class _LiquidToggleState extends State<LiquidToggle>
   }
 
   void _onDragStopped() {
-    if (_didDrag) {
+    if (!_dragging) return;
+    _dragging = false;
+    final bool dragged = _didDrag;
+    _didDrag = false;
+    if (widget.onSelect == null) return;
+    if (dragged) {
       _fraction = _animation.targetValue >= 0.5 ? 1 : 0;
-      _animation.updateValue(_fraction);
-      widget.onSelect(_fraction == 1);
-      _didDrag = false;
+      _springOrSnap(_fraction);
+      // Only a change is reported, as Flutter's own switch does: a knob
+      // nudged and let go on the side it started from was reported anyway,
+      // and every caller had to compare against its own value to ignore it.
+      final bool next = _fraction == 1;
+      if (next != widget.selected) widget.onSelect?.call(next);
     } else {
-      _fraction = widget.selected ? 0 : 1;
-      _animation.updateValue(_fraction);
-      widget.onSelect(_fraction == 1);
+      // A tap, or a wobble under the slop: back where it was. If the arena
+      // gives the gesture to the tap recogniser, [_onTap] flips it from here
+      // in the same frame.
+      _fraction = widget.selected ? 1 : 0;
+      _springOrSnap(_fraction);
     }
+  }
+
+  void _cancelDrag() {
+    _dragging = false;
+    _didDrag = false;
+    _fraction = widget.selected ? 1 : 0;
+    _animation.cancelDrag();
+    _animation.snapToValue(_fraction);
   }
 
   /// The track backdrop, squashed towards the knob's centre while pressed.
@@ -135,79 +212,131 @@ class _LiquidToggleState extends State<LiquidToggle>
 
   @override
   Widget build(BuildContext context) {
+    _reduceMotion = MediaQuery.maybeDisableAnimationsOf(context) ?? false;
     final LiquidGlassColors colors = LiquidGlassTheme.of(context);
     final Color accentColor = colors.toggleAccent;
     final Color trackColor = colors.track;
     final bool isLtr = Directionality.of(context) == TextDirection.ltr;
 
+    // One node for the whole switch, track and knob, that says whether it is on
+    // and can be flipped: marked only on the knob before, with no action, a
+    // screen reader heard its state and had no way to change it.
+    return Semantics(
+      container: true,
+      label: widget.semanticLabel,
+      enabled: widget.onSelect != null,
+      toggled: widget.selected,
+      onTap: widget.onSelect != null
+          ? () => widget.onSelect?.call(!widget.selected)
+          : null,
+      child: ControlFocus(
+        enabled: widget.onSelect != null,
+        focusNode: widget.focusNode,
+        autofocus: widget.autofocus,
+        onActivate: () => widget.onSelect?.call(!widget.selected),
+        child: _buildSwitch(isLtr, trackColor, accentColor),
+      ),
+    );
+  }
+
+  /// A tap anywhere on the switch, knob included, flips it.
+  void _onTap() {
+    final ValueChanged<bool>? onSelect = widget.onSelect;
+    if (onSelect == null) return;
+    _fraction = widget.selected ? 0 : 1;
+    _springOrSnap(_fraction);
+    onSelect(!widget.selected);
+  }
+
+  Widget _buildSwitch(bool isLtr, Color trackColor, Color accentColor) {
+    // **Every tap goes through this one recogniser, the knob's too.** It sits
+    // round the whole switch, so it is in the arena under every finger that
+    // lands on it, and as the innermost tap there it wins over any tap handler
+    // above — the row a switch usually sits in. The knob used to commit its
+    // own taps from its raw listener, which no arena could see: the tap went
+    // on to the row's handler as well, the row flipped the switch a second
+    // time, and it sprang straight back. Apps were each adding a dummy tap
+    // handler round the switch to block that.
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      excludeFromSemantics: true,
+      onTap: widget.onSelect == null ? null : _onTap,
+      child: _buildStack(isLtr, trackColor, accentColor),
+    );
+  }
+
+  Widget _buildStack(bool isLtr, Color trackColor, Color accentColor) {
     return Stack(
       alignment: isLtr ? Alignment.centerLeft : Alignment.centerRight,
       // Compose's Box does not clip: the knob grows past the track while
       // pressed and carries a shadow.
       clipBehavior: Clip.none,
       children: <Widget>[
-        _ToggleTrack(
-          backdrop: _trackBackdrop,
-          animation: _animation,
-          trackColor: trackColor,
-          accentColor: accentColor,
+        IgnorePointer(
+          child: _ToggleTrack(
+            backdrop: _trackBackdrop,
+            animation: _animation,
+            trackColor: trackColor,
+            accentColor: accentColor,
+          ),
         ),
-        ListenableBuilder(
+        AnimatedTranslation(
           listenable: _animation,
-          child: Semantics(
-            toggled: widget.selected,
-            child: _animation.wrapGestures(
-              child: DrawBackdrop(
-                backdrop: _knobBackdrop,
-                shape: () => const Capsule(),
-                effects: (BackdropEffectScope scope) {
-                  final double progress = _animation.pressProgress;
-                  scope
-                    ..blur(8 * (1 - progress))
-                    ..lens(
-                      5 * progress,
-                      10 * progress,
-                      chromaticAberration: true,
-                    );
-                },
-                highlight: () {
-                  final double progress = _animation.pressProgress;
-                  return Highlight.ambient.copyWith(
-                    width: Highlight.ambient.width / 1.5,
-                    blurRadius: Highlight.ambient.blurRadius / 1.5,
-                    alpha: progress,
+          child: _animation.wrapGestures(
+            onCancel: _cancelDrag,
+            // The knob slides sideways; a list scrolling past must neither
+            // drag it along nor take a sideways drag away from it.
+            claimAxis: Axis.horizontal,
+            onClaim: () {
+              if (_dragging) _didDrag = true;
+            },
+            child: DrawBackdrop(
+              backdrop: _knobBackdrop,
+              shape: () => const Capsule(),
+              effects: (BackdropEffectScope scope) {
+                final double progress = _animation.pressProgress;
+                scope
+                  ..blur(8 * (1 - progress))
+                  ..lens(
+                    5 * progress,
+                    10 * progress,
+                    chromaticAberration: true,
                   );
-                },
-                shadow: () => GlassShadow(
-                  radius: 4,
-                  color: const Color(0xFF000000).withValues(alpha: 0.05),
-                ),
-                innerShadow: () {
-                  final double progress = _animation.pressProgress;
-                  return GlassInnerShadow(
-                    radius: 4 * progress,
-                    alpha: progress,
-                  );
-                },
-                layerBlock: _knobLayerBlock,
-                onDrawSurface: (Canvas canvas, Size size) {
-                  final double progress = _animation.pressProgress;
-                  canvas.drawRect(
-                    Offset.zero & size,
-                    Paint()
-                      ..color = const Color(
-                        0xFFFFFFFF,
-                      ).withValues(alpha: 1 - progress),
-                  );
-                },
-                // Src-over only, so the isolating save-layer is pure cost.
-                isolateSurface: false,
-                repaint: _animation,
-                child: const SizedBox(width: 40, height: 24),
+              },
+              highlight: () {
+                final double progress = _animation.pressProgress;
+                return Highlight.ambient.copyWith(
+                  width: Highlight.ambient.width / 1.5,
+                  blurRadius: Highlight.ambient.blurRadius / 1.5,
+                  alpha: progress,
+                );
+              },
+              shadow: () => GlassShadow(
+                radius: 4,
+                color: const Color(0xFF000000).withValues(alpha: 0.05),
               ),
+              innerShadow: () {
+                final double progress = _animation.pressProgress;
+                return GlassInnerShadow(radius: 4 * progress, alpha: progress);
+              },
+              layerBlock: _knobLayerBlock,
+              onDrawSurface: (Canvas canvas, Size size) {
+                final double progress = _animation.pressProgress;
+                canvas.drawRect(
+                  Offset.zero & size,
+                  Paint()
+                    ..color = const Color(
+                      0xFFFFFFFF,
+                    ).withValues(alpha: 1 - progress),
+                );
+              },
+              // Src-over only, so the isolating save-layer is pure cost.
+              isolateSurface: false,
+              repaint: _animation,
+              child: const SizedBox(width: 40, height: 24),
             ),
           ),
-          builder: (BuildContext context, Widget? child) {
+          offset: () {
             final double fraction = _animation.value;
             final double translationX = isLtr
                 ? lerpDouble(_knobPadding, _knobPadding + _dragWidth, fraction)!
@@ -216,10 +345,7 @@ class _LiquidToggleState extends State<LiquidToggle>
                     -(_knobPadding + _dragWidth),
                     fraction,
                   )!;
-            return Transform.translate(
-              offset: Offset(translationX, 0),
-              child: child,
-            );
+            return Offset(translationX, 0);
           },
         ),
       ],

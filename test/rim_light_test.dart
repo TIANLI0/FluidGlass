@@ -64,8 +64,10 @@ Future<RimLightController> _pump(
   await tester.pumpWidget(
     Directionality(
       textDirection: TextDirection.ltr,
-      child: _Host(onController: (RimLightController v) => c = v,
-          reduceMotion: reduceMotion),
+      child: _Host(
+        onController: (RimLightController v) => c = v,
+        reduceMotion: reduceMotion,
+      ),
     ),
   );
   return c;
@@ -209,4 +211,163 @@ void main() {
     // the light's repaints stop at its own boundary.
     expect(_glassPaints, before);
   });
+
+  group('what the light does to the child', () {
+    Future<RimLightController> pumpAround(
+      WidgetTester tester,
+      Widget child, {
+      ValueNotifier<bool>? reduceMotion,
+    }) async {
+      late RimLightController c;
+      final ValueNotifier<bool> motion =
+          reduceMotion ?? ValueNotifier<bool>(false);
+      await tester.pumpWidget(
+        Directionality(
+          textDirection: TextDirection.ltr,
+          child: ValueListenableBuilder<bool>(
+            valueListenable: motion,
+            builder: (BuildContext context, bool reduce, Widget? _) =>
+                MediaQuery(
+                  data: MediaQueryData(disableAnimations: reduce),
+                  child: _ControllerHost(
+                    onController: (RimLightController v) => c = v,
+                    child: child,
+                  ),
+                ),
+          ),
+        ),
+      );
+      return c;
+    }
+
+    // Regression: the shake returned the bare child at rest and a
+    // `Transform` while shaking, which tore the child down and built it again
+    // at both ends of a failure — a sign-in form lost what had been typed.
+    testWidgets('a failure shakes the child without rebuilding it', (
+      WidgetTester tester,
+    ) async {
+      final List<String> lifecycle = <String>[];
+      final RimLightController c = await pumpAround(
+        tester,
+        _Lifecycle(lifecycle),
+      );
+      final double restX = tester.getTopLeft(find.byType(_Lifecycle)).dx;
+      c.fail();
+      double furthest = 0;
+      for (int i = 0; i < 70; i++) {
+        await tester.pump(const Duration(milliseconds: 16));
+        final double dx = tester.getTopLeft(find.byType(_Lifecycle)).dx - restX;
+        if (dx.abs() > furthest.abs()) furthest = dx;
+      }
+      expect(furthest.abs(), greaterThan(1), reason: 'it still shakes');
+      expect(tester.getTopLeft(find.byType(_Lifecycle)).dx, restX);
+      expect(lifecycle, <String>['init']);
+    });
+
+    // Regression: the stack under the light loosened the child's constraints,
+    // so a child meant to fill a tight slot shrank to its own size while the
+    // rim went on being drawn round the whole slot.
+    testWidgets('the child is laid out as if the light were not there', (
+      WidgetTester tester,
+    ) async {
+      await pumpAround(
+        tester,
+        const SizedBox(width: 80, height: 30, child: Placeholder()),
+      );
+      expect(tester.getSize(find.byType(Placeholder)), const Size(200, 56));
+    });
+
+    // Regression: under reduced motion a loading rim stops its ticker once it
+    // has faded in, and nothing started it again when motion came back.
+    testWidgets('a loading comet resumes when motion comes back', (
+      WidgetTester tester,
+    ) async {
+      final ValueNotifier<bool> reduce = ValueNotifier<bool>(true);
+      addTearDown(reduce.dispose);
+      final RimLightController c = await pumpAround(
+        tester,
+        const SizedBox.expand(),
+        reduceMotion: reduce,
+      );
+      c.load();
+      await _frames(tester, 1);
+      expect(c.isTicking, isFalse, reason: 'a steady glow needs no ticker');
+
+      reduce.value = false;
+      await tester.pump();
+      await _frames(tester, 0.2);
+      expect(c.isTicking, isTrue, reason: 'the comet orbits again');
+      c.clear();
+      await _frames(tester, 1);
+    });
+  });
+}
+
+/// Hosts a RimLight around [child] in a 200×56 tight slot.
+class _ControllerHost extends StatefulWidget {
+  const _ControllerHost({required this.onController, required this.child});
+
+  final ValueChanged<RimLightController> onController;
+  final Widget child;
+
+  @override
+  State<_ControllerHost> createState() => _ControllerHostState();
+}
+
+class _ControllerHostState extends State<_ControllerHost>
+    with TickerProviderStateMixin {
+  late final RimLightController controller = RimLightController(vsync: this);
+
+  @override
+  void initState() {
+    super.initState();
+    widget.onController(controller);
+  }
+
+  @override
+  void dispose() {
+    controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: SizedBox(
+        width: 200,
+        height: 56,
+        child: RimLight(
+          controller: controller,
+          shape: const Capsule(),
+          child: widget.child,
+        ),
+      ),
+    );
+  }
+}
+
+class _Lifecycle extends StatefulWidget {
+  const _Lifecycle(this.log);
+
+  final List<String> log;
+
+  @override
+  State<_Lifecycle> createState() => _LifecycleState();
+}
+
+class _LifecycleState extends State<_Lifecycle> {
+  @override
+  void initState() {
+    super.initState();
+    widget.log.add('init');
+  }
+
+  @override
+  void dispose() {
+    widget.log.add('dispose');
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => const SizedBox.expand();
 }

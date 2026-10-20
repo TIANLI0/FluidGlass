@@ -120,6 +120,9 @@ class BackdropEffectScope {
   final List<_Stage> _stages = <_Stage>[];
   final FragmentShaderCache _shaderCache = FragmentShaderCache();
 
+  /// How many times each shader key has been used in this pass.
+  final Map<String, int> _keyUses = <String, int>{};
+
   /// Adds an [ui.ImageFilter] to the chain.
   ///
   /// The filter is applied after everything already in the chain. Set
@@ -147,7 +150,15 @@ class BackdropEffectScope {
     ShaderEffectConfigurator configure,
   ) {
     if (!isRuntimeShaderSupported()) return;
-    final ui.FragmentShader? shader = _shaderCache.obtainOrNull(key, program);
+    // One shader per use, not per key. Uniforms are only copied out when the
+    // filter is drawn, after every effect has been configured, so two uses of
+    // one key — two lenses in a chain — sharing a shader both drew with the
+    // last one's configuration.
+    final int use = _keyUses[key] = (_keyUses[key] ?? 0) + 1;
+    final ui.FragmentShader? shader = _shaderCache.obtainOrNull(
+      use == 1 ? key : '$key#$use',
+      program,
+    );
     if (shader == null) return;
     // Only a coverage-growing filter forces a new layer.
     if (_stages.isNotEmpty && _stages.last.expandsCoverage) {
@@ -181,6 +192,7 @@ class BackdropEffectScope {
     _quality = quality;
     padding = 0.0;
     _stages.clear();
+    _keyUses.clear();
   }
 
   /// Resolves the collected stages into the save-layer filters to apply,

@@ -47,6 +47,9 @@ abstract class GlassLightSource implements Listenable {
 class GlassLightField extends ChangeNotifier {
   final List<GlassLightSource> _sources = <GlassLightSource>[];
 
+  /// The sources that gave off light the last time [lights] was read.
+  final Set<GlassLightSource> _lit = <GlassLightSource>{};
+
   void add(GlassLightSource source) {
     if (_sources.contains(source)) return;
     _sources.add(source);
@@ -56,15 +59,24 @@ class GlassLightField extends ChangeNotifier {
   void remove(GlassLightSource source) {
     if (!_sources.remove(source)) return;
     source.removeListener(notifyListeners);
-    // A source leaving while lit takes its light with it.
-    notifyListeners();
+    // A source leaving while lit takes its light with it, and everything it
+    // lit has to be drawn again without it. One leaving dark changes nothing:
+    // notifying anyway repainted every receiver on the page for each glass
+    // element disposed in the scope — every list row scrolled away, every
+    // element of a page popped.
+    if (_lit.remove(source)) notifyListeners();
   }
 
   /// The lights that are on.
   Iterable<GlassLight> get lights sync* {
     for (final GlassLightSource source in _sources) {
       final GlassLight? light = source.resolve();
-      if (light != null && light.strength > 0) yield light;
+      if (light != null && light.strength > 0) {
+        _lit.add(source);
+        yield light;
+      } else {
+        _lit.remove(source);
+      }
     }
   }
 
@@ -74,6 +86,7 @@ class GlassLightField extends ChangeNotifier {
       source.removeListener(notifyListeners);
     }
     _sources.clear();
+    _lit.clear();
     super.dispose();
   }
 }
@@ -103,9 +116,8 @@ class GlassLightScope extends StatefulWidget {
   final Widget child;
 
   /// The nearest field, or null outside any scope.
-  static GlassLightField? maybeOf(BuildContext context) => context
-      .dependOnInheritedWidgetOfExactType<_GlassLightInherited>()
-      ?.field;
+  static GlassLightField? maybeOf(BuildContext context) =>
+      context.dependOnInheritedWidgetOfExactType<_GlassLightInherited>()?.field;
 
   @override
   State<GlassLightScope> createState() => _GlassLightScopeState();
@@ -185,7 +197,11 @@ class _LightLanding extends LeafRenderObjectWidget {
 
   @override
   _RenderLightLanding createRenderObject(BuildContext context) =>
-      _RenderLightLanding(field, shape);
+      _RenderLightLanding(
+        field,
+        shape,
+        Directionality.maybeOf(context) ?? TextDirection.ltr,
+      );
 
   @override
   void updateRenderObject(
@@ -194,12 +210,21 @@ class _LightLanding extends LeafRenderObjectWidget {
   ) {
     renderObject
       ..field = field
-      ..shape = shape;
+      ..shape = shape
+      ..textDirection = Directionality.maybeOf(context) ?? TextDirection.ltr;
   }
 }
 
 class _RenderLightLanding extends RenderBox {
-  _RenderLightLanding(this._field, this.shape);
+  _RenderLightLanding(this._field, this.shape, this._textDirection);
+
+  /// Resolves start/end corners the way the glass under the light did.
+  TextDirection _textDirection;
+  set textDirection(TextDirection value) {
+    if (value == _textDirection) return;
+    _textDirection = value;
+    markNeedsPaint();
+  }
 
   GlassLightField _field;
   set field(GlassLightField value) {
@@ -253,25 +278,21 @@ class _RenderLightLanding extends RenderBox {
       final double dy = local.dy.clamp(0.0, size.height) - local.dy;
       if (dx * dx + dy * dy > light.radius * light.radius) continue;
 
-      rim ??= _cache.of(shape(), size);
+      rim ??= _cache.of(shape(), size, _textDirection);
       final Canvas canvas = context.canvas;
       canvas.save();
       canvas.translate(offset.dx, offset.dy);
 
-      ui.Gradient gradient(double alpha) => ui.Gradient.radial(
-        local,
-        light.radius,
-        <Color>[
-          for (final double f in _falloff)
-            light.color.withValues(
-              alpha: (light.color.a * alpha * f * light.strength).clamp(
-                0.0,
-                1.0,
+      ui.Gradient gradient(double alpha) =>
+          ui.Gradient.radial(local, light.radius, <Color>[
+            for (final double f in _falloff)
+              light.color.withValues(
+                alpha: (light.color.a * alpha * f * light.strength).clamp(
+                  0.0,
+                  1.0,
+                ),
               ),
-            ),
-        ],
-        _stops,
-      );
+          ], _stops);
 
       canvas.drawPath(
         rim.path,

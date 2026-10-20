@@ -1,5 +1,9 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
+import 'package:flutter/gestures.dart' show kLongPressTimeout, kTouchSlop;
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 
 import '../theme/liquid_glass_theme.dart';
 import 'interactive_highlight.dart';
@@ -24,6 +28,10 @@ class LiquidInteraction extends StatefulWidget {
     super.key,
     required this.child,
     this.onTap,
+    this.onLongPress,
+    this.longPressDuration = kLongPressTimeout,
+    this.onPressedChanged,
+    this.semanticLabel,
     this.active = false,
     this.activePosition,
     this.selected = false,
@@ -46,6 +54,34 @@ class LiquidInteraction extends StatefulWidget {
   /// or a plain tap fires twice.
   final VoidCallback? onTap;
 
+  /// What this control does when the finger rests on it for
+  /// [longPressDuration] without moving past the touch slop.
+  ///
+  /// The press ends there: the light goes out as the long press fires, and
+  /// lifting the finger afterwards fires nothing — not [onTap], and inside a
+  /// [LiquidInteractionGroup] not the tap of whichever member the finger lifts
+  /// on. A long press handled by a `GestureDetector` round this control could
+  /// not do that: the tap here is committed from the pointer-up, which no
+  /// arena outcome reaches, so a long press used to open its menu *and* fire
+  /// the tap, and the light went on following the finger under the menu.
+  final VoidCallback? onLongPress;
+
+  /// How long the finger has to rest for [onLongPress]. Flutter's own long
+  /// press timeout by default.
+  final Duration longPressDuration;
+
+  /// The finger went down on this control (true), or the press ended (false)
+  /// — lifted, cancelled by a scroll, handed to a neighbour in a group, or
+  /// spent on a long press.
+  ///
+  /// For press feedback of the caller's own, such as a scale. Unlike a tap
+  /// recogniser's down and cancel, it follows the light: it holds as long as
+  /// the glow does.
+  final ValueChanged<bool>? onPressedChanged;
+
+  /// Read out for the control when [onTap] or [onLongPress] makes it a button.
+  final String? semanticLabel;
+
   /// Where the finger is during [active], in global coordinates, for a parent
   /// that owns the gesture — a menu tracking one drag across its rows.
   ///
@@ -65,6 +101,37 @@ class _LiquidInteractionState extends State<LiquidInteraction>
     vsync: this,
   );
   int? _pointer;
+
+  /// Where the own pointer went down, for the long press's slop test.
+  Offset _downAt = Offset.zero;
+
+  /// Pending [LiquidInteraction.onLongPress] for the own pointer.
+  Timer? _longPressTimer;
+
+  /// The own press already fired its long press; its lift fires nothing.
+  bool _longPressSpent = false;
+
+  /// Whether the press is reported as held, so
+  /// [LiquidInteraction.onPressedChanged] hears each change once.
+  bool _pressed = false;
+
+  /// [duringBuild]: the press ended from inside a build — this control was
+  /// disabled, or left its group — where the caller's callback must not run,
+  /// since it is the caller's chance to `setState`. It hears it after the
+  /// frame instead.
+  void _setPressed(bool pressed, {bool duringBuild = false}) {
+    if (_pressed == pressed) return;
+    _pressed = pressed;
+    if (!duringBuild) {
+      widget.onPressedChanged?.call(pressed);
+      return;
+    }
+    SchedulerBinding.instance.addPostFrameCallback((_) {
+      if (mounted && _pressed == pressed) {
+        widget.onPressedChanged?.call(pressed);
+      }
+    });
+  }
 
   /// The group this control belongs to, if any.
   _LiquidInteractionGroupState? _group;
@@ -100,6 +167,7 @@ class _LiquidInteractionState extends State<LiquidInteraction>
     if (!widget.enabled || !widget.active && oldWidget.active) {
       _highlight.handleUp();
     }
+    if (!widget.enabled && _pointer != null) _endOwnPress(duringBuild: true);
     if (widget.enabled && widget.active && !oldWidget.active) {
       _highlight.handleDown(_activeLocalPosition());
     }
@@ -143,6 +211,7 @@ class _LiquidInteractionState extends State<LiquidInteraction>
     if (box == null) return;
     _heldByGroup = true;
     _highlight.handleDown(box.globalToLocal(global));
+    _setPressed(true);
   }
 
   void _groupMove(Offset global) {
@@ -155,10 +224,42 @@ class _LiquidInteractionState extends State<LiquidInteraction>
     if (!_heldByGroup) return;
     _heldByGroup = false;
     _highlight.handleUp();
+    _setPressed(false);
+  }
+
+  // ── Own pointer ──
+
+  void _endOwnPress({bool duringBuild = false}) {
+    _longPressTimer?.cancel();
+    _longPressTimer = null;
+    _pointer = null;
+    _highlight.handleUp();
+    _setPressed(false, duringBuild: duringBuild);
+  }
+
+  /// The group let go of this control from inside a build or a teardown (see
+  /// [_LiquidInteractionGroupState._unregister]).
+  void _releasedByGroup() {
+    if (!_heldByGroup) return;
+    _heldByGroup = false;
+    _highlight.handleUp();
+    _setPressed(false, duringBuild: true);
+  }
+
+  void _fireOwnLongPress() {
+    _longPressTimer = null;
+    final VoidCallback? onLongPress = widget.onLongPress;
+    if (_pointer == null || !widget.enabled || onLongPress == null) return;
+    // The pointer stays claimed so that its lift is recognised and ignored.
+    _highlight.handleUp();
+    _setPressed(false);
+    _longPressSpent = true;
+    onLongPress();
   }
 
   @override
   void dispose() {
+    _longPressTimer?.cancel();
     _group?._unregister(this);
     widget.activePosition?.removeListener(_handleActivePosition);
     _highlight.dispose();
@@ -170,33 +271,47 @@ class _LiquidInteractionState extends State<LiquidInteraction>
     // In a group the group's listener drives this control; its own pointer
     // handling would fight it for the same finger.
     final bool own = widget.trackPointer && _group == null;
-    return Listener(
+    final Widget listener = Listener(
       behavior: HitTestBehavior.translucent,
       onPointerDown: (e) {
         if (!widget.enabled || !own || _pointer != null) return;
         _pointer = e.pointer;
+        _downAt = e.localPosition;
+        _longPressSpent = false;
         _highlight.handleDown(e.localPosition);
+        _setPressed(true);
+        if (widget.onLongPress != null) {
+          _longPressTimer = Timer(widget.longPressDuration, _fireOwnLongPress);
+        }
       },
       onPointerMove: (e) {
-        if (_pointer == e.pointer) _highlight.handleMove(e.localPosition);
+        if (_pointer != e.pointer || _longPressSpent) return;
+        _highlight.handleMove(e.localPosition);
+        if ((e.localPosition - _downAt).distance > kTouchSlop) {
+          _longPressTimer?.cancel();
+          _longPressTimer = null;
+        }
       },
       onPointerUp: (e) {
-        if (_pointer == e.pointer) {
-          _pointer = null;
-          _highlight.handleUp();
-          final RenderBox? box = _box;
-          if (widget.onTap != null &&
-              box != null &&
-              (Offset.zero & box.size).contains(e.localPosition)) {
-            widget.onTap!();
-          }
+        if (_pointer != e.pointer) return;
+        final bool spent = _longPressSpent;
+        _longPressSpent = false;
+        _endOwnPress();
+        if (spent) return;
+        final RenderBox? box = _box;
+        // Disabled while the finger was down: the press lets go, and does
+        // not fire.
+        if (widget.enabled &&
+            widget.onTap != null &&
+            box != null &&
+            (Offset.zero & box.size).contains(e.localPosition)) {
+          widget.onTap!();
         }
       },
       onPointerCancel: (e) {
-        if (_pointer == e.pointer) {
-          _pointer = null;
-          _highlight.handleUp();
-        }
+        if (_pointer != e.pointer) return;
+        _longPressSpent = false;
+        _endOwnPress();
       },
       child: ClipRRect(
         borderRadius: widget.borderRadius,
@@ -207,6 +322,21 @@ class _LiquidInteractionState extends State<LiquidInteraction>
           child: _highlight.wrapOverlay(child: widget.child),
         ),
       ),
+    );
+    final VoidCallback? onTap = widget.onTap;
+    final VoidCallback? onLongPress = widget.onLongPress;
+    if (onTap == null && onLongPress == null) return listener;
+    // The actions are committed from raw pointer events, which a screen reader
+    // never sends: without these the control was announced as a button that
+    // could not be activated.
+    return Semantics(
+      button: true,
+      enabled: widget.enabled,
+      selected: widget.selected,
+      label: widget.semanticLabel,
+      onTap: widget.enabled ? onTap : null,
+      onLongPress: widget.enabled ? onLongPress : null,
+      child: listener,
     );
   }
 }
@@ -261,11 +391,48 @@ class _LiquidInteractionGroupState extends State<LiquidInteractionGroup> {
   ScrollPosition? _scroll;
   double? _scrollPixels;
 
+  /// Where the group's finger went down, for the long press's slop test.
+  Offset _downAt = Offset.zero;
+
+  /// Pending long press of the member the finger went down on.
+  Timer? _longPressTimer;
+
+  /// The group's finger already fired a long press; its lift fires nothing.
+  bool _longPressSpent = false;
+
   void _register(_LiquidInteractionState member) => _members.add(member);
 
   void _unregister(_LiquidInteractionState member) {
     _members.remove(member);
-    if (identical(member, _active)) _active = null;
+    // The member under the finger went away mid-press — removed, or out of
+    // the group. Its press ends with it, or its light would stay lit and its
+    // long press would still go off.
+    // Called from the member's dependency change or its disposal, so it is let
+    // go quietly; a group-wide cancel would run its callback mid-build.
+    if (identical(member, _active)) {
+      _active = null;
+      member._releasedByGroup();
+      _cancel();
+    }
+  }
+
+  void _armLongPress(_LiquidInteractionState member) {
+    _longPressTimer?.cancel();
+    _longPressTimer = null;
+    if (member.widget.onLongPress == null) return;
+    _longPressTimer = Timer(member.widget.longPressDuration, () {
+      _longPressTimer = null;
+      if (!identical(_active, member) || !member.mounted) return;
+      final VoidCallback? onLongPress = member.widget.onLongPress;
+      if (!member.widget.enabled || onLongPress == null) return;
+      // Ends the press without forgetting the finger, so that its lift — on
+      // this member or a neighbour — fires nothing.
+      member._groupUp();
+      _active = null;
+      _unwatchScroll();
+      _longPressSpent = true;
+      onLongPress();
+    });
   }
 
   _LiquidInteractionState? _memberAt(Offset global) {
@@ -311,6 +478,9 @@ class _LiquidInteractionGroupState extends State<LiquidInteractionGroup> {
 
   void _cancel() {
     _pointer = null;
+    _longPressSpent = false;
+    _longPressTimer?.cancel();
+    _longPressTimer = null;
     _unwatchScroll();
     _active?._groupUp();
     _active = null;
@@ -318,6 +488,7 @@ class _LiquidInteractionGroupState extends State<LiquidInteractionGroup> {
 
   @override
   void dispose() {
+    _longPressTimer?.cancel();
     _unwatchScroll();
     super.dispose();
   }
@@ -333,19 +504,29 @@ class _LiquidInteractionGroupState extends State<LiquidInteractionGroup> {
           final _LiquidInteractionState? member = _memberAt(e.position);
           if (member == null) return;
           _pointer = e.pointer;
+          _downAt = e.position;
+          _longPressSpent = false;
           _activate(member, e.position);
           _watchScroll(member);
+          _armLongPress(member);
         },
         onPointerMove: (PointerMoveEvent e) {
-          if (e.pointer != _pointer) return;
+          if (e.pointer != _pointer || _longPressSpent) return;
+          // A long press is a finger at rest on the member it went down on.
+          if ((e.position - _downAt).distance > kTouchSlop) {
+            _longPressTimer?.cancel();
+            _longPressTimer = null;
+          }
           // Over nothing the finger keeps the member it came from, so the
           // light has somewhere to be; lifting there still fires nothing.
           _activate(_memberAt(e.position) ?? _active, e.position);
         },
         onPointerUp: (PointerUpEvent e) {
           if (e.pointer != _pointer) return;
+          final bool spent = _longPressSpent;
           final _LiquidInteractionState? over = _memberAt(e.position);
           _cancel();
+          if (spent) return;
           if (over != null && over.mounted) over.widget.onTap?.call();
         },
         onPointerCancel: (PointerCancelEvent e) {
