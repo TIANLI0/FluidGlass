@@ -33,7 +33,8 @@ void main() {
       await tester.tap(find.descendant(of: pageBar, matching: find.text('首页')));
       await settle(tester);
 
-      // Press and drag the capsule: it follows and springs back.
+      // Press and slide along the capsule: it follows the finger, and the
+      // selection follows it from item to item.
       final TestGesture gesture = await tester.startGesture(
         tester.getCenter(
           find.descendant(of: pageBar, matching: find.text('配色')),
@@ -44,6 +45,10 @@ void main() {
         await tester.pump(const Duration(milliseconds: 16));
       }
       await gesture.up();
+      await settle(tester);
+      // The finger moved on 「配色」, which was not selected: it went there.
+      expect(find.text('配色 1'), findsOneWidget);
+      await tester.tap(find.descendant(of: pageBar, matching: find.text('首页')));
       await settle(tester);
 
       // Scroll through the page, hiding and showing the round views.

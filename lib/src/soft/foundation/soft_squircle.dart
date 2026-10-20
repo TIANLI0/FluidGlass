@@ -35,7 +35,11 @@ void addSoftSquircle(
     path.addRect(rect);
     return;
   }
-  if (!smooth) {
+  // A capsule keeps true semicircular ends. The smooth corner is an Lp
+  // superellipse with n = 2.5; at a radius of half the short side its two
+  // corners meet head on and the end flattens into a visible straight
+  // stretch instead of rounding off.
+  if (!smooth || softIsCapsule(rect.size, tl, tr, br, bl)) {
     path.addRRect(
       RRect.fromRectAndCorners(
         rect,
@@ -63,6 +67,22 @@ void addSoftSquircle(
     ..lineTo(l, t + tl)
     ..cubicTo(l, t + handle(tl), l + handle(tl), t, l + tl, t)
     ..close();
+}
+
+/// Whether corners of these radii make a [size] box a capsule: every corner
+/// at (or within half a pixel of) half the shorter side.
+bool softIsCapsule(
+  Size size,
+  double topLeft,
+  double topRight,
+  double bottomRight,
+  double bottomLeft,
+) {
+  final double half = size.shortestSide / 2 - 0.5;
+  return topLeft >= half &&
+      topRight >= half &&
+      bottomRight >= half &&
+      bottomLeft >= half;
 }
 
 /// A smooth-cornered rectangle path at [rect].

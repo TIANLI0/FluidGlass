@@ -176,7 +176,16 @@ void paintSoftGlassRim(
   f(r(radius.topRight));
   f(r(radius.bottomLeft));
   f(r(radius.bottomRight));
-  f(smooth ? 2.5 : 2.0);
+  // A capsule is drawn with circular ends (see `addSoftSquircle`); the rim
+  // has to trace the same curve.
+  final bool capsule = softIsCapsule(
+    size,
+    r(radius.topLeft),
+    r(radius.topRight),
+    r(radius.bottomRight),
+    r(radius.bottomLeft),
+  );
+  f(smooth && !capsule ? 2.5 : 2.0);
   f(math.min(rim.width, maxRadius));
   f(rim.innerBlurRadius);
   f(rim.alpha);

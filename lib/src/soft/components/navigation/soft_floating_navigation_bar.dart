@@ -273,9 +273,83 @@ class _SoftFloatingNavigationBarState extends State<SoftFloatingNavigationBar>
     ..._endExpansion.listenables,
   ]);
 
+  // Slide to select. Sliding the finger onto another item selects it on
+  // the spot — its icon and colour change under the finger — and lifting
+  // the finger there goes to it. This is the reference bar's own touch
+  // handling: without it a slide only cancels the tap, and a bar that
+  // follows the finger but never answers it reads as stuck.
+
+  /// The item shown as selected while a slide is under way.
+  int? _slide;
+
+  /// The item a slide has moved the selection to, delivered on lift.
+  int? _pending;
+
+  /// Set when a lift delivered a slide, so the tap that may end the same
+  /// gesture (a short slide across the gap between two items stays within
+  /// the tap slop) is not delivered as well.
+  bool _suppressTap = false;
+
+  int? _itemAt(
+    Offset local,
+    double itemWidth,
+    double capsuleWidth, {
+    required bool rtl,
+  }) {
+    if (local.dy < 0 ||
+        local.dy > SoftFloatingNavigationBarDefaults.barHeight) {
+      return null;
+    }
+    final double x = rtl ? capsuleWidth - local.dx : local.dx;
+    for (int i = 0; i < widget.items.length; i++) {
+      final double left =
+          SoftFloatingNavigationBarDefaults.itemInnerPadding +
+          i * (itemWidth + SoftFloatingNavigationBarDefaults.itemSpacing);
+      if (x >= left && x <= left + itemWidth) return i;
+    }
+    return null;
+  }
+
+  void _slideDown() {
+    _pending = null;
+    _suppressTap = false;
+  }
+
+  void _slideMove(int? index) {
+    if (index == null || !widget.items[index].enabled) return;
+    if (index == (_slide ?? widget.selectedIndex)) return;
+    setState(() => _slide = index);
+    _pending = index;
+  }
+
+  void _slideUp() {
+    final int? pending = _pending;
+    _pending = null;
+    if (pending == null) return;
+    setState(() => _slide = null);
+    // Back where it started: nothing to go to.
+    if (pending == widget.selectedIndex) return;
+    _suppressTap = true;
+    widget.onSelected(pending);
+  }
+
+  void _slideCancel() {
+    _pending = null;
+    if (_slide != null) setState(() => _slide = null);
+  }
+
+  void _tap(int index) {
+    if (_suppressTap) {
+      _suppressTap = false;
+      return;
+    }
+    widget.onSelected(index);
+  }
+
   @override
   void didUpdateWidget(SoftFloatingNavigationBar oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (oldWidget.selectedIndex != widget.selectedIndex) _slide = null;
     final bool startVisible = widget.start?.visible ?? false;
     if (startVisible != (oldWidget.start?.visible ?? false)) {
       _startExpansion.show(startVisible);
@@ -379,16 +453,27 @@ class _SoftFloatingNavigationBarState extends State<SoftFloatingNavigationBar>
       SoftFloatingNavigationBarDefaults.cornerRadius,
     );
 
-    final Widget row = _CapsuleRow(
-      itemWidth: itemWidth,
-      children: <Widget>[
-        for (int i = 0; i < count; i++)
-          _ItemCell(
-            item: widget.items[i],
-            selected: i == widget.selectedIndex,
-            onTap: () => widget.onSelected(i),
-          ),
-      ],
+    final int shown = _slide ?? widget.selectedIndex;
+    final bool rtl = Directionality.of(context) == TextDirection.rtl;
+    final Widget row = Listener(
+      behavior: HitTestBehavior.translucent,
+      onPointerDown: (PointerDownEvent e) => _slideDown(),
+      onPointerMove: (PointerMoveEvent e) => _slideMove(
+        _itemAt(e.localPosition, itemWidth, capsuleWidth, rtl: rtl),
+      ),
+      onPointerUp: (PointerUpEvent e) => _slideUp(),
+      onPointerCancel: (PointerCancelEvent e) => _slideCancel(),
+      child: _CapsuleRow(
+        itemWidth: itemWidth,
+        children: <Widget>[
+          for (int i = 0; i < count; i++)
+            _ItemCell(
+              item: widget.items[i],
+              selected: i == shown,
+              onTap: () => _tap(i),
+            ),
+        ],
+      ),
     );
 
     if (start == null && end == null) {
