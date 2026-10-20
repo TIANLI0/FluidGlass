@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 import 'dart:ui' as ui;
 
+import 'package:flutter/gestures.dart' show kTouchSlop;
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 
@@ -130,6 +131,7 @@ class LiquidBottomTabs extends StatefulWidget {
     required this.children,
     this.isInteractive = true,
     this.height = defaultHeight,
+    this.onTabReselected,
   }) : assert(tabsCount > 0, 'A tab bar needs at least one tab.'),
        assert(
          children.length == tabsCount,
@@ -164,6 +166,27 @@ class LiquidBottomTabs extends StatefulWidget {
   /// at any height (78 against the default 56 row).
   final double height;
 
+  /// The tab that is already selected was tapped again — the usual cue to
+  /// scroll its page back to the top, or pop it to its root.
+  ///
+  /// [onTabSelected] cannot carry this: it only reports a change. Nor can the
+  /// tab's own [LiquidBottomTab.onPressed], because the selection pill sits on
+  /// the selected tab and takes the finger itself (it swells, and drags). A
+  /// press on the pill that lifts where it went down, without dragging it
+  /// anywhere, is reported here.
+  final ValueChanged<int>? onTabReselected;
+
+  /// Whether [context] is inside the accent-tinted copy of the tabs that the
+  /// selection pill magnifies, rather than the bar's own visible row.
+  ///
+  /// Every tab is built twice, and the copy is tinted as a whole: anything
+  /// that keeps its own colours — an unread badge — turns into a blot of
+  /// accent there, and anything that must exist once — a `LayerLink` target,
+  /// a `GlobalKey` — exists twice. Build those only where this is false.
+  static bool isAccentCopy(BuildContext context) =>
+      context.getElementForInheritedWidgetOfExactType<LiquidBottomTabScale>() !=
+      null;
+
   @override
   State<LiquidBottomTabs> createState() => _LiquidBottomTabsState();
 }
@@ -194,6 +217,10 @@ class _LiquidBottomTabsState extends State<LiquidBottomTabs>
   double get _rowHeight => widget.height - _inset * 2;
 
   double _tabWidth = 0;
+
+  /// How far the finger has moved the pill in the current press, for telling
+  /// a tap on the selected tab from a drag that came back to it.
+  double _pillTravel = 0;
   double _maxWidth = 0;
   int _currentIndex = 0;
 
@@ -375,6 +402,17 @@ class _LiquidBottomTabsState extends State<LiquidBottomTabs>
       builder: (BuildContext context, BoxConstraints constraints) {
         _maxWidth = constraints.maxWidth;
         _tabWidth = (_maxWidth - _inset * 2) / widget.tabsCount;
+        // The first frame of an app can lay this out at zero width (the
+        // engine reports a 0x0 view before the real one), which made every
+        // tab negative and tripped `DrawBackdrop`'s constraint asserts. There
+        // is nothing to draw in that frame; hold the height and wait.
+        if (!_maxWidth.isFinite || _tabWidth <= 0) {
+          _tabWidth = 0;
+          return SizedBox(
+            width: _maxWidth.isFinite ? _maxWidth : 0,
+            height: _panelHeight,
+          );
+        }
 
         // Nothing here is rebuilt while the pill moves. Every animated value
         // — the panel's give, the pill's position, the press — is read during
@@ -493,12 +531,21 @@ class _LiquidBottomTabsState extends State<LiquidBottomTabs>
                     // The pill is dragged along the bar.
                     claimAxis: Axis.horizontal,
                     onDragStart: (Offset position, Size size) {
+                      _pillTravel = 0;
                       _interactiveHighlight.handleDown(position);
                       _animation.handleDragStart(position);
                     },
                     onDrag: (Offset position, Offset delta, Size size) {
+                      _pillTravel += delta.distance;
                       _interactiveHighlight.handleMove(position);
                       _animation.handleDrag(size, delta);
+                    },
+                    // After `onDragEnd`, which has already moved
+                    // [_currentIndex] if the pill was dragged to another tab.
+                    onTap: () {
+                      if (_pillTravel > kTouchSlop) return;
+                      if (_currentIndex != widget.selectedTabIndex) return;
+                      widget.onTabReselected?.call(_currentIndex);
                     },
                     onDragEnd: () {
                       _interactiveHighlight.handleUp();

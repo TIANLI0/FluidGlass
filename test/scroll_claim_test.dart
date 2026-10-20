@@ -1,4 +1,5 @@
 import 'package:fluid_glass/fluid_glass.dart';
+import 'package:flutter/gestures.dart' show DeviceGestureSettings;
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -212,6 +213,46 @@ void main() {
 
       expect(selections, <bool>[true]);
     });
+  });
+
+  // On a phone the list's drag recogniser takes its slop from the device
+  // (`MediaQuery.gestureSettings` — about 8 on Android) while a recogniser
+  // left at its defaults uses Flutter's 18. With mismatched slops the list
+  // won a 2:1 sideways drag: its 8 of vertical came before the claim's 18 of
+  // horizontal. The claim has to read the same settings the list does.
+  testWidgets('the claim uses the device touch slop, as the list does', (
+    tester,
+  ) async {
+    final controller = ScrollController();
+    final selections = <bool>[];
+    await tester.pumpWidget(
+      MediaQuery(
+        data: const MediaQueryData(
+          size: Size(800, 600),
+          gestureSettings: DeviceGestureSettings(touchSlop: 8),
+        ),
+        child: _inList(
+          controller,
+          Align(
+            alignment: Alignment.centerLeft,
+            child: LiquidToggle(
+              selected: false,
+              backdrop: emptyBackdrop,
+              onSelect: selections.add,
+            ),
+          ),
+        ),
+      ),
+    );
+
+    final gesture = await tester.startGesture(_grip(tester, LiquidToggle));
+    // Two parts sideways to one part up, all the way.
+    await _drag(gesture, const Offset(40, -20));
+    await gesture.up();
+    await tester.pumpAndSettle();
+
+    expect(controller.offset, 0, reason: 'the list must not take it');
+    expect(selections, <bool>[true]);
   });
 
   group('LiquidToggle in a tappable row', () {

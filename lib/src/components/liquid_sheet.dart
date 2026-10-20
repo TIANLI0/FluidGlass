@@ -400,6 +400,11 @@ Future<T?> showLiquidSheet<T>({
     // Without this the framework caps the sheet at 9/16 of the screen and the
     // rows inside a taller sheet are simply cut off.
     isScrollControlled: true,
+    // ... and with it alone, a sheet with more rows than fit grows up under
+    // the status bar and the notch: its title ends up behind the clock. This
+    // keeps the top clear; the bottom inset is the sheet's own (its rows pad
+    // themselves above the home indicator).
+    useSafeArea: true,
     builder: (BuildContext sheetContext) => LiquidSheet(
       backdrop: backdrop,
       title: title,

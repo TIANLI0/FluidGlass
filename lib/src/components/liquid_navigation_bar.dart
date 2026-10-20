@@ -167,7 +167,7 @@ class LiquidNavigationBar extends StatefulWidget
   final bool includeTopPadding;
 
   /// The gap between the islands, and the inset around them.
-  static const double _gap = 8;
+  static const double gap = 8;
 
   /// The tint chrome carries, for a caller building an island of its own.
   ///
@@ -187,7 +187,7 @@ class LiquidNavigationBar extends StatefulWidget
   static const double chromeBlur = 8;
 
   @override
-  Size get preferredSize => Size.fromHeight(height + _gap * 2 + fadeHeight);
+  Size get preferredSize => Size.fromHeight(height + gap * 2 + fadeHeight);
 
   @override
   State<LiquidNavigationBar> createState() => _LiquidNavigationBarState();
@@ -377,7 +377,7 @@ class _LiquidNavigationBarState extends State<LiquidNavigationBar> {
         : 0;
     final Color scrim =
         widget.scrimColor ?? Theme.of(context).colorScheme.surface;
-    final double gap = LiquidNavigationBar._gap;
+    final double gap = LiquidNavigationBar.gap;
     final double chrome = top + widget.height + gap * 2;
     final double total = chrome + widget.fadeHeight;
 

@@ -36,6 +36,7 @@ export 'src/backdrop.dart';
 export 'src/backdrop_effect_scope.dart'
     show BackdropEffectGeometry, BackdropEffectScope, ShaderEffectConfigurator;
 export 'src/backdrops/canvas_backdrop.dart';
+export 'src/backdrops/color_backdrop.dart';
 export 'src/backdrops/combined_backdrop.dart';
 export 'src/backdrops/empty_backdrop.dart';
 export 'src/backdrops/layer_backdrop.dart'

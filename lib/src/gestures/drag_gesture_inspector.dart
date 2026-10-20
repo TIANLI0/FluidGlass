@@ -309,6 +309,11 @@ class _DragInspectorState extends State<DragInspector> {
 
   @override
   Widget build(BuildContext context) {
+    // The device's touch slop, as every `GestureDetector` and `Scrollable`
+    // reads it. Left at the default, this competitor waited for Flutter's 18
+    // while a list on an Android phone (about 8) waited for less — and won a
+    // drag that went two parts sideways to one part across.
+    _claim?.gestureSettings = MediaQuery.maybeGestureSettingsOf(context);
     return Listener(
       behavior: widget.behavior,
       onPointerDown: (PointerDownEvent event) {

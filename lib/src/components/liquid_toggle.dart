@@ -36,6 +36,7 @@ class LiquidToggle extends StatefulWidget {
 class _LiquidToggleState extends State<LiquidToggle>
     with TickerProviderStateMixin {
   static const double _dragWidth = 20;
+  static const double _disabledOpacity = 0.38;
   static const double _knobPadding = 2;
 
   // Replay the track's capsule drawing into the lens. A solid shape needs no
@@ -257,12 +258,16 @@ class _LiquidToggleState extends State<LiquidToggle>
     // on to the row's handler as well, the row flipped the switch a second
     // time, and it sprang straight back. Apps were each adding a dummy tap
     // handler round the switch to block that.
-    return GestureDetector(
+    final Widget toggle = GestureDetector(
       behavior: HitTestBehavior.opaque,
       excludeFromSemantics: true,
       onTap: widget.onSelect == null ? null : _onTap,
       child: _buildStack(isLtr, trackColor, accentColor),
     );
+    if (widget.onSelect != null) return toggle;
+    // Disabled looks disabled, at the opacity Material's controls use. It was
+    // already inert, but drawn exactly like a live switch.
+    return Opacity(opacity: _disabledOpacity, child: toggle);
   }
 
   Widget _buildStack(bool isLtr, Color trackColor, Color accentColor) {

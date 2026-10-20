@@ -1,6 +1,47 @@
 # Changelog
 
-## Unreleased
+## 0.2.0
+
+### Behaviour changes to check when upgrading
+
+- `LiquidSlider` reserves a 48-pixel touch target by default; pass
+  `touchTargetHeight: 24` for the old layout.
+- A disabled `LiquidToggle` (`onSelect: null`) is drawn at 38% opacity. Drop
+  any dimming wrapper of your own, or it dims twice.
+- Taps on a `LiquidToggle` — knob included — go through the gesture arena and
+  win over a tap handler round it. A dummy tap handler added to stop a row from
+  flipping the switch a second time is no longer needed.
+- Sliders, switches, segmented controls and the tab-bar pill claim sideways
+  drags (see Fixed). An empty horizontal-drag `GestureDetector` round them is
+  no longer needed, and now only competes with the claim.
+- A `LiquidInteraction` with `onTap` or `onLongPress` is a semantics button
+  with those actions. A `Semantics` wrapper of your own that adds the same
+  actions can go.
+
+### Added
+
+- `LiquidInteraction.onLongPress` and `longPressDuration`: a finger resting on
+  a control — or on a member of a `LiquidInteractionGroup` — fires it, the
+  light goes out there, and lifting afterwards fires no tap anywhere.
+  `onPressedChanged` reports the press as the light shows it, for press
+  feedback of the caller's own. `semanticLabel` names the button.
+- `LiquidBottomTabs.onTabReselected`: the selected tab tapped again — which the
+  selection pill, sitting on it, used to swallow. `LiquidBottomTabs.isAccentCopy`
+  tells a tab which of its two renderings it is building.
+- `ColorBackdrop`: a solid-colour backdrop compared by colour, for controls on
+  a plain surface.
+- `LiquidNavigationBar.gap` is public, for layouts that line up with the bar.
+
+### Fixed (this release)
+
+- `LiquidBottomTabs` laid out at zero width — the first frame of an app — no
+  longer trips `DrawBackdrop`'s constraint asserts; it holds its height and
+  draws nothing until it has a width.
+- `showLiquidSheet` keeps a sheet taller than the screen below the status bar
+  and the notch.
+- A `LiquidInteractionGroup` member removed or disabled under the finger lets
+  its press go: its light no longer stays lit, and its long press does not go
+  off.
 
 ### UI essentials
 
@@ -67,6 +108,9 @@
   enters the gesture arena for drags along that axis, as Flutter's own
   `Slider` does — whichever axis passes the touch slop first takes the pointer,
   so a vertical swipe that starts on one of them still scrolls the list. The
+  claim reads the device's touch slop from `MediaQuery`, as the list does: at
+  Flutter's default 18 against an Android list's 8 or so, the list still won a
+  drag that went two parts sideways to one part across. The
   events still arrive with no slop, so the controls answer as soon as they are
   touched. Apps that wrapped these controls in an empty horizontal-drag
   `GestureDetector` to get this can drop it.
