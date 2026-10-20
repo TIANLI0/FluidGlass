@@ -43,3 +43,7 @@ flutter:
     - shaders/interactive_highlight.frag
     - shaders/fusion.frag
     - shaders/progressive_blur.frag
+    - shaders/soft_spot_light.frag
+    - shaders/soft_bloom_stroke.frag
+    - shaders/soft_meta_ball.frag
+    - shaders/soft_caustic.frag
