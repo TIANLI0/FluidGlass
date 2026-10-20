@@ -17,22 +17,6 @@ SpringDescription springOf(double dampingRatio, double stiffness) {
   );
 }
 
-/// A spring described the way SwiftUI's `spring(response:bounce:)` describes
-/// one: [response] is the period of the
-/// undamped oscillation in seconds — roughly how long the move takes — and
-/// [bounce] how much it overshoots, from 0 (none, critically damped) towards 1.
-/// A negative [bounce] is overdamped.
-///
-/// Unit mass, so `stiffness = (2π / response)²`, and the damping ratio is
-/// `1 - bounce` for a bounce of zero or more and `1 / (1 + bounce)` below.
-SpringDescription springOfResponse(double response, {double bounce = 0}) {
-  assert(response > 0, 'response is a period in seconds and must be positive');
-  assert(bounce > -1 && bounce < 1, 'bounce must lie between -1 and 1');
-  final double stiffness = math.pow(2 * math.pi / response, 2).toDouble();
-  final double dampingRatio = bounce >= 0 ? 1 - bounce : 1 / (1 + bounce);
-  return springOf(dampingRatio, stiffness);
-}
-
 /// The velocity tolerance, as a multiple of the displacement one.
 ///
 /// Modern Compose does not gate on velocity at all: `FloatSpringSpec` asks

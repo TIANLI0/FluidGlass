@@ -1,17 +1,5 @@
 # Changelog
 
-## 0.2.1
-
-### Added
-
-- `springOfResponse(response, bounce:)`: a spring described by how long the
-  move takes and how much it overshoots, as SwiftUI describes one, instead of
-  by damping ratio and stiffness.
-- `LiquidBottomTabs.selectionSpring` and `DampedDragAnimation.settleSpring`:
-  the spring a selection travels on after a tap or a let-go drag. A dragged
-  element still follows the finger on its own near-instant spring, so a
-  slower, bouncier selection never makes it lag behind the finger.
-
 ## 0.2.0
 
 ### Behaviour changes to check when upgrading

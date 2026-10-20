@@ -132,7 +132,6 @@ class LiquidBottomTabs extends StatefulWidget {
     this.isInteractive = true,
     this.height = defaultHeight,
     this.onTabReselected,
-    this.selectionSpring,
   }) : assert(tabsCount > 0, 'A tab bar needs at least one tab.'),
        assert(
          children.length == tabsCount,
@@ -176,16 +175,6 @@ class LiquidBottomTabs extends StatefulWidget {
   /// press on the pill that lifts where it went down, without dragging it
   /// anywhere, is reported here.
   final ValueChanged<int>? onTabReselected;
-
-  /// The spring the pill travels to a newly selected tab on — after a tap, or
-  /// when a drag is let go between two tabs.
-  ///
-  /// Null keeps the pill's own spring, the one it follows a finger on:
-  /// critically damped and quick, so the pill arrives without overshoot. Give
-  /// a slower, bouncier one (`springOfResponse(0.55, bounce: 0.35)`) for a
-  /// pill that swings over and settles. Only the travel uses it — a pill being
-  /// dragged still sticks to the finger.
-  final SpringDescription? selectionSpring;
 
   /// Whether [context] is inside the accent-tinted copy of the tabs that the
   /// selection pill magnifies, rather than the bar's own visible row.
@@ -257,7 +246,7 @@ class _LiquidBottomTabsState extends State<LiquidBottomTabs>
       pressedScale: 78 / 56,
       onDragStopped: _onDragStopped,
       onDrag: _onDrag,
-    )..settleSpring = widget.selectionSpring;
+    );
     _interactiveHighlight = InteractiveHighlight(
       vsync: this,
       position: _highlightPosition,
@@ -279,7 +268,6 @@ class _LiquidBottomTabsState extends State<LiquidBottomTabs>
     super.didUpdateWidget(oldWidget);
     // Before the index: a tab added after sign-in has to be in range by the
     // time the pill is sent to it, or it is clamped onto the old last tab.
-    _animation.settleSpring = widget.selectionSpring;
     if (widget.tabsCount != oldWidget.tabsCount) {
       _animation.valueRange = (
         start: 0,

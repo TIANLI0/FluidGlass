@@ -95,16 +95,6 @@ class DampedDragAnimation extends ChangeNotifier {
   final void Function(Size size, Offset dragAmount)? onDrag;
 
   late final SpringDescription _valueSpec = springOf(1.0, 1000.0);
-
-  /// The spring [animateToValue] travels on — a selection made by a tap, or a
-  /// drag let go between two stops settling onto one. Null travels on the same
-  /// spring as a drag does, which is how every component has always moved.
-  ///
-  /// Separate from the drag's own because the two jobs want opposite springs:
-  /// following a finger has to be near-instant or the element lags behind it,
-  /// while a selection travelling on its own can afford to take its time and
-  /// overshoot. Settable, so a component can change it after construction.
-  SpringDescription? settleSpring;
   late final SpringDescription _velocitySpec = springOf(0.5, 300.0);
   late final SpringDescription _pressProgressSpec = springOf(1.0, 1000.0);
   late final SpringDescription _scaleXSpec = springOf(0.6, 250.0);
@@ -227,7 +217,7 @@ class DampedDragAnimation extends ChangeNotifier {
     final int mutation = ++_mutation;
     press();
     _trackVelocity = false;
-    _valueAnimation.animateTo(_coerce(value), settleSpring ?? _valueSpec);
+    _valueAnimation.animateTo(_coerce(value), _valueSpec);
     if (velocity != 0.0) {
       _velocityAnimation.animateTo(0.0, _velocitySpec);
     }
