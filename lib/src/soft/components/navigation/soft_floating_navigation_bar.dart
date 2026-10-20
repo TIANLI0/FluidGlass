@@ -111,7 +111,12 @@ class SoftFloatingNavigationItem {
     this.largeIcon = false,
     this.badge,
     this.onLongPress,
+    this.semanticLabel,
   });
+
+  /// What a screen reader announces; [label] by default. Put an unread count
+  /// here — the badge itself is not read out.
+  final String? semanticLabel;
 
   /// Usually an [Icon]; it is sized and tinted by the bar.
   final Widget icon;
@@ -175,7 +180,13 @@ class SoftFloatingNavigationBar extends StatefulWidget {
     this.color,
     this.quality,
     this.includeBottomInset = true,
+    this.blur = true,
   });
+
+  /// Whether the capsule is frosted. False paints it opaque in [color] —
+  /// what the reference falls back to where there is nothing to blur, and
+  /// what an app with its glass switched off (or high contrast on) wants.
+  final bool blur;
 
   final List<SoftFloatingNavigationItem> items;
   final int selectedIndex;
@@ -407,6 +418,7 @@ class _SoftFloatingNavigationBarState extends State<SoftFloatingNavigationBar>
               borderRadius: capsuleRadius,
               background: SoftGlass(
                 borderRadius: capsuleRadius,
+                blur: widget.blur,
                 color: barColor,
                 blurRadius: sigma / 0.45,
                 layers: dark
@@ -491,7 +503,7 @@ class _SoftFloatingNavigationBarState extends State<SoftFloatingNavigationBar>
             Positioned.fill(
               child: SoftMetaBallSurface(
                 particles: particles,
-                backdrop: widget.backdrop,
+                backdrop: widget.blur ? widget.backdrop : null,
                 color: barColor,
                 containerAlpha:
                     SoftFloatingNavigationBarDefaults.containerAlpha(
@@ -827,7 +839,11 @@ class _ItemCell extends StatelessWidget {
       selected: selected,
       button: true,
       enabled: item.enabled,
-      label: item.label,
+      label: item.semanticLabel ?? item.label,
+      // The gesture below is excluded with the content, so the actions are
+      // given here.
+      onTap: item.enabled ? onTap : null,
+      onLongPress: item.enabled ? item.onLongPress : null,
       excludeSemantics: true,
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,

@@ -47,3 +47,4 @@ flutter:
     - shaders/soft_bloom_stroke.frag
     - shaders/soft_meta_ball.frag
     - shaders/soft_caustic.frag
+    - shaders/soft_blend_tint.frag

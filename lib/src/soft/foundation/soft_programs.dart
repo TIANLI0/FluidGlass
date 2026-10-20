@@ -22,18 +22,22 @@ class SoftPrograms extends ChangeNotifier {
       'packages/fluid_glass/shaders/soft_meta_ball.frag';
   static const String _causticAsset =
       'packages/fluid_glass/shaders/soft_caustic.frag';
+  static const String _blendTintAsset =
+      'packages/fluid_glass/shaders/soft_blend_tint.frag';
 
   ui.FragmentProgram? _spotLight;
   ui.FragmentProgram? _bloomStroke;
   ui.FragmentProgram? _metaBall;
   ui.FragmentProgram? _caustic;
+  ui.FragmentProgram? _blendTint;
   Future<void>? _loading;
 
   bool get isReady =>
       _spotLight != null &&
       _bloomStroke != null &&
       _metaBall != null &&
-      _caustic != null;
+      _caustic != null &&
+      _blendTint != null;
 
   ui.FragmentProgram? get spotLight {
     _kick();
@@ -55,6 +59,12 @@ class SoftPrograms extends ChangeNotifier {
   ui.FragmentProgram? get caustic {
     _kick();
     return _caustic;
+  }
+
+  /// Tint layers blended over a blurred backdrop, inside the filter.
+  ui.FragmentProgram? get blendTint {
+    _kick();
+    return _blendTint;
   }
 
   void _kick() {
@@ -97,11 +107,13 @@ class SoftPrograms extends ChangeNotifier {
           _loadOne(_bloomStrokeAsset),
           _loadOne(_metaBallAsset),
           _loadOne(_causticAsset),
+          _loadOne(_blendTintAsset),
         ]);
     _spotLight = programs[0];
     _bloomStroke = programs[1];
     _metaBall = programs[2];
     _caustic = programs[3];
+    _blendTint = programs[4];
     notifyListeners();
   }
 }

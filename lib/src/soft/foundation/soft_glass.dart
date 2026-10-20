@@ -275,6 +275,33 @@ class SoftGlass extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final List<SoftBlendLayer>? tints = layers;
+    final bool advanced =
+        blur &&
+        tints != null &&
+        tints.any((SoftBlendLayer l) => l.blendMode != BlendMode.srcOver);
+    if (!advanced) return _build(context, null);
+    // The blend program loads asynchronously; rebuild when it arrives.
+    return ListenableBuilder(
+      listenable: SoftPrograms.instance,
+      builder: (BuildContext context, _) {
+        final ui.FragmentProgram? program = SoftPrograms.instance.blendTint;
+        return _build(
+          context,
+          program != null && ui.ImageFilter.isShaderFilterSupported
+              ? program
+              : null,
+        );
+      },
+    );
+  }
+
+  /// [blendProgram], when given, blends the tint layers into the blurred
+  /// backdrop inside the filter. Painting colour-dodge or luminosity layers
+  /// over a `BackdropFilter` instead asks the backend for advanced blends
+  /// against the backdrop — which on some GLES configurations blanks the
+  /// whole frame, not just the panel.
+  Widget _build(BuildContext context, ui.FragmentProgram? blendProgram) {
     final SoftThemeData theme = SoftTheme.of(context);
     final bool smooth = theme.smoothCorners;
     final Color base = color ?? theme.colors.bar;
@@ -284,16 +311,25 @@ class SoftGlass extends StatelessWidget {
       radius: borderRadius,
       smooth: smooth,
     );
+    final List<SoftBlendLayer>? tints = layers;
+    final bool advanced =
+        tints != null &&
+        tints.any((SoftBlendLayer l) => l.blendMode != BlendMode.srcOver);
+    final List<SoftBlendLayer> painted;
+    if (!blur) {
+      painted = <SoftBlendLayer>[SoftBlendLayer(base)];
+    } else if (tints != null && !advanced) {
+      painted = tints;
+    } else if (tints != null && blendProgram != null) {
+      painted = const <SoftBlendLayer>[];
+    } else {
+      // No way to blend the layers safely: a plain translucent tint.
+      painted = <SoftBlendLayer>[
+        SoftBlendLayer(base.withValues(alpha: base.a * containerAlpha)),
+      ];
+    }
     Widget content = CustomPaint(
-      painter: _GlassFillPainter(
-        layers: blur && layers != null
-            ? layers!
-            : <SoftBlendLayer>[
-                SoftBlendLayer(
-                  blur ? base.withValues(alpha: base.a * containerAlpha) : base,
-                ),
-              ],
-      ),
+      painter: _GlassFillPainter(layers: painted),
       foregroundPainter: blur
           ? _GlassRimPainter(
               radius: borderRadius,
@@ -305,14 +341,18 @@ class SoftGlass extends StatelessWidget {
     );
     if (blur) {
       final double sigma = SoftGlassDefaults.sigmaOf(blurRadius);
-      content = BackdropFilter(
-        filter: ui.ImageFilter.blur(
-          sigmaX: sigma,
-          sigmaY: sigma,
-          tileMode: TileMode.mirror,
-        ),
-        child: content,
+      ui.ImageFilter filter = ui.ImageFilter.blur(
+        sigmaX: sigma,
+        sigmaY: sigma,
+        tileMode: TileMode.mirror,
       );
+      if (tints != null && advanced && blendProgram != null) {
+        filter = ui.ImageFilter.compose(
+          outer: ui.ImageFilter.shader(_blendShader(blendProgram, tints)),
+          inner: filter,
+        );
+      }
+      content = BackdropFilter(filter: filter, child: content);
     }
     content = ClipPath(
       clipper: ShapeBorderClipper(shape: shape),
@@ -327,6 +367,34 @@ class SoftGlass extends StatelessWidget {
     }
     return content;
   }
+}
+
+ui.FragmentShader _blendShader(
+  ui.FragmentProgram program,
+  List<SoftBlendLayer> layers,
+) {
+  double mode(BlendMode m) => switch (m) {
+    BlendMode.colorDodge => 1,
+    BlendMode.luminosity => 2,
+    BlendMode.overlay => 3,
+    _ => 0,
+  };
+  final ui.FragmentShader shader = program.fragmentShader();
+  int i = 0;
+  void put(double v) => shader.setFloat(i++, v);
+  // Floats 0..1 are uTextureSize, which the engine overwrites.
+  put(0);
+  put(0);
+  for (int k = 0; k < 2; k++) {
+    final SoftBlendLayer? layer = k < layers.length ? layers[k] : null;
+    put(layer?.color.r ?? 0);
+    put(layer?.color.g ?? 0);
+    put(layer?.color.b ?? 0);
+    put(layer?.color.a ?? 0);
+    put(layer == null ? 0 : mode(layer.blendMode));
+  }
+  put(layers.length.clamp(0, 2).toDouble());
+  return shader;
 }
 
 class _GlassFillPainter extends CustomPainter {
