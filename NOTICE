@@ -16,6 +16,24 @@ Portions of this software are derived from:
   Copyright 2025 Kyant
   Licensed under the Apache License, Version 2.0
 
+The soft component family (lib/src/soft and the soft_* shaders) is derived
+from:
+
+  coui17
+  https://github.com/Costben/coui17
+  Copyright 2025-2026, compose-coui-ui contributors
+  Licensed under the Apache License, Version 2.0
+
+  which is a fork of COUI
+  https://github.com/suqi8/coui
+  Copyright the COUI contributors
+  Licensed under the Apache License, Version 2.0
+
+  which is in turn a fork of Miuix
+  https://github.com/compose-miuix-ui/miuix
+  Copyright YuKongA and the compose-miuix-ui contributors
+  Licensed under the Apache License, Version 2.0
+
 Those sources were translated from Kotlin/Compose to Dart/Flutter and modified
 to suit Flutter's rendering pipeline. THIRD_PARTY_NOTICES.md lists which files
 derive from which originals and what had to change.

@@ -1,7 +1,8 @@
 # Third-party notices
 
 FluidGlass is a port of two Apache-2.0 licensed Kotlin/Compose projects by
-[Kyant](https://github.com/Kyant0). FluidGlass is itself distributed under the
+[Kyant](https://github.com/Kyant0); its soft component family is a port of a
+third Apache-2.0 licensed Kotlin/Compose project, listed last. FluidGlass is itself distributed under the
 Apache License 2.0; the licence text is in [LICENSE](LICENSE) and the
 attribution notice in [NOTICE](NOTICE).
 
@@ -46,3 +47,35 @@ taken unmodified from that project's `app/src/commonMain/composeResources`.
 `continuous_curvature_corner_builder.dart` and
 `rounded_rectangle_outline.dart`, which carry over the G2-continuous corner
 solution verbatim.
+
+## coui17 (and the projects it is forked from)
+
+- Source: <https://github.com/Costben/coui17>
+- Copyright 2025-2026, compose-coui-ui contributors
+- Licence: Apache License 2.0
+- Forked from <https://github.com/suqi8/coui> (Copyright the COUI contributors,
+  Apache License 2.0), itself forked from
+  <https://github.com/compose-miuix-ui/miuix> (Copyright YuKongA and the
+  compose-miuix-ui contributors, Apache License 2.0).
+
+The soft family is derived from its `coui-ui`, `coui-squircle` and `coui-blur`
+modules, keeping their metrics, colours, springs, curves and shader maths:
+
+| FluidGlass | coui17 |
+| --- | --- |
+| `lib/src/soft/foundation/soft_colors.dart` | `theme/Colors.kt` |
+| `lib/src/soft/foundation/soft_theme.dart` | `theme/TextStyles.kt`, `theme/` theme wiring |
+| `lib/src/soft/foundation/soft_squircle.dart` | `squircle/SquirclePath.kt`, `squircle/SquircleShape.kt` |
+| `lib/src/soft/foundation/soft_motion.dart` | `anim/*`, `utils/SpringUtils.kt` |
+| `lib/src/soft/foundation/soft_touch_motion.dart` | `basic/` touch motion |
+| `lib/src/soft/foundation/soft_pressable.dart` | `utils/PressFeedback.kt`, `utils/` state-layer indication |
+| `lib/src/soft/foundation/soft_spot_light.dart`, `shaders/soft_spot_light.frag` | `basic/SpotLightEffect.kt` |
+| `lib/src/soft/foundation/soft_glass.dart`, `shaders/soft_bloom_stroke.frag` | `basic/GlassSurface.kt`; `blur/highlight/HighlightStyle.kt`, `blur/internal/Shaders.kt` |
+| `lib/src/soft/foundation/soft_meta_ball.dart`, `shaders/soft_meta_ball.frag`, `shaders/soft_caustic.frag` | `basic/MetaBallSurface.kt`, `basic/NativeMaterialEdge.kt`, `basic/MaterialShadowEdge.kt`, `basic/MaterialCausticShadow.kt` |
+| `lib/src/soft/components/basic/*` | `basic/Card.kt`, `basic/Component.kt`, `basic/SmallTitle.kt`, `basic/Divider.kt` |
+| `lib/src/soft/components/badge/*` | `basic/Badge.kt` |
+| `lib/src/soft/components/navigation/*` | `basic/BottomFloatingNavigationBar.kt`, `basic/BottomFloatingAccessoryNavigationBar.kt` |
+
+`shaders/soft_blend_tint.frag` is not derived from it: it implements the
+colour-dodge, overlay and luminosity blend modes of the W3C Compositing and
+Blending specification.

@@ -1,5 +1,38 @@
 # Changelog
 
+## 0.3.0
+
+### Added
+
+- The soft component family: a solid, flat set of components next to the
+  liquid one, themed by `SoftTheme` / `SoftThemeData` (`SoftColors`,
+  `SoftTextStyles`).
+  - `SoftFloatingNavigationBar`: a frosted 56-high capsule floating 8 above
+    the bottom edge. The selected item differs only in colour and icon; the
+    whole capsule sinks, follows and stretches under the finger with a light
+    that tracks it, and sliding onto another item selects it on the spot,
+    lifting there goes to it. Optional round views (`SoftFloatingAccessory`)
+    at either side melt into the capsule through one merged silhouette.
+  - `SoftBasicComponent` (list row), `SoftCard`, `SoftSmallTitle`,
+    `SoftDivider`, `SoftBadge`.
+  - Building blocks: `SoftTouchMotion` (area-based sink, rubber-band follow,
+    stretch, hand-up rebound), `SoftPressable` (delayed press with a state
+    layer or a sink), `SoftGlass` (blur, tint layers and a lit rim),
+    `SoftMetaBallSurface`, `SoftSquircleBorder` / `softSquirclePath`,
+    `SoftSpring` and the spot-light presets.
+- `THIRD_PARTY_NOTICES.md` and `NOTICE` credit the project the soft family is
+  ported from.
+
+### Notes
+
+- Tint layers with colour-dodge, overlay or luminosity are blended inside the
+  backdrop filter by a fragment shader. Painting them as ordinary paints over
+  a `BackdropFilter` blanked the whole frame on Impeller's GLES backend in a
+  deeper layer tree.
+- 0.2.1 was published by mistake and its change — a selection spring
+  separate from the drag's on `LiquidBottomTabs` — was reverted. This release
+  follows 0.2.0 and does not contain it.
+
 ## 0.2.0
 
 ### Behaviour changes to check when upgrading

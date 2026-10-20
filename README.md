@@ -279,6 +279,33 @@ same idiom: `SpringValue` and `springOf` (the Flutter counterpart of Compose's
 slop-free press that never swallows a tap) and `InteractiveHighlight` (the glow
 that follows a finger).
 
+### Soft components
+
+A second, solid family sits next to the liquid one: flat surfaces, smooth
+corners and a frosted Gaussian blur instead of refraction, with press feedback
+that sinks, follows and stretches under the finger and a light that tracks it.
+Everything is prefixed `Soft` and themed by `SoftTheme`:
+
+```dart
+SoftTheme(
+  data: const SoftThemeData.light(),
+  child: SoftFloatingNavigationBar(
+    selectedIndex: tab,
+    onSelected: (int i) => setState(() => tab = i),
+    items: const <SoftFloatingNavigationItem>[
+      SoftFloatingNavigationItem(icon: Icon(Icons.home_outlined), label: 'Home'),
+      SoftFloatingNavigationItem(icon: Icon(Icons.person_outline), label: 'Me'),
+    ],
+  ),
+)
+```
+
+So far it has the floating navigation bar (plain, or with a round view at
+either side that melts into the capsule), list rows, cards, small titles,
+dividers and badges, plus the pieces they are built from: `SoftTouchMotion`,
+`SoftPressable`, `SoftGlass`, `SoftMetaBallSurface` and `SoftSquircleBorder`.
+`example/lib/soft_demo.dart` shows them.
+
 ### Quality tiers
 
 The refraction is the expensive part: a fragment shader over the element's
@@ -618,9 +645,9 @@ engine:
 
 Apache License 2.0 — see [LICENSE](LICENSE) and [NOTICE](NOTICE). FluidGlass is
 a derivative work of two Apache-2.0 projects by
-[Kyant](https://github.com/Kyant0);
-[THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) records which files derive from
-which originals.
+[Kyant](https://github.com/Kyant0), and its soft family of a third Apache-2.0
+project; [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) records which files
+derive from which originals.
 
 ### Fusing controls — one body of glass
 
