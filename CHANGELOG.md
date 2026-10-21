@@ -1,5 +1,83 @@
 # Changelog
 
+## 0.4.0
+
+### Behaviour changes to check when upgrading
+
+- `SoftFloatingNavigationBar` resolves its own taps on lift, by the item the
+  finger is over, instead of with a tap recogniser: a press that wanders
+  inside its item still clicks it, lifting on another item clicks that one,
+  and the gaps between items click nothing. A slide is delivered wherever it
+  ends — on a lift outside any item, on a cancelled gesture, and back on the
+  item it started from (reported again). A tap on the selected item is only
+  reported with the new `dispatchWhenAlreadySelected: true`.
+- The bar's box is the capsule with 16 above and below, plus
+  `navPad(inset)`: the capsule sits 8 above the system inset, 24 above the
+  screen's edge where there is none. `SoftFloatingNavigationBarDefaults.
+  extent` is now `88 + navPad(inset)` rather than `88 + inset`. The inset
+  falls back to the system gesture inset where the view padding is 0.
+- From 600 wide the capsule fills the bar.
+- The capsule's blur is the platform's radius-25 blur (sigma ≈ 14.9 physical
+  pixels), not a sigma of 25; its edge is a 2.5-wide white line with near and
+  far fades (0.25 light, 0.8 dark) instead of the bloom rim, kept on the
+  opaque capsule; and a faint caustic light falls below it.
+
+### Added
+
+- Components for common app screens: number and date wheels with a date
+  dialog (`SoftNumberPicker`, `SoftDatePicker`, `showSoftDatePicker`),
+  `SoftPullToRefresh`, `SoftExpandableList` / `SoftExpandableGroup`, rich
+  notification cards with swipe actions (`SoftNotificationSnackBar`,
+  `SoftNotificationSwipeBox`), `SoftHorizontalPopupMenu` and a
+  native-selection context menu (`SoftTextSelectionMenu`), `SoftSwitch` and
+  `SoftGlyphIcon`; next to them, dialogs and the loading dialog, the bottom
+  sheet, buttons and chips, the snackbar, top tips, tooltip, progress and
+  page indicators, the empty state, text fields and the search bar, popup
+  lists and dropdowns, checkbox, radio button and slider, the top app bar,
+  tab row and chip tabs. All are exported from the public library.
+- `SoftColors.copyWith` covers every palette role;
+  `SoftSpotLightParams.copyWith`; `SoftTouchMotionState` exposes the light's
+  position, progress and extinguishing state.
+- `SoftFloatingNavigationBar`: `expansion` (one round view at the capsule's
+  end; while it is out on a compact screen the capsule springs over to the
+  start edge to make room), `visible` (fades, shrinks and blurs the capsule
+  away), `scrimColor` (a fade behind the capsule that takes no touches),
+  `stroke`, `caustic`, `selectedColor` / `unselectedColor`,
+  `dispatchWhenAlreadySelected`. Items read as tabs to screen readers.
+- `SoftMetaBallSurface.layers` and `.blur`, `paintSoftCapsuleEdge`,
+  `paintSoftCaustic`, `SoftBadge.animate`.
+
+### Fixed
+
+- The shadow beside the capsule no longer swallows touches meant for the
+  page under the bar.
+- Round views melt into the capsule only while they cross its edge: their
+  opacity comes from how much of them is under the capsule, a hidden one
+  stops taking part in the merged body, and one fully under the capsule
+  stops at once instead of bouncing unseen. Without melting (no backdrop, no
+  blur, reduced motion) they fade and grow in place on their own springs.
+  A round view takes no press until it is all the way out. On a compact
+  screen round views are pinned to the bar's edges.
+- The merged body uses the bar's own blend-layer material and blur, so the
+  capsule looks the same with or without round views.
+- `SoftTouchMotion`: a second finger takes the motion over and lifting the
+  followed one hands it to a finger still down; the light stays under the
+  finger while the surface is moved and scaled; the dead zone is checked on
+  every move; a reset while disabled no longer rebuilds the listener during
+  its own build.
+- The spotlight's extinguish radius spreads by `2 · endRadius`.
+- Soft springs no longer stall under continuous pointer updates: a retarget
+  keeps the running ticker's clock. Touch transforms are applied at paint
+  time, and touch feedback honours reduced motion and ignores secondary
+  mouse buttons.
+- `SoftPressable`: a press held past half a second still fires on release
+  (a long-press recogniser joined the arena even without `onLongPress`), and
+  pending feedback is cancelled when it is disabled.
+- `SoftTooltip` shows on a long press anywhere on its anchor; `SoftTopTips`
+  leaves the tree once closed; popup lists open and close at once under
+  reduced motion; the search bar, chip tabs, input view and swipe box no
+  longer start their first animation already at its end.
+
 ## 0.3.0
 
 ### Added

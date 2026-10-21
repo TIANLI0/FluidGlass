@@ -258,7 +258,23 @@ class SoftMetaBallSurface extends StatelessWidget {
     this.causticProfiles,
     this.quality,
     this.repaint,
+    this.layers,
+    this.blur = true,
+    this.extension = SoftMetaBallDefaults.extension,
+    this.extensionFactorX = SoftMetaBallDefaults.extensionFactorX,
+    this.extensionFactorY = SoftMetaBallDefaults.extensionFactorY,
   });
+
+  /// Whether the body is frosted. False draws each shape opaque in [color]
+  /// and merges nothing.
+  final bool blur;
+  final double extension, extensionFactorX, extensionFactorY;
+
+  /// Tint layers that replace [color] at [containerAlpha] over the blur, as
+  /// [SoftGlass.layers] does on a single surface: the floating bar's own
+  /// material, so a capsule looks the same whether round views melt into
+  /// it or not.
+  final List<SoftBlendLayer>? layers;
 
   final List<SoftMetaBallParticle> particles;
 
@@ -318,7 +334,7 @@ class SoftMetaBallSurface extends StatelessWidget {
     final ui.FragmentProgram? program = resolved.hasShaders
         ? SoftPrograms.instance.metaBall
         : null;
-    final Backdrop? source = backdrop;
+    final Backdrop? source = blur ? backdrop : null;
     final List<SoftMetaBallParticle> shown = particles
         .take(SoftMetaBallDefaults.maxParticles)
         .toList();
@@ -339,6 +355,7 @@ class SoftMetaBallSurface extends StatelessWidget {
           shadow: shadow,
           caustic: causticColor,
           background: theme.colors.background,
+          dpr: MediaQuery.devicePixelRatioOf(context),
           repaint: Listenable.merge(<Listenable?>[
             repaint,
             SoftPrograms.instance,
@@ -346,28 +363,40 @@ class SoftMetaBallSurface extends StatelessWidget {
         ),
       ),
     );
-    if (source == null || program == null || shown.isEmpty) {
+    if (blur && source == null && program != null && shown.isNotEmpty) {
       return Stack(
-        clipBehavior: Clip.none,
         fit: StackFit.passthrough,
         children: <Widget>[
           Positioned.fill(child: behind),
-          for (final SoftMetaBallParticle p in shown)
-            Positioned.fromRect(
-              rect: p.rect,
-              child: Opacity(
-                opacity: p.alpha.clamp(0.0, 1.0),
-                child: SoftGlass(
-                  borderRadius: BorderRadius.circular(
-                    math.min(p.cornerRadius, p.rect.shortestSide / 2),
-                  ),
-                  color: tint,
-                  containerAlpha: containerAlpha,
-                  blurRadius: blurRadius,
-                  rim: const SoftGlassRim(alpha: 0),
-                ),
+          Positioned.fill(
+            child: CustomPaint(
+              painter: _OpaqueMetaPainter(
+                program: program,
+                particles: shown,
+                tint: tint,
+                dpr: MediaQuery.devicePixelRatioOf(context),
+                rim: rim,
+                rimBottomScale: rimBottomScale,
+                style: edgeStyle,
+                extension: extension,
+                factorX: extensionFactorX,
+                factorY: extensionFactorY,
               ),
             ),
+          ),
+        ],
+      );
+    }
+    if (!blur || program == null || shown.isEmpty) {
+      // MetaBallSurface.kt's non-shader branch is one opaque canvas. Painting
+      // translucent glass once per particle incorrectly exposes hidden cells.
+      return Stack(
+        fit: StackFit.passthrough,
+        children: <Widget>[
+          Positioned.fill(child: behind),
+          Positioned.fill(
+            child: CustomPaint(painter: _UnmergedOpaquePainter(shown, tint)),
+          ),
         ],
       );
     }
@@ -375,7 +404,7 @@ class SoftMetaBallSurface extends StatelessWidget {
     for (final SoftMetaBallParticle p in shown.skip(1)) {
       bounds = bounds.expandToInclude(p.rect);
     }
-    bounds = bounds.inflate(SoftMetaBallDefaults.extension * 4 + 2);
+    bounds = bounds.inflate(extension * 4 + 2);
     final double dpr = MediaQuery.devicePixelRatioOf(context);
     final double sigma = SoftGlassDefaults.sigmaOf(blurRadius);
     // The effect scope's blur takes a radius and converts it the platform
@@ -393,7 +422,7 @@ class SoftMetaBallSurface extends StatelessWidget {
           rect: bounds,
           child: IgnorePointer(
             child: DrawBackdrop.plain(
-              backdrop: source,
+              backdrop: source!,
               shape: () => const Rectangle(),
               isolateSurface: false,
               receivesLight: false,
@@ -416,6 +445,10 @@ class SoftMetaBallSurface extends StatelessWidget {
                     rimAlpha: rim,
                     rimBottomScale: rimBottomScale,
                     style: edgeStyle,
+                    layers: layers,
+                    extension: extension,
+                    factorX: extensionFactorX,
+                    factorY: extensionFactorY,
                   );
                 });
               },
@@ -439,6 +472,10 @@ void _configure(
   required double rimAlpha,
   required double rimBottomScale,
   required SoftEdgeStyle style,
+  List<SoftBlendLayer>? layers,
+  double extension = SoftMetaBallDefaults.extension,
+  double factorX = SoftMetaBallDefaults.extensionFactorX,
+  double factorY = SoftMetaBallDefaults.extensionFactorY,
 }) {
   int i = 0;
   void put(double v) => shader.setFloat(i++, v);
@@ -481,9 +518,10 @@ void _configure(
     fade.forEach(put);
   }
   put(particles.length.toDouble());
-  put(SoftMetaBallDefaults.extension * dpr);
-  put(SoftMetaBallDefaults.extensionFactorX);
-  put(SoftMetaBallDefaults.extensionFactorY);
+  // A whole number of pixels, at least one, as the reference sizes it.
+  put(math.max(1.0, (extension * dpr).roundToDouble()));
+  put(factorX);
+  put(factorY);
   put(style.lineAlpha[0] * rimAlpha);
   put(style.lineAlpha[1] * rimAlpha);
   put(style.para1);
@@ -498,9 +536,126 @@ void _configure(
   put(1);
   put(1);
   put(rimBottomScale);
+  double mode(BlendMode m) => switch (m) {
+    BlendMode.colorDodge => 1,
+    BlendMode.luminosity => 2,
+    BlendMode.overlay => 3,
+    _ => 0,
+  };
+  final List<SoftBlendLayer> tints = layers ?? const <SoftBlendLayer>[];
+  for (int k = 0; k < 2; k++) {
+    final SoftBlendLayer? layer = k < tints.length ? tints[k] : null;
+    put(layer?.color.r ?? 0);
+    put(layer?.color.g ?? 0);
+    put(layer?.color.b ?? 0);
+    put(layer?.color.a ?? 0);
+  }
+  for (int k = 0; k < 2; k++) {
+    put(k < tints.length ? mode(tints[k].blendMode) : 0);
+  }
+  put(tints.length.clamp(0, 2).toDouble());
 }
 
 final Expando<ui.FragmentShader> _causticShaders = Expando<ui.FragmentShader>();
+final Expando<ui.FragmentShader> _edgeShaders = Expando<ui.FragmentShader>();
+
+/// Paints the lit edge of a single capsule over `Offset.zero & size`: the
+/// [style] rim at [alpha] (0.25 on the light theme, 0.8 on the dark one for
+/// a bar), a [lineWidth]-wide white line laid over the surface. The merged
+/// body of [SoftMetaBallSurface] lights its rim the same way.
+void paintSoftCapsuleEdge(
+  Canvas canvas,
+  Size size, {
+  required double cornerRadius,
+  required double alpha,
+  required double devicePixelRatio,
+  SoftEdgeStyle style = SoftEdgeStyle.capsule,
+  double lineWidth = 2.5,
+  Color color = const Color(0xFFFFFFFF),
+}) {
+  if (alpha <= 0 || size.isEmpty) return;
+  final ui.FragmentProgram? program = SoftPrograms.instance.capsuleEdge;
+  if (program == null) return;
+  final ui.FragmentShader shader = _edgeShaders[program] ??= program
+      .fragmentShader();
+  final double dpr = devicePixelRatio;
+  final (List<double> line, List<double> fade) = style.resolve(
+    size.width * dpr,
+    size.height * dpr,
+    lineWidthPx: lineWidth * dpr,
+    density: dpr,
+  );
+  int i = 0;
+  void put(double v) => shader.setFloat(i++, v);
+  put(size.width);
+  put(size.height);
+  put(dpr);
+  put(cornerRadius);
+  line.forEach(put);
+  fade.forEach(put);
+  put(style.lineAlpha[0] * alpha);
+  put(style.lineAlpha[1] * alpha);
+  put(style.para1);
+  put(style.para2);
+  put(style.angle);
+  put(color.r);
+  put(color.g);
+  put(color.b);
+  put(color.a);
+  canvas.drawRect(Offset.zero & size, Paint()..shader = shader);
+}
+
+/// Paints the caustic light below a shape of [size] centred on [center] and
+/// scaled about it: a faint band of [color] under its lower edge, dimmed
+/// over a light [background]. The band's dimensions are snapped to whole
+/// device pixels, as the reference lays them out.
+void paintSoftCaustic(
+  Canvas canvas, {
+  required Offset center,
+  required Size size,
+  required double cornerRadius,
+  required SoftCausticProfile profile,
+  required Color color,
+  required Color background,
+  required double devicePixelRatio,
+  double scaleX = 1,
+  double scaleY = 1,
+  double alpha = 1,
+}) {
+  if (alpha <= 0 || size.isEmpty) return;
+  final ui.FragmentProgram? program = SoftPrograms.instance.caustic;
+  if (program == null) return;
+  final ui.FragmentShader shader = _causticShaders[program] ??= program
+      .fragmentShader();
+  final double dpr = math.max(devicePixelRatio, 1);
+  final Size half = Size(size.width / 2, size.height / 2);
+  final double bottom = (profile.bottomOffset * dpr).floorToDouble() / dpr;
+  final double sdf = (profile.sdfWidth * dpr).floorToDouble() / dpr;
+  shader
+    ..setFloat(0, half.width)
+    ..setFloat(1, half.height)
+    ..setFloat(2, cornerRadius * 1.41421356)
+    ..setFloat(3, bottom)
+    ..setFloat(4, sdf)
+    ..setFloat(5, color.r)
+    ..setFloat(6, color.g)
+    ..setFloat(7, color.b)
+    ..setFloat(8, color.a * alpha)
+    ..setFloat(9, background.r)
+    ..setFloat(10, background.g)
+    ..setFloat(11, background.b);
+  canvas.save();
+  canvas.translate(center.dx, center.dy);
+  canvas.scale(scaleX, scaleY);
+  canvas.translate(-half.width, -half.height);
+  canvas.drawRect(
+    Rect.fromLTWH(0, 0, half.width * 2, half.height * 2 + bottom),
+    Paint()
+      ..shader = shader
+      ..blendMode = BlendMode.plus,
+  );
+  canvas.restore();
+}
 
 /// The shadows and caustic bands, drawn outside the particles only: the
 /// frosted body covers whatever falls inside them, and the body samples a
@@ -512,6 +667,7 @@ class _BehindPainter extends CustomPainter {
     required this.shadow,
     required this.caustic,
     required this.background,
+    required this.dpr,
     super.repaint,
   });
 
@@ -520,6 +676,7 @@ class _BehindPainter extends CustomPainter {
   final SoftParticleShadow? shadow;
   final Color? caustic;
   final Color background;
+  final double dpr;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -553,40 +710,22 @@ class _BehindPainter extends CustomPainter {
       }
     }
     final Color? light = caustic;
-    final ui.FragmentProgram? program = SoftPrograms.instance.caustic;
-    if (light != null && program != null) {
-      final ui.FragmentShader shader = _causticShaders[program] ??= program
-          .fragmentShader();
+    if (light != null) {
       for (int i = 0; i < particles.length; i++) {
         final SoftMetaBallParticle p = particles[i];
-        if (p.alpha <= 0) continue;
-        final SoftCausticProfile profile = profiles[i];
-        final Size half = Size(p.size.width / 2, p.size.height / 2);
-        final double bottom = profile.bottomOffset;
-        shader
-          ..setFloat(0, half.width)
-          ..setFloat(1, half.height)
-          ..setFloat(2, p.cornerRadius * 1.41421356)
-          ..setFloat(3, bottom)
-          ..setFloat(4, profile.sdfWidth)
-          ..setFloat(5, light.r)
-          ..setFloat(6, light.g)
-          ..setFloat(7, light.b)
-          ..setFloat(8, light.a * p.alpha)
-          ..setFloat(9, background.r)
-          ..setFloat(10, background.g)
-          ..setFloat(11, background.b);
-        canvas.save();
-        canvas.translate(p.center.dx, p.center.dy);
-        canvas.scale(p.scaleX, p.scaleY);
-        canvas.translate(-half.width, -half.height);
-        canvas.drawRect(
-          Rect.fromLTWH(0, 0, half.width * 2, half.height * 2 + bottom),
-          Paint()
-            ..shader = shader
-            ..blendMode = BlendMode.plus,
+        paintSoftCaustic(
+          canvas,
+          center: p.center,
+          size: p.size,
+          cornerRadius: p.cornerRadius,
+          profile: profiles[i],
+          color: light,
+          background: background,
+          devicePixelRatio: dpr,
+          scaleX: p.scaleX,
+          scaleY: p.scaleY,
+          alpha: p.alpha,
         );
-        canvas.restore();
       }
     }
     canvas.restore();
@@ -597,7 +736,8 @@ class _BehindPainter extends CustomPainter {
       !_listEquals(old.particles, particles) ||
       old.shadow != shadow ||
       old.caustic != caustic ||
-      old.background != background;
+      old.background != background ||
+      old.dpr != dpr;
 }
 
 bool _listEquals<T>(List<T> a, List<T> b) {
@@ -606,4 +746,98 @@ bool _listEquals<T>(List<T> a, List<T> b) {
     if (a[i] != b[i]) return false;
   }
   return true;
+}
+
+// Like MetaBallSurface.kt, the opaque branch still evaluates the merged SDF.
+// A shared white sampler lets the same program draw it without a backdrop.
+ui.Image? _opaqueMetaSampler;
+final Expando<ui.FragmentShader> _opaqueMetaShaders =
+    Expando<ui.FragmentShader>();
+
+class _OpaqueMetaPainter extends CustomPainter {
+  _OpaqueMetaPainter({
+    required this.program,
+    required this.particles,
+    required this.tint,
+    required this.dpr,
+    required this.rim,
+    required this.rimBottomScale,
+    required this.style,
+    required this.extension,
+    required this.factorX,
+    required this.factorY,
+  });
+  final ui.FragmentProgram program;
+  final List<SoftMetaBallParticle> particles;
+  final Color tint;
+  final double dpr, rim, rimBottomScale, extension, factorX, factorY;
+  final SoftEdgeStyle style;
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (size.isEmpty) return;
+    if (_opaqueMetaSampler == null) {
+      final ui.PictureRecorder recorder = ui.PictureRecorder();
+      Canvas(recorder).drawRect(
+        const Rect.fromLTWH(0, 0, 1, 1),
+        Paint()..color = const Color(0xFFFFFFFF),
+      );
+      final ui.Picture picture = recorder.endRecording();
+      _opaqueMetaSampler = picture.toImageSync(1, 1);
+      picture.dispose();
+    }
+    final ui.FragmentShader shader = _opaqueMetaShaders[program] ??= program
+        .fragmentShader();
+    _configure(
+      shader,
+      BackdropEffectGeometry(size: size, padding: 0),
+      Offset.zero,
+      particles,
+      dpr: dpr,
+      tint: tint,
+      containerAlpha: 1,
+      rimAlpha: rim,
+      rimBottomScale: rimBottomScale,
+      style: style,
+      extension: extension,
+      factorX: factorX,
+      factorY: factorY,
+    );
+    shader
+      ..setFloat(0, size.width)
+      ..setFloat(1, size.height)
+      ..setImageSampler(0, _opaqueMetaSampler!);
+    canvas.drawRect(Offset.zero & size, Paint()..shader = shader);
+  }
+
+  @override
+  bool shouldRepaint(_OpaqueMetaPainter old) =>
+      old.particles != particles ||
+      old.tint != tint ||
+      old.dpr != dpr ||
+      old.rim != rim ||
+      old.rimBottomScale != rimBottomScale ||
+      old.style != style ||
+      old.extension != extension ||
+      old.factorX != factorX ||
+      old.factorY != factorY;
+}
+
+class _UnmergedOpaquePainter extends CustomPainter {
+  const _UnmergedOpaquePainter(this.particles, this.color);
+  final List<SoftMetaBallParticle> particles;
+  final Color color;
+  @override
+  void paint(Canvas canvas, Size size) {
+    final Paint paint = Paint();
+    for (final SoftMetaBallParticle particle in particles) {
+      paint.color = color.withValues(
+        alpha: color.a * particle.alpha.clamp(0, 1),
+      );
+      canvas.drawPath(particle.path, paint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(_UnmergedOpaquePainter old) =>
+      old.particles != particles || old.color != color;
 }

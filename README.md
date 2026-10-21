@@ -38,6 +38,20 @@ elements fall back to their blur/tint appearance instead of throwing.
 
 ## Usage
 
+### Soft motion and light
+
+The Soft family is available from `package:fluid_glass/fluid_glass.dart`.
+`SoftTouchMotion` supplies finger-following deformation and spotlight feedback;
+`SoftSwitch` adds a tap-driven stretched thumb and a loading arc. Both honor
+reduced motion. Run `flutter run -t lib/soft_demo.dart` from `example/` for the
+interactive motion and light controls.
+
+Common app screens — profile, device, chat and notifications — are covered by
+date and number wheels, pull-to-refresh, expanding groups, notification cards
+with swipe actions, and selection menus, next to the dialogs, sheets, buttons,
+inputs, popups and bars. The demo's **组件** tab shows them together. Where
+each piece comes from is listed in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+
 Wrap whatever the glass should refract in a `BackdropLayer`, then draw glass
 over it:
 

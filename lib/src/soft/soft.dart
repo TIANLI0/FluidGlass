@@ -1,6 +1,14 @@
 export 'components/badge.dart';
+export 'components/bars.dart';
 export 'components/basic.dart';
+export 'components/button.dart';
+export 'components/dialog.dart';
+export 'components/feedback.dart';
+export 'components/input.dart';
+export 'components/menu.dart';
 export 'components/navigation.dart';
+export 'components/selection.dart';
+export 'components/sheet.dart';
 export 'foundation/soft_colors.dart';
 export 'foundation/soft_glass.dart';
 export 'foundation/soft_meta_ball.dart';

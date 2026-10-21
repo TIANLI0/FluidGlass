@@ -121,6 +121,8 @@ class SoftSpring extends ChangeNotifier implements ValueListenable<double> {
   }
 
   final AnimationController _controller;
+  _RetargetableSpring? _spring;
+  TickerFuture? _springFuture;
 
   @override
   double get value => _controller.value;
@@ -132,6 +134,7 @@ class SoftSpring extends ChangeNotifier implements ValueListenable<double> {
 
   /// Jumps to [value] and stops.
   void snapTo(double value) {
+    _spring = null;
     _controller.stop();
     _controller.value = value;
   }
@@ -141,6 +144,8 @@ class SoftSpring extends ChangeNotifier implements ValueListenable<double> {
   ///
   /// [threshold] is the distance below which the spring is considered
   /// settled; the default suits values in 0–1.
+  /// Retargeting an active spring keeps its clock and completion future;
+  /// that future completes when the latest target settles.
   TickerFuture animateTo(
     double target,
     SpringDescription spring, {
@@ -152,16 +157,24 @@ class SoftSpring extends ChangeNotifier implements ValueListenable<double> {
       _controller.stop();
       return TickerFuture.complete();
     }
-    return _controller.animateWith(
-      SpringSimulation(
-        spring,
-        value,
-        target,
-        v,
-        tolerance: Tolerance(distance: threshold, velocity: threshold * 10),
-        snapToEnd: true,
-      ),
+    final SpringSimulation simulation = SpringSimulation(
+      spring,
+      value,
+      target,
+      v,
+      tolerance: Tolerance(distance: threshold, velocity: threshold * 10),
+      snapToEnd: true,
     );
+    // Keep the ticker's clock running. Restarting animateWith on every
+    // pointer move makes the next frame sample t=0 again, starving motion.
+    final _RetargetableSpring? running = _spring;
+    if (_controller.isAnimating && running != null) {
+      running.retarget(simulation);
+      return _springFuture!;
+    }
+    final _RetargetableSpring next = _RetargetableSpring(simulation);
+    _spring = next;
+    return _springFuture = _controller.animateWith(next);
   }
 
   /// Animates to [target] over [duration] with [curve].
@@ -170,16 +183,47 @@ class SoftSpring extends ChangeNotifier implements ValueListenable<double> {
     required Duration duration,
     Curve curve = Curves.linear,
   }) {
+    _spring = null;
     return _controller.animateTo(target, duration: duration, curve: curve);
   }
 
-  void stop() => _controller.stop();
+  void stop() {
+    _spring = null;
+    _controller.stop();
+  }
 
   @override
   void dispose() {
     _controller.dispose();
     super.dispose();
   }
+}
+
+/// Changes a spring's destination without restarting its ticker. Each new
+/// segment starts at the last sampled time with the current value/velocity.
+class _RetargetableSpring extends Simulation {
+  _RetargetableSpring(this._segment);
+
+  SpringSimulation _segment;
+  double _origin = 0;
+  double _sampledTime = 0;
+
+  void retarget(SpringSimulation segment) {
+    _origin = _sampledTime;
+    _segment = segment;
+  }
+
+  @override
+  double x(double time) {
+    _sampledTime = time;
+    return _segment.x(math.max(0, time - _origin));
+  }
+
+  @override
+  double dx(double time) => _segment.dx(math.max(0, time - _origin));
+
+  @override
+  bool isDone(double time) => _segment.isDone(math.max(0, time - _origin));
 }
 
 /// The overscroll rubber band of the reference: the farther the content is

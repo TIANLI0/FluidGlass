@@ -3,12 +3,16 @@ import 'package:flutter/material.dart' show Icons, MaterialApp;
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 
+import 'soft_demo/motion_section.dart';
+import 'soft_demo/reference_page.dart';
+
 /// The soft family's navigation bar, laid out the way the reference gallery
 /// lays out its own: a page of grey list cards under a floating bar with a
 /// round view at each side, plus the bar's variants over a wallpaper.
-void main() {
+Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+  await SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+  await SoftPrograms.instance.load();
   runApp(const SoftDemoApp());
 }
 
@@ -30,6 +34,12 @@ class _SoftDemoAppState extends State<SoftDemoApp> {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       title: 'Soft',
+      home: Builder(
+        builder: (BuildContext context) => SoftDemoHome(
+          dark: SoftTheme.of(context).isDark,
+          onDarkChanged: (bool value) => setState(() => _dark = value),
+        ),
+      ),
       builder: (BuildContext context, Widget? child) {
         final bool dark =
             _dark ??
@@ -51,10 +61,7 @@ class _SoftDemoAppState extends State<SoftDemoApp> {
               style: theme.textStyles.body1.copyWith(
                 color: theme.colors.onBackground,
               ),
-              child: SoftDemoHome(
-                dark: dark,
-                onDarkChanged: (bool value) => setState(() => _dark = value),
-              ),
+              child: child!,
             ),
           ),
         );
@@ -98,7 +105,7 @@ class _SoftDemoHomeState extends State<SoftDemoHome> {
   @override
   Widget build(BuildContext context) {
     final SoftThemeData theme = SoftTheme.of(context);
-    final List<String> titles = <String>['首页', '图标', '配色'];
+    final List<String> titles = <String>['首页', '组件', '配色'];
     return ColoredBox(
       color: theme.colors.surface,
       child: Stack(
@@ -106,6 +113,7 @@ class _SoftDemoHomeState extends State<SoftDemoHome> {
           Positioned.fill(
             child: BackdropLayer(
               backdrop: _page,
+              motionPixelRatio: MediaQuery.devicePixelRatioOf(context) * 0.5,
               child: ColoredBox(
                 color: theme.colors.surface,
                 child: switch (_tab) {
@@ -113,6 +121,7 @@ class _SoftDemoHomeState extends State<SoftDemoHome> {
                     dark: widget.dark,
                     onDarkChanged: widget.onDarkChanged,
                   ),
+                  1 => const SoftReferencePage(),
                   _ => _PlainTab(title: titles[_tab]),
                 },
               ),
@@ -122,38 +131,40 @@ class _SoftDemoHomeState extends State<SoftDemoHome> {
             left: 0,
             right: 0,
             bottom: 0,
-            child: SoftFloatingNavigationBar(
-              backdrop: _page,
-              quality: GlassQuality.liquid,
-              selectedIndex: _tab,
-              onSelected: (int i) => setState(() => _tab = i),
-              start: SoftFloatingAccessory(
-                icon: const Icon(Icons.search_rounded),
-                semanticLabel: '搜索',
-                onTap: () => _say('搜索'),
+            child: RepaintBoundary(
+              child: SoftFloatingNavigationBar(
+                backdrop: _page,
+                quality: GlassQuality.liquid,
+                selectedIndex: _tab,
+                onSelected: (int i) => setState(() => _tab = i),
+                start: SoftFloatingAccessory(
+                  icon: const SoftGlyphIcon(SoftGlyph.search),
+                  semanticLabel: '搜索',
+                  onTap: () => _say('搜索'),
+                ),
+                end: SoftFloatingAccessory(
+                  icon: const SoftGlyphIcon(SoftGlyph.more),
+                  semanticLabel: '更多',
+                  onTap: () => _say('更多'),
+                ),
+                items: const <SoftFloatingNavigationItem>[
+                  SoftFloatingNavigationItem(
+                    icon: SoftGlyphIcon(SoftGlyph.home),
+                    selectedIcon: SoftGlyphIcon(SoftGlyph.home),
+                    label: '首页',
+                  ),
+                  SoftFloatingNavigationItem(
+                    icon: SoftGlyphIcon(SoftGlyph.image),
+                    selectedIcon: SoftGlyphIcon(SoftGlyph.image),
+                    label: '组件',
+                  ),
+                  SoftFloatingNavigationItem(
+                    icon: SoftGlyphIcon(SoftGlyph.theme),
+                    selectedIcon: SoftGlyphIcon(SoftGlyph.theme),
+                    label: '配色',
+                  ),
+                ],
               ),
-              end: SoftFloatingAccessory(
-                icon: const Icon(Icons.more_vert_rounded),
-                semanticLabel: '更多',
-                onTap: () => _say('更多'),
-              ),
-              items: const <SoftFloatingNavigationItem>[
-                SoftFloatingNavigationItem(
-                  icon: Icon(Icons.home_outlined),
-                  selectedIcon: Icon(Icons.home_rounded),
-                  label: '首页',
-                ),
-                SoftFloatingNavigationItem(
-                  icon: Icon(Icons.image_outlined),
-                  selectedIcon: Icon(Icons.image_rounded),
-                  label: '图标',
-                ),
-                SoftFloatingNavigationItem(
-                  icon: Icon(Icons.format_paint_outlined),
-                  selectedIcon: Icon(Icons.format_paint_rounded),
-                  label: '配色',
-                ),
-              ],
             ),
           ),
           if (_toast != null)
@@ -228,11 +239,7 @@ class _HomeTab extends StatelessWidget {
                 title: '深色模式',
                 position: SoftCardListPosition.full,
                 end: <Widget>[
-                  LiquidToggle(
-                    selected: dark,
-                    onSelect: onDarkChanged,
-                    backdrop: ColorBackdrop(theme.colors.surfaceContainer),
-                  ),
+                  SoftSwitch(checked: dark, onChanged: onDarkChanged),
                 ],
               ),
             ),
@@ -244,6 +251,8 @@ class _HomeTab extends StatelessWidget {
         const SliverToBoxAdapter(child: _AccessoryBarDemo()),
         const SliverToBoxAdapter(child: SoftSmallTitle('角标 · 大图标 · 禁用项')),
         const SliverToBoxAdapter(child: _BadgeBarDemo()),
+        const SliverToBoxAdapter(child: SoftSmallTitle('动效与光效实验室')),
+        const SliverToBoxAdapter(child: SoftMotionSection()),
         const SliverToBoxAdapter(child: SoftSmallTitle('列表')),
         SliverToBoxAdapter(
           child: Padding(
@@ -321,8 +330,8 @@ class _Wallpaper extends StatelessWidget {
 const List<SoftFloatingNavigationItem> _threeItems =
     <SoftFloatingNavigationItem>[
       SoftFloatingNavigationItem(
-        icon: Icon(Icons.home_outlined),
-        selectedIcon: Icon(Icons.home_rounded),
+        icon: SoftGlyphIcon(SoftGlyph.home),
+        selectedIcon: SoftGlyphIcon(SoftGlyph.home),
         label: '首页',
       ),
       SoftFloatingNavigationItem(
@@ -400,7 +409,7 @@ class _AccessoryBarDemoState extends State<_AccessoryBarDemo> {
             selectedIndex: _selected,
             onSelected: (int i) => setState(() => _selected = i),
             start: SoftFloatingAccessory(
-              icon: const Icon(Icons.search_rounded),
+              icon: const SoftGlyphIcon(SoftGlyph.search),
               visible: _start,
               onTap: () {},
             ),
@@ -469,8 +478,8 @@ class _BadgeBarDemoState extends State<_BadgeBarDemo> {
         onSelected: (int i) => setState(() => _selected = i),
         items: const <SoftFloatingNavigationItem>[
           SoftFloatingNavigationItem(
-            icon: Icon(Icons.home_outlined),
-            selectedIcon: Icon(Icons.home_rounded),
+            icon: SoftGlyphIcon(SoftGlyph.home),
+            selectedIcon: SoftGlyphIcon(SoftGlyph.home),
             label: '首页',
             badge: 0,
           ),

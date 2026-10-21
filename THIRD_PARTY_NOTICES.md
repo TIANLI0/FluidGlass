@@ -75,6 +75,16 @@ modules, keeping their metrics, colours, springs, curves and shader maths:
 | `lib/src/soft/components/basic/*` | `basic/Card.kt`, `basic/Component.kt`, `basic/SmallTitle.kt`, `basic/Divider.kt` |
 | `lib/src/soft/components/badge/*` | `basic/Badge.kt` |
 | `lib/src/soft/components/navigation/*` | `basic/BottomFloatingNavigationBar.kt`, `basic/BottomFloatingAccessoryNavigationBar.kt` |
+| `lib/src/soft/components/selection/soft_switch.dart` | `basic/Switch.kt` (reference commit `2b013540552e551cb51b1c5b4cfeeaf057cba2f3`) |
+| `lib/src/soft/components/selection/soft_number_picker.dart`, `soft_date_picker.dart` | `basic/NumberPicker.kt`, `basic/DatePicker.kt` |
+| `lib/src/soft/components/basic/soft_expandable_list.dart` | `basic/ExpandableList.kt` |
+| `lib/src/soft/components/feedback/soft_pull_to_refresh.dart` | `basic/PullToRefresh.kt` (Flutter scroll notifications; the ring, capsule, orbit and completion drawing) |
+| `lib/src/soft/components/feedback/soft_notification_snack_bar.dart`, `soft_notification_swipe_box.dart` | `basic/NotificationSnackBar.kt`, `basic/NotificationSwipeBox.kt` (card content and swipe container) |
+| `lib/src/soft/components/menu/soft_horizontal_popup_menu.dart` | `basic/HorizontalPopupMenu.kt` |
+| `lib/src/soft/components/{bars,button,dialog,feedback,input,menu,selection,sheet}/*` | the matching components under `basic/` (top app bar, tab row, chip tab, buttons, chip, dialog, loading dialog, snackbar, top tips, tooltip, progress, page indicator, empty state, text field, input view, search bar, popup list, dropdown, checkbox, radio button, slider, bottom sheet) |
+| `lib/src/soft/components/basic/soft_glyph_icon.dart` | `coui-icons` (Regular vectors, unmodified paths) |
+| `shaders/soft_capsule_edge.frag` | the capsule edge model of `basic/MetaBallSurface.kt` |
+| `example/lib/soft_demo/reference_page.dart` | the component sections of its `example` |
 
 `shaders/soft_blend_tint.frag` is not derived from it: it implements the
 colour-dodge, overlay and luminosity blend modes of the W3C Compositing and

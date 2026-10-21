@@ -1,5 +1,6 @@
 import 'package:fluid_glass/fluid_glass.dart';
 import 'package:fluid_glass_example/soft_demo.dart';
+import 'package:fluid_glass_example/soft_demo/reference_page.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -27,9 +28,9 @@ void main() {
 
       // Switch tabs from the page bar (the last bar in the tree).
       final Finder pageBar = find.byType(SoftFloatingNavigationBar).last;
-      await tester.tap(find.descendant(of: pageBar, matching: find.text('图标')));
+      await tester.tap(find.descendant(of: pageBar, matching: find.text('组件')));
       await settle(tester);
-      expect(find.text('图标 1'), findsOneWidget);
+      expect(find.byType(SoftReferencePage), findsOneWidget);
       await tester.tap(find.descendant(of: pageBar, matching: find.text('首页')));
       await settle(tester);
 

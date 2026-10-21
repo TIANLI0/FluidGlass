@@ -2,6 +2,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/gestures.dart';
 import 'package:flutter/rendering.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:flutter/widgets.dart';
 
 import 'soft_motion.dart';
@@ -341,28 +342,66 @@ class SoftTouchMotion extends StatefulWidget {
 /// The transform a [SoftTouchMotion] is applying: its translation and its
 /// scale about the centre (stretch and sink combined).
 class SoftTouchMotionState extends ChangeNotifier {
+  final ChangeNotifier _transformChanges = ChangeNotifier();
+
+  /// Translation and scale changes only; useful for surrounding material
+  /// geometry that does not depend on the light's position or fade.
+  Listenable get transformChanges => _transformChanges;
   Offset _translation = Offset.zero;
   double _scaleX = 1;
   double _scaleY = 1;
   bool _pressed = false;
+  Offset _lightPosition = const Offset(0.5, 0.5);
+  double _lightProgress = 0;
+  bool _extinguishing = false;
 
   Offset get translation => _translation;
   double get scaleX => _scaleX;
   double get scaleY => _scaleY;
   bool get pressed => _pressed;
 
-  void _set(Offset translation, double scaleX, double scaleY, bool pressed) {
+  /// The light centre, normalised to the untransformed surface size.
+  Offset get lightPosition => _lightPosition;
+
+  /// Zero at rest and one while held, including the fade after release.
+  double get lightProgress => _lightProgress;
+  bool get extinguishing => _extinguishing;
+
+  void _set(
+    Offset translation,
+    double scaleX,
+    double scaleY,
+    bool pressed,
+    Offset lightPosition,
+    double lightProgress,
+    bool extinguishing,
+  ) {
+    final bool transformChanged =
+        translation != _translation || scaleX != _scaleX || scaleY != _scaleY;
     if (translation == _translation &&
         scaleX == _scaleX &&
         scaleY == _scaleY &&
-        pressed == _pressed) {
+        pressed == _pressed &&
+        lightPosition == _lightPosition &&
+        lightProgress == _lightProgress &&
+        extinguishing == _extinguishing) {
       return;
     }
     _translation = translation;
     _scaleX = scaleX;
     _scaleY = scaleY;
     _pressed = pressed;
+    _lightPosition = lightPosition;
+    _lightProgress = lightProgress;
+    _extinguishing = extinguishing;
+    if (transformChanged) _transformChanges.notifyListeners();
     notifyListeners();
+  }
+
+  @override
+  void dispose() {
+    _transformChanges.dispose();
+    super.dispose();
   }
 }
 
@@ -374,18 +413,23 @@ class _SoftTouchMotionState extends State<SoftTouchMotion>
     _repaint.addListener(_publish);
   }
 
+  /// Set while the springs are reset inside a rebuild: whoever listens to
+  /// [SoftTouchMotion.state] is being built right then, and hears of it on
+  /// the next frame instead.
+  bool _quiet = false;
+
   void _publish() {
     final SoftTouchMotionState? state = widget.state;
-    if (state == null) return;
-    final double target = widget.pressScale
-        ? widget.spec.pressScale(_size.width, _size.height)
-        : 1.0;
-    final double pressScale = 1 - (1 - target) * _press.value;
+    if (state == null || _quiet) return;
+    final (double scaleX, double scaleY) = _scale;
     state._set(
       Offset(_tx.value, _ty.value),
-      _sx.value + pressScale - 1,
-      _sy.value + pressScale - 1,
+      scaleX,
+      scaleY,
       _pointer != null,
+      Offset(_lightX.value, _lightY.value),
+      _lightProgress.value.clamp(0.0, 1.0),
+      _extinguishing,
     );
   }
 
@@ -408,29 +452,73 @@ class _SoftTouchMotionState extends State<SoftTouchMotion>
     _lightProgress,
     SoftPrograms.instance,
   ]);
+  late final Listenable _transformRepaint = Listenable.merge(<Listenable>[
+    _tx,
+    _ty,
+    _sx,
+    _sy,
+    _press,
+  ]);
 
+  /// The pointer the motion follows, and every pointer down on the surface
+  /// with its last position: a second finger takes the motion over, and
+  /// lifting the followed one hands it to a finger still down.
   int? _pointer;
+  final Map<int, Offset> _pointers = <int, Offset>{};
   Offset _start = Offset.zero;
+  Offset _last = Offset.zero;
   Offset _rubberRest = Offset.zero;
   Offset _deformRest = Offset.zero;
-  bool _dragging = false;
   bool _extinguishing = false;
   VelocityTracker? _tracker;
   ScrollPosition? _scroll;
   Size _size = Size.zero;
+  bool _reduceMotion = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final bool reduce = softReduceMotion(context);
+    if (reduce == _reduceMotion) return;
+    _reduceMotion = reduce;
+    if (reduce) {
+      _quiet = true;
+      _resetTransform();
+      _lightX.snapTo(_lightX.value);
+      _lightY.snapTo(_lightY.value);
+      _lightProgress.snapTo(_pointer == null ? 0 : 1);
+      _quiet = false;
+      SchedulerBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _publish();
+      });
+    }
+  }
+
+  void _resetTransform() {
+    _tx.snapTo(0);
+    _ty.snapTo(0);
+    _sx.snapTo(1);
+    _sy.snapTo(1);
+    _press.snapTo(0);
+  }
 
   @override
   void didUpdateWidget(SoftTouchMotion oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (!widget.enabled && oldWidget.enabled) {
       _detachScroll();
+      final bool pressed = _pointer != null;
       _pointer = null;
-      _tx.snapTo(0);
-      _ty.snapTo(0);
-      _sx.snapTo(1);
-      _sy.snapTo(1);
-      _press.snapTo(0);
+      _pointers.clear();
+      _quiet = true;
+      _resetTransform();
       _lightProgress.snapTo(0);
+      _quiet = false;
+      SchedulerBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        _publish();
+        if (pressed) widget.onPressedChanged?.call(false);
+      });
     }
   }
 
@@ -469,10 +557,29 @@ class _SoftTouchMotionState extends State<SoftTouchMotion>
 
   double get _dpr => MediaQuery.maybeDevicePixelRatioOf(context) ?? 1;
 
+  /// The current scale of the surface, sink and stretch combined.
+  (double, double) get _scale {
+    final double target = widget.pressScale
+        ? widget.spec.pressScale(_size.width, _size.height)
+        : 1.0;
+    final double pressScale = 1 - (1 - target) * _press.value;
+    return (_sx.value + pressScale - 1, _sy.value + pressScale - 1);
+  }
+
   void _updateLight(Offset local) {
-    final double x = local.dx / math.max(_size.width, 1);
-    final double y = local.dy / math.max(_size.height, 1);
-    if (_lightProgress.value == 0) {
+    // The pointer arrives in the resting frame, but the light is painted in
+    // the moved and scaled one: map it across so it stays under the finger.
+    final Offset centre = _size.center(Offset.zero);
+    final (double sx, double sy) = _scale;
+    final Offset moved =
+        Offset(
+          (local.dx - centre.dx - _tx.value) / math.max(sx, 0.01),
+          (local.dy - centre.dy - _ty.value) / math.max(sy, 0.01),
+        ) +
+        centre;
+    final double x = moved.dx / math.max(_size.width, 1);
+    final double y = moved.dy / math.max(_size.height, 1);
+    if (_reduceMotion || _lightProgress.value == 0) {
       _lightX.snapTo(x);
       _lightY.snapTo(y);
     } else {
@@ -498,12 +605,29 @@ class _SoftTouchMotionState extends State<SoftTouchMotion>
     if (_scroll?.isScrollingNotifier.value ?? false) _release(Offset.zero);
   }
 
+  /// Follows [pointer] from [position] on, keeping how far the surface has
+  /// already been dragged.
+  void _switchTo(int pointer, Offset position, PointerEvent event) {
+    _start = position - (_last - _start);
+    _pointer = pointer;
+    _last = position;
+    _tracker = VelocityTracker.withKind(event.kind)
+      ..addPosition(event.timeStamp, position);
+    _updateLight(position);
+  }
+
   void _down(PointerDownEvent event) {
-    if (!widget.enabled || _pointer != null) return;
+    if (!widget.enabled || (event.buttons & kPrimaryButton) == 0) return;
+    _pointers[event.pointer] = event.localPosition;
+    if (_pointer != null) {
+      _switchTo(event.pointer, event.localPosition, event);
+      return;
+    }
     _pointer = event.pointer;
     _attachScroll();
     final SoftTouchMotionSpec spec = widget.spec;
     _start = event.localPosition;
+    _last = event.localPosition;
     _rubberRest = Offset(
       SoftRubberBand.inverse(
         _tx.value,
@@ -535,9 +659,14 @@ class _SoftTouchMotionState extends State<SoftTouchMotion>
     );
     _tracker = VelocityTracker.withKind(event.kind)
       ..addPosition(event.timeStamp, event.localPosition);
-    _dragging = false;
     _extinguishing = false;
     _updateLight(event.localPosition);
+    if (_reduceMotion) {
+      _lightProgress.snapTo(1);
+      _publish();
+      widget.onPressedChanged?.call(true);
+      return;
+    }
     _lightProgress.animateTo(1, SoftMotion.lightGlow);
     _press.animateTo(
       1,
@@ -545,22 +674,26 @@ class _SoftTouchMotionState extends State<SoftTouchMotion>
           ? SoftTouchMotionSpec.candyPressSpring
           : SoftTouchMotionSpec.pressSpring,
     );
+    _publish();
     widget.onPressedChanged?.call(true);
   }
 
   void _move(PointerMoveEvent event) {
+    if (_pointers.containsKey(event.pointer)) {
+      _pointers[event.pointer] = event.localPosition;
+    }
     if (event.pointer != _pointer) return;
+    _last = event.localPosition;
     _tracker?.addPosition(event.timeStamp, event.localPosition);
     _updateLight(event.localPosition);
-    if (!widget.followFinger) return;
+    if (_reduceMotion || !widget.followFinger) return;
     final SoftTouchMotionSpec spec = widget.spec;
     final double deadZone = spec.deadZonePx / _dpr;
     final double dx = event.localPosition.dx - _start.dx;
     final double dy = event.localPosition.dy - _start.dy;
-    if (!_dragging && (dx.abs() >= deadZone || dy.abs() >= deadZone)) {
-      _dragging = true;
-    }
-    if (!_dragging) return;
+    // Checked on every move, not latched: back near the press point the
+    // surface stops following.
+    if (dx.abs() < deadZone && dy.abs() < deadZone) return;
     final _Deform deform = _deformation(
       dx + _deformRest.dx,
       dy + _deformRest.dy,
@@ -590,8 +723,18 @@ class _SoftTouchMotionState extends State<SoftTouchMotion>
     _sy.animateTo(deform.y, SoftTouchMotionSpec.dragSpring, threshold: 0.0005);
   }
 
+  /// Hands the motion to a finger still down when the followed one lifts;
+  /// false when none is left.
+  bool _handOver(PointerEvent event) {
+    _pointers.remove(event.pointer);
+    if (event.pointer != _pointer || _pointers.isEmpty) return false;
+    final MapEntry<int, Offset> next = _pointers.entries.last;
+    _switchTo(next.key, next.value, event);
+    return true;
+  }
+
   void _up(PointerEvent event) {
-    if (event.pointer != _pointer) return;
+    if (_handOver(event) || event.pointer != _pointer) return;
     _tracker?.addPosition(event.timeStamp, event.localPosition);
     _updateLight(event.localPosition);
     final Velocity velocity = _tracker?.getVelocity() ?? Velocity.zero;
@@ -602,9 +745,17 @@ class _SoftTouchMotionState extends State<SoftTouchMotion>
   void _release(Offset velocity) {
     if (_pointer == null) return;
     _pointer = null;
+    _pointers.clear();
     _detachScroll();
     final SoftTouchMotionSpec spec = widget.spec;
     _extinguishing = true;
+    if (_reduceMotion) {
+      _resetTransform();
+      _lightProgress.snapTo(0);
+      _publish();
+      widget.onPressedChanged?.call(false);
+      return;
+    }
     _lightProgress.animateTo(0, SoftMotion.lightExtinguish);
     _press.animateTo(
       0,
@@ -645,6 +796,7 @@ class _SoftTouchMotionState extends State<SoftTouchMotion>
     _ty.animateTo(0, hy.spring, velocity: hy.velocity, threshold: 0.01);
     _sx.animateTo(1, dxUp.spring, velocity: dxUp.velocity, threshold: 0.0005);
     _sy.animateTo(1, dyUp.spring, velocity: dyUp.velocity, threshold: 0.0005);
+    _publish();
     widget.onPressedChanged?.call(false);
   }
 
@@ -658,45 +810,122 @@ class _SoftTouchMotionState extends State<SoftTouchMotion>
       onPointerMove: _move,
       onPointerUp: _up,
       onPointerCancel: (PointerCancelEvent e) {
-        if (e.pointer == _pointer) _release(Offset.zero);
+        if (_handOver(e) || e.pointer != _pointer) return;
+        _release(Offset.zero);
       },
-      child: _SizeReporter(
-        onSize: (Size s) => _size = s,
-        child: AnimatedBuilder(
-          animation: _repaint,
-          builder: (BuildContext context, Widget? child) {
-            final double target = widget.pressScale
-                ? widget.spec.pressScale(_size.width, _size.height)
-                : 1.0;
-            final double pressScale = 1 - (1 - target) * _press.value;
-            final double scaleX = _sx.value + pressScale - 1;
-            final double scaleY = _sy.value + pressScale - 1;
-            return Transform(
-              alignment: Alignment.center,
-              transform: Matrix4.identity()
-                ..translateByDouble(_tx.value, _ty.value, 0, 1)
-                ..scaleByDouble(scaleX, scaleY, 1, 1),
-              child: child,
-            );
-          },
-          child: _withBackground(
-            CustomPaint(
-              painter: _SurfacePainter(
-                repaint: _repaint,
-                state: this,
-                color: widget.color,
-                radius: widget.borderRadius,
-                smooth: theme.smoothCorners,
-                light: widget.enabled ? widget.light : null,
-                dpr: dpr,
+      child: RepaintBoundary(
+        child: _SizeReporter(
+          onSize: (Size s) => _size = s,
+          child: _TouchTransform(
+            motion: this,
+            repaint: _transformRepaint,
+            child: _withBackground(
+              CustomPaint(
+                painter: _SurfacePainter(
+                  repaint: _repaint,
+                  state: this,
+                  color: widget.color,
+                  radius: widget.borderRadius,
+                  smooth: theme.smoothCorners,
+                  light: widget.enabled ? widget.light : null,
+                  dpr: dpr,
+                ),
+                child: widget.child,
               ),
-              child: widget.child,
             ),
           ),
         ),
       ),
     );
   }
+}
+
+/// Applies the spring values during paint, without rebuilding a Transform
+/// widget for each spring or light tick. Hit tests use the same matrix.
+class _TouchTransform extends SingleChildRenderObjectWidget {
+  const _TouchTransform({
+    required this.motion,
+    required this.repaint,
+    super.child,
+  });
+
+  final _SoftTouchMotionState motion;
+  final Listenable repaint;
+
+  @override
+  RenderObject createRenderObject(BuildContext context) =>
+      _RenderTouchTransform(motion, repaint);
+
+  @override
+  void updateRenderObject(
+    BuildContext context,
+    _RenderTouchTransform renderObject,
+  ) {
+    renderObject.motion = motion;
+    renderObject.markNeedsPaint();
+  }
+}
+
+class _RenderTouchTransform extends RenderProxyBox {
+  _RenderTouchTransform(this.motion, this.repaint);
+  _SoftTouchMotionState motion;
+  final Listenable repaint;
+
+  void _changed() {
+    markNeedsPaint();
+    markNeedsSemanticsUpdate();
+  }
+
+  @override
+  void attach(PipelineOwner owner) {
+    super.attach(owner);
+    repaint.addListener(_changed);
+  }
+
+  @override
+  void detach() {
+    repaint.removeListener(_changed);
+    super.detach();
+  }
+
+  Matrix4 get _matrix {
+    final (double sx, double sy) = motion._scale;
+    final Offset centre = size.center(Offset.zero);
+    return Matrix4.identity()
+      ..translateByDouble(
+        centre.dx + motion._tx.value,
+        centre.dy + motion._ty.value,
+        0,
+        1,
+      )
+      ..scaleByDouble(sx, sy, 1, 1)
+      ..translateByDouble(-centre.dx, -centre.dy, 0, 1);
+  }
+
+  @override
+  void paint(PaintingContext context, Offset offset) {
+    if (child == null) return;
+    layer = context.pushTransform(
+      needsCompositing,
+      offset,
+      _matrix,
+      super.paint,
+      oldLayer: layer is TransformLayer ? layer! as TransformLayer : null,
+    );
+  }
+
+  @override
+  bool hitTestChildren(BoxHitTestResult result, {required Offset position}) =>
+      result.addWithPaintTransform(
+        transform: _matrix,
+        position: position,
+        hitTest: (BoxHitTestResult result, Offset local) =>
+            super.hitTestChildren(result, position: local),
+      );
+
+  @override
+  void applyPaintTransform(RenderBox child, Matrix4 transform) =>
+      transform.multiply(_matrix);
 }
 
 class _SurfacePainter extends CustomPainter {

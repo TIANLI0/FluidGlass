@@ -36,18 +36,29 @@ class SoftSpotLightParams {
   final double ditherN;
   final double noise;
 
-  SoftSpotLightParams copyWith({BlendMode? blendMode, double? endIntensity}) {
+  SoftSpotLightParams copyWith({
+    BlendMode? blendMode,
+    double? startIntensity,
+    double? endIntensity,
+    double? startRadius,
+    double? endRadius,
+    double? lightHeight,
+    double? ambientStrength,
+    double? diffuseStrength,
+    double? ditherN,
+    double? noise,
+  }) {
     return SoftSpotLightParams(
       blendMode: blendMode ?? this.blendMode,
-      startIntensity: startIntensity,
+      startIntensity: startIntensity ?? this.startIntensity,
       endIntensity: endIntensity ?? this.endIntensity,
-      startRadius: startRadius,
-      endRadius: endRadius,
-      lightHeight: lightHeight,
-      ambientStrength: ambientStrength,
-      diffuseStrength: diffuseStrength,
-      ditherN: ditherN,
-      noise: noise,
+      startRadius: startRadius ?? this.startRadius,
+      endRadius: endRadius ?? this.endRadius,
+      lightHeight: lightHeight ?? this.lightHeight,
+      ambientStrength: ambientStrength ?? this.ambientStrength,
+      diffuseStrength: diffuseStrength ?? this.diffuseStrength,
+      ditherN: ditherN ?? this.ditherN,
+      noise: noise ?? this.noise,
     );
   }
 
@@ -224,8 +235,8 @@ class SoftSpotLightParams {
 }
 
 /// The light's radius (raw px) at [progress]; while [extinguishing] it
-/// overshoots towards `2 · endRadius` as it fades, the way the original
-/// lerps its extinguish radius.
+/// approaches `2 · endRadius` as it fades, the way the original diffuses
+/// its extinguish radius.
 double softSpotLightRadius(
   SoftSpotLightParams params,
   double progress, {

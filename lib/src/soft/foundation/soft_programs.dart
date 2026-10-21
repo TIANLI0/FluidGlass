@@ -24,12 +24,15 @@ class SoftPrograms extends ChangeNotifier {
       'packages/fluid_glass/shaders/soft_caustic.frag';
   static const String _blendTintAsset =
       'packages/fluid_glass/shaders/soft_blend_tint.frag';
+  static const String _capsuleEdgeAsset =
+      'packages/fluid_glass/shaders/soft_capsule_edge.frag';
 
   ui.FragmentProgram? _spotLight;
   ui.FragmentProgram? _bloomStroke;
   ui.FragmentProgram? _metaBall;
   ui.FragmentProgram? _caustic;
   ui.FragmentProgram? _blendTint;
+  ui.FragmentProgram? _capsuleEdge;
   Future<void>? _loading;
 
   bool get isReady =>
@@ -37,7 +40,8 @@ class SoftPrograms extends ChangeNotifier {
       _bloomStroke != null &&
       _metaBall != null &&
       _caustic != null &&
-      _blendTint != null;
+      _blendTint != null &&
+      _capsuleEdge != null;
 
   ui.FragmentProgram? get spotLight {
     _kick();
@@ -65,6 +69,12 @@ class SoftPrograms extends ChangeNotifier {
   ui.FragmentProgram? get blendTint {
     _kick();
     return _blendTint;
+  }
+
+  /// The lit edge of a single frosted capsule.
+  ui.FragmentProgram? get capsuleEdge {
+    _kick();
+    return _capsuleEdge;
   }
 
   void _kick() {
@@ -108,12 +118,14 @@ class SoftPrograms extends ChangeNotifier {
           _loadOne(_metaBallAsset),
           _loadOne(_causticAsset),
           _loadOne(_blendTintAsset),
+          _loadOne(_capsuleEdgeAsset),
         ]);
     _spotLight = programs[0];
     _bloomStroke = programs[1];
     _metaBall = programs[2];
     _caustic = programs[3];
     _blendTint = programs[4];
+    _capsuleEdge = programs[5];
     notifyListeners();
   }
 }

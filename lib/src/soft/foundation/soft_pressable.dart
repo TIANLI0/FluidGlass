@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/gestures.dart';
 import 'package:flutter/widgets.dart';
 
 import 'soft_motion.dart';
@@ -67,6 +68,7 @@ class _SoftPressableState extends State<SoftPressable>
   late final SoftSpring _layer = SoftSpring(vsync: this);
   Timer? _delay;
   bool _pressed = false;
+  bool _reduceMotion = false;
 
   static final SpringDescription _sink = softSpringStiffness(
     damping: 0.8,
@@ -77,9 +79,27 @@ class _SoftPressableState extends State<SoftPressable>
       widget.enabled && (widget.onTap != null || widget.onLongPress != null);
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _reduceMotion = softReduceMotion(context);
+    _sync();
+  }
+
+  @override
   void didUpdateWidget(SoftPressable oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.holdDown != widget.holdDown) _sync();
+    if (!_active) {
+      _delay?.cancel();
+      _delay = null;
+      final bool wasPressed = _pressed;
+      _pressed = false;
+      if (wasPressed) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) widget.onPressedChanged?.call(false);
+        });
+      }
+    }
+    _sync();
   }
 
   @override
@@ -90,7 +110,11 @@ class _SoftPressableState extends State<SoftPressable>
   }
 
   void _sync() {
-    final bool on = _pressed || widget.holdDown;
+    final bool on = _active && (_pressed || widget.holdDown);
+    if (_reduceMotion) {
+      _layer.snapTo(on ? 1 : 0);
+      return;
+    }
     final SpringDescription spring = widget.feedback == SoftPressFeedback.sink
         ? _sink
         : SoftMotion.stateLayer;
@@ -104,8 +128,8 @@ class _SoftPressableState extends State<SoftPressable>
     widget.onPressedChanged?.call(value);
   }
 
-  void _onDown(PointerDownEvent _) {
-    if (!_active) return;
+  void _onDown(PointerDownEvent event) {
+    if (!_active || (event.buttons & kPrimaryButton) == 0) return;
     _delay?.cancel();
     _delay = Timer(SoftMotion.tapIndicationDelay, () {
       _delay = null;
@@ -166,7 +190,13 @@ class _SoftPressableState extends State<SoftPressable>
           onTapCancel: _end,
           onTapUp: (TapUpDetails _) => _end(tapped: true),
           onLongPress: _active ? widget.onLongPress : null,
-          onLongPressEnd: (LongPressEndDetails _) => _end(),
+          // Only with a long press of its own: a long-press recogniser joins
+          // the arena whenever any of its callbacks is set, and would win a
+          // held press from the tap — a button held for half a second would
+          // then do nothing on release.
+          onLongPressEnd: widget.onLongPress == null
+              ? null
+              : (LongPressEndDetails _) => _end(),
           child: result,
         ),
       ),

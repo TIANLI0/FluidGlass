@@ -61,6 +61,7 @@ class SoftBadge extends StatelessWidget {
     this.strokeColor = const Color(0xFFFFFFFF),
     this.dotDiameter = SoftBadgeDefaults.dotDiameter,
     this.height = SoftBadgeDefaults.height,
+    this.animate = true,
   });
 
   final int count;
@@ -72,6 +73,10 @@ class SoftBadge extends StatelessWidget {
   final Color strokeColor;
   final double dotDiameter;
   final double height;
+
+  /// Whether a change of [count] animates the width and cross-fades the
+  /// number; a navigation bar's badge changes in place.
+  final bool animate;
 
   @override
   Widget build(BuildContext context) {
@@ -91,7 +96,7 @@ class SoftBadge extends StatelessWidget {
     final double width = SoftBadgeDefaults.widthFor(count, height);
     return TweenAnimationBuilder<double>(
       tween: Tween<double>(end: width),
-      duration: SoftBadgeDefaults.widthDuration,
+      duration: animate ? SoftBadgeDefaults.widthDuration : Duration.zero,
       curve: SoftBadgeDefaults.moveEase,
       builder: (BuildContext context, double w, Widget? child) {
         return Container(
@@ -117,7 +122,7 @@ class SoftBadge extends StatelessWidget {
         );
       },
       child: AnimatedSwitcher(
-        duration: SoftBadgeDefaults.countFadeDuration,
+        duration: animate ? SoftBadgeDefaults.countFadeDuration : Duration.zero,
         child: Center(
           key: ValueKey<int>(count),
           child: count < SoftBadgeDefaults.overflowCount

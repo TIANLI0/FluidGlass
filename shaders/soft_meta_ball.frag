@@ -52,6 +52,11 @@ uniform float uAngle;
 uniform vec4 uTint;         // rgb, mix amount
 uniform vec4 uRim;          // rgb, unused
 uniform float uRimBottom;
+// Up to two tint layers that replace uTint when present: the bar's own
+// material, blended as soft_blend_tint.frag blends it on a single capsule.
+uniform vec4 uLayer0;       // un-premultiplied
+uniform vec4 uLayer1;
+uniform vec3 uLayerMode;    // mode 0, mode 1, count
 
 uniform sampler2D uContent;
 
@@ -60,6 +65,50 @@ out vec4 fragColor;
 float ramp(float e0, float e1, float x) {
     float t = clamp((x - e0) / (e1 - e0), 0.0, 1.0);
     return t * t * (3.0 - 2.0 * t);
+}
+
+float lum(vec3 c) {
+    return dot(c, vec3(0.3, 0.59, 0.11));
+}
+
+vec3 clipColor(vec3 c) {
+    float l = lum(c);
+    float n = min(min(c.r, c.g), c.b);
+    float x = max(max(c.r, c.g), c.b);
+    if (n < 0.0) c = l + (c - l) * l / max(l - n, 1e-5);
+    if (x > 1.0) c = l + (c - l) * (1.0 - l) / max(x - l, 1e-5);
+    return c;
+}
+
+vec3 setLum(vec3 c, float l) {
+    return clipColor(c + (l - lum(c)));
+}
+
+float dodge(float b, float s) {
+    if (b <= 0.0) return 0.0;
+    if (s >= 1.0) return 1.0;
+    return min(1.0, b / (1.0 - s));
+}
+
+float hardLight(float b, float s) {
+    if (s <= 0.5) return b * 2.0 * s;
+    float t = 2.0 * s - 1.0;
+    return b + t - b * t;
+}
+
+vec3 blendLayer(vec3 b, vec4 layer, float mode) {
+    vec3 s = layer.rgb;
+    vec3 r;
+    if (mode < 0.5) {
+        r = s;
+    } else if (mode < 1.5) {
+        r = vec3(dodge(b.r, s.r), dodge(b.g, s.g), dodge(b.b, s.b));
+    } else if (mode < 2.5) {
+        r = setLum(b, lum(s));
+    } else {
+        r = vec3(hardLight(s.r, b.r), hardLight(s.g, b.g), hardLight(s.b, b.b));
+    }
+    return mix(b, r, layer.a);
 }
 
 float sdRoundBox(vec2 p, vec2 b, float r) {
@@ -149,11 +198,15 @@ void accumulate(vec2 xy, vec4 shape, vec4 param, vec4 line, vec4 fade) {
     float k = uExtension * length(uFactor * u);
     float prev = gD;
     gD = smin(gD, di, k);
+    // The opacity follows the same weight as the union, so a fading shape
+    // leaves no seam at the neck.
+    float kk = max(k, 0.0001);
+    float h = clamp(0.5 + 0.5 * (di - prev) / kk, 0.0, 1.0);
+    gOpacity = mix(param.w, gOpacity, h);
     if (di < prev) {
         gNearest = c;
         gHalf = hs;
         gScale = scale;
-        gOpacity = param.w;
         gLine = line;
         gFade = fade;
     }
@@ -189,7 +242,16 @@ void main() {
         return;
     }
     vec3 rawColor = inputColor.rgb / inputColor.a;
-    vec3 materialColor = mix(rawColor, uTint.rgb, uTint.a);
+    vec3 materialColor;
+    if (uLayerMode.z > 0.5) {
+        materialColor = blendLayer(rawColor, uLayer0, uLayerMode.x);
+        if (uLayerMode.z > 1.5) {
+            materialColor = blendLayer(materialColor, uLayer1, uLayerMode.y);
+        }
+        materialColor = clamp(materialColor, 0.0, 1.0);
+    } else {
+        materialColor = mix(rawColor, uTint.rgb, uTint.a);
+    }
     float bottomWeight = localPos.y > 0.0 ? uRimBottom : 1.0;
     float lineAlpha = edgeAlpha(vec2(localPos.x, -localPos.y), gHalf, gD, gLine, gFade) * bottomWeight;
     vec3 result = edgeBlend(materialColor, rawColor, uRim.rgb, lineAlpha);
