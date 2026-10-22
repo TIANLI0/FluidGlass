@@ -45,6 +45,11 @@ abstract final class SoftFloatingNavigationBarDefaults {
   static const double itemHeight = 48;
   static const double itemMaxWidth = 70;
 
+  /// The item cap while an [SoftFloatingAccessoryPlacement.adjacent]
+  /// expansion is out: the capsule narrows a little so it and the round view
+  /// sit together as one group.
+  static const double itemMaxWidthAdjacent = 62;
+
   /// The item cap on a large screen: never reached, so the capsule fills
   /// the bar.
   static const double itemMaxWidthLarge = 1000;
@@ -367,6 +372,22 @@ class _Swap {
 /// leaves when they do not fit; from 600 wide it fills the bar. Round views
 /// keep 56 + 12 at their side. A round view coming out grows from inside
 /// the capsule's end and, while it passes the capsule's edge, melts into it
+/// Where an expansion view rests while it is out, on a compact screen.
+enum SoftFloatingAccessoryPlacement {
+  /// Pinned to the bar's end edge; the capsule moves to the start edge to
+  /// make room. The reference's compact layout, and the default.
+  edge,
+
+  /// Splits off right beside the capsule ([SoftFloatingNavigationBarDefaults
+  /// .sideSpacing] away). The capsule narrows a little and the capsule with
+  /// the round view is centred as one group.
+  adjacent,
+
+  /// As [adjacent], but the capsule stays centred and the round view hangs
+  /// off its end.
+  adjacentCapsuleCentered,
+}
+
 /// as one frosted body; that body samples [backdrop] (a [LayerBackdrop] of
 /// the page). Without one, without blur, or on a device whose glass tier
 /// runs no fragment programs, round views fade and grow in place instead.
@@ -379,6 +400,7 @@ class SoftFloatingNavigationBar extends StatefulWidget {
     this.start,
     this.end,
     this.expansion,
+    this.accessoryPlacement = SoftFloatingAccessoryPlacement.edge,
     this.backdrop,
     this.color,
     this.selectedColor,
@@ -418,6 +440,10 @@ class SoftFloatingNavigationBar extends StatefulWidget {
   /// is out on a compact screen, the capsule moves to the start edge to make
   /// room for it.
   final SoftFloatingAccessory? expansion;
+
+  /// Where [expansion] rests while it is out on a compact screen. A large
+  /// screen always centres the capsule and the round view as one group.
+  final SoftFloatingAccessoryPlacement accessoryPlacement;
 
   /// The captured page the frosted body blurs.
   final Backdrop? backdrop;
@@ -962,14 +988,20 @@ class _SoftFloatingNavigationBarState extends State<SoftFloatingNavigationBar>
   }
 
   /// The capsule's width and its items' width in [available].
-  (double, double) _measure(double available, {required bool large}) {
+  (double, double) _measure(
+    double available, {
+    required bool large,
+    double? itemCap,
+  }) {
     final int count = widget.items.length;
     if (count == 0) return (0, 0);
     const double inner = SoftFloatingNavigationBarDefaults.itemInnerPadding;
     const double space = SoftFloatingNavigationBarDefaults.itemSpacing;
-    final double maxItem = large
-        ? SoftFloatingNavigationBarDefaults.itemMaxWidthLarge
-        : SoftFloatingNavigationBarDefaults.itemMaxWidth;
+    final double maxItem =
+        itemCap ??
+        (large
+            ? SoftFloatingNavigationBarDefaults.itemMaxWidthLarge
+            : SoftFloatingNavigationBarDefaults.itemMaxWidth);
     final double totalMax = count * maxItem + 2 * inner + (count - 1) * space;
     if (totalMax <= available) return (totalMax, maxItem);
     final double dpr = MediaQuery.devicePixelRatioOf(context);
@@ -1030,9 +1062,17 @@ class _SoftFloatingNavigationBarState extends State<SoftFloatingNavigationBar>
     // edge.
     final double startReserve = start != null ? reserve : 0;
     final double endReserve = end != null || expansionOut ? reserve : 0;
+    final SoftFloatingAccessoryPlacement placement = widget.accessoryPlacement;
+    final bool adjacent =
+        !large && placement != SoftFloatingAccessoryPlacement.edge;
+    // Adjacent: the capsule narrows a little while the round view is out.
+    final double? itemCap = adjacent && expansionOut
+        ? SoftFloatingNavigationBarDefaults.itemMaxWidthAdjacent
+        : null;
     final (double capsuleWidth, double itemWidth) = _measure(
       math.max(0, width - startReserve - endReserve),
       large: large,
+      itemCap: itemCap,
     );
     double capsuleStart;
     double? startRest;
@@ -1040,13 +1080,21 @@ class _SoftFloatingNavigationBarState extends State<SoftFloatingNavigationBar>
     if (expansion != null) {
       if (!expansionOut) {
         capsuleStart = (width - capsuleWidth) / 2;
-      } else if (large) {
+      } else if (large ||
+          placement == SoftFloatingAccessoryPlacement.adjacent) {
         capsuleStart = (width - capsuleWidth - reserve) / 2;
+      } else if (placement ==
+          SoftFloatingAccessoryPlacement.adjacentCapsuleCentered) {
+        // Centred unless the round view would run off the end.
+        capsuleStart = math.min(
+          (width - capsuleWidth) / 2,
+          width - capsuleWidth - reserve,
+        );
       } else {
         capsuleStart = 0;
       }
       endRest = expansionOut
-          ? (large
+          ? (large || adjacent
                 ? capsuleStart + capsuleWidth + reserve - accessory / 2
                 : width - accessory / 2)
           : null;

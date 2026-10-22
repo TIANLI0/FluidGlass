@@ -475,6 +475,8 @@ class _ExpansionBarDemo extends StatefulWidget {
 class _ExpansionBarDemoState extends State<_ExpansionBarDemo> {
   int _selected = 0;
   int _taps = 0;
+  SoftFloatingAccessoryPlacement _placement =
+      SoftFloatingAccessoryPlacement.edge;
 
   @override
   Widget build(BuildContext context) {
@@ -483,6 +485,7 @@ class _ExpansionBarDemoState extends State<_ExpansionBarDemo> {
         _Wallpaper(
           child: SoftFloatingNavigationBar(
             includeBottomInset: false,
+            accessoryPlacement: _placement,
             selectedIndex: _selected,
             onSelected: (int i) => setState(() => _selected = i),
             // Tabs 1 and 2 each carry their own action: between them the
@@ -509,6 +512,21 @@ class _ExpansionBarDemoState extends State<_ExpansionBarDemo> {
         Padding(
           padding: const EdgeInsets.all(8),
           child: Text('第 2、3 格各有一个按钮：从别的格切过来时融出，两格之间只换图标 · 已点 $_taps 次'),
+        ),
+        // 按钮落在哪：贴边（默认）/ 紧挨胶囊、整体居中 / 紧挨胶囊、胶囊居中。
+        Wrap(
+          spacing: 8,
+          children: <Widget>[
+            for (final SoftFloatingAccessoryPlacement p
+                in SoftFloatingAccessoryPlacement.values)
+              GestureDetector(
+                onTap: () => setState(() => _placement = p),
+                child: Padding(
+                  padding: const EdgeInsets.all(8),
+                  child: Text(p == _placement ? '● ${p.name}' : '○ ${p.name}'),
+                ),
+              ),
+          ],
         ),
       ],
     );
