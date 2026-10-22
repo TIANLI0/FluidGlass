@@ -228,7 +228,7 @@ void main() {
       in <SoftFloatingAccessoryPlacement>[
         SoftFloatingAccessoryPlacement.adjacentCentered,
         SoftFloatingAccessoryPlacement.adjacentCapsuleCentered,
-      ])
+      ]) {
     for (final bool out in <bool>[true, false]) {
       testWidgets('${p.name} ${out ? 'out' : 'in'}: no frame jumps', (
         WidgetTester tester,
@@ -252,4 +252,5 @@ void main() {
         }
       });
     }
+  }
 }
