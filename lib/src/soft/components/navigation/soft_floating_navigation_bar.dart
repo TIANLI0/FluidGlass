@@ -244,6 +244,7 @@ class SoftFloatingAccessory {
     this.onTap,
     this.visible = true,
     this.semanticLabel,
+    this.id,
   });
 
   /// Usually an [Icon].
@@ -255,6 +256,100 @@ class SoftFloatingAccessory {
   /// room back to the capsule.
   final bool visible;
   final String? semanticLabel;
+
+  /// What the view stands for. When it changes while the view is out (or
+  /// still on its way in), the view stays where it is and only its icon
+  /// changes: the old icon shrinks and fades as the new one grows in, on
+  /// the springs the view itself comes out on. [onTap] and [semanticLabel]
+  /// switch at once. Null never animates: the icon is just replaced.
+  final Object? id;
+}
+
+/// The icon of one round view, and the change from the one before it.
+class _Swap {
+  _Swap(TickerProvider vsync, SoftFloatingAccessory? view)
+    : alpha = SoftSpring(vsync: vsync, value: 1),
+      scale = SoftSpring(vsync: vsync, value: 1),
+      icon = view?.icon,
+      id = view?.id;
+
+  /// 0 at the old icon, 1 at the new one.
+  final SoftSpring alpha;
+
+  /// The new icon's scale, from [SoftFloatingNavigationBarDefaults.minScale]
+  /// to 1, overshooting on the way.
+  final SoftSpring scale;
+
+  Widget? icon;
+  Object? id;
+  Widget? outgoing;
+  Object? outgoingId;
+
+  /// Whether the old icon is still drawn.
+  bool get swapping =>
+      outgoing != null &&
+      (alpha.isAnimating || scale.isAnimating || alpha.value < 1);
+
+  /// Takes [view]'s icon: at once where [animate] is false or nothing
+  /// identifies it, otherwise by cross-growing from the icon shown now.
+  void to(
+    SoftFloatingAccessory? view, {
+    required bool animate,
+    required bool lowEnd,
+  }) {
+    if (view == null) return;
+    final Object? next = view.id;
+    if (next == null || next == id || !animate) {
+      if (next != id || !animate) {
+        outgoing = null;
+        outgoingId = null;
+        alpha.snapTo(1);
+        scale.snapTo(1);
+      }
+      icon = view.icon;
+      id = next;
+      return;
+    }
+    const double min = SoftFloatingNavigationBarDefaults.minScale;
+    if (swapping && next == outgoingId) {
+      // Back to the icon on its way out: it turns round where it is.
+      final double a = alpha.value.clamp(0.0, 1.0);
+      final double s = ui.lerpDouble(1, min, a)!;
+      outgoing = icon;
+      outgoingId = id;
+      alpha.snapTo(1 - a);
+      scale.snapTo(s);
+    } else if (swapping && alpha.value < 0.5) {
+      // The incoming icon has barely shown: the new one takes its place
+      // and the old one keeps leaving.
+    } else {
+      outgoing = icon;
+      outgoingId = id;
+      alpha.snapTo(0);
+      scale.snapTo(min);
+    }
+    icon = view.icon;
+    id = next;
+    alpha.animateTo(
+      1,
+      lowEnd
+          ? SoftFloatingNavigationBarDefaults.lowEndAlphaSpring
+          : SoftFloatingNavigationBarDefaults.alphaSpring,
+    );
+    scale.animateTo(
+      1,
+      lowEnd
+          ? SoftFloatingNavigationBarDefaults.lowEndScaleSpring
+          : SoftFloatingNavigationBarDefaults.scaleSpring,
+    );
+  }
+
+  List<Listenable> get listenables => <Listenable>[alpha, scale];
+
+  void dispose() {
+    alpha.dispose();
+    scale.dispose();
+  }
 }
 
 /// The floating bottom navigation bar: a frosted 56-high capsule of items,
@@ -441,6 +536,7 @@ class _Side {
   const _Side({
     required this.accessory,
     required this.expansion,
+    required this.swap,
     required this.motion,
     required this.rest,
     required this.centre,
@@ -450,6 +546,7 @@ class _Side {
 
   final SoftFloatingAccessory accessory;
   final _Expansion expansion;
+  final _Swap swap;
   final SoftTouchMotionState motion;
 
   /// Where it rests when out; its box is laid out here.
@@ -477,6 +574,9 @@ class _SoftFloatingNavigationBarState extends State<SoftFloatingNavigationBar>
     this,
     widget.expansion?.visible ?? false,
   );
+  late final _Swap _startSwap = _Swap(this, widget.start);
+  late final _Swap _endSwap = _Swap(this, widget.end);
+  late final _Swap _expansionSwap = _Swap(this, widget.expansion);
   late final SoftSpring _shownAlpha = SoftSpring(
     vsync: this,
     value: widget.visible ? 1 : 0,
@@ -511,6 +611,9 @@ class _SoftFloatingNavigationBarState extends State<SoftFloatingNavigationBar>
     ..._startExpansion.listenables,
     ..._endExpansion.listenables,
     ..._expansionExpansion.listenables,
+    ..._startSwap.listenables,
+    ..._endSwap.listenables,
+    ..._expansionSwap.listenables,
     _shownAlpha,
     _shownScale,
     _shownBlur,
@@ -688,8 +791,18 @@ class _SoftFloatingNavigationBarState extends State<SoftFloatingNavigationBar>
       SoftFloatingAccessory? now,
       SoftFloatingAccessory? before,
       _Expansion expansion,
+      _Swap swap,
     ) {
       final bool visible = now?.visible ?? false;
+      // A view going away keeps the icon it leaves with; one that is out,
+      // or still drawn on its way in, changes it in place.
+      if (visible || !expansion.live) {
+        swap.to(
+          now,
+          animate: !reduce && before != null && expansion.live,
+          lowEnd: lowEnd,
+        );
+      }
       if (visible == (before?.visible ?? false)) return;
       if (before == null || now == null || reduce) {
         expansion.snap(visible);
@@ -698,9 +811,14 @@ class _SoftFloatingNavigationBarState extends State<SoftFloatingNavigationBar>
       }
     }
 
-    sync(widget.start, oldWidget.start, _startExpansion);
-    sync(widget.end, oldWidget.end, _endExpansion);
-    sync(widget.expansion, oldWidget.expansion, _expansionExpansion);
+    sync(widget.start, oldWidget.start, _startExpansion, _startSwap);
+    sync(widget.end, oldWidget.end, _endExpansion, _endSwap);
+    sync(
+      widget.expansion,
+      oldWidget.expansion,
+      _expansionExpansion,
+      _expansionSwap,
+    );
     if (widget.visible != oldWidget.visible) _show(widget.visible, lowEnd);
   }
 
@@ -743,6 +861,9 @@ class _SoftFloatingNavigationBarState extends State<SoftFloatingNavigationBar>
     _startExpansion.dispose();
     _endExpansion.dispose();
     _expansionExpansion.dispose();
+    _startSwap.dispose();
+    _endSwap.dispose();
+    _expansionSwap.dispose();
     _shownAlpha.dispose();
     _shownScale.dispose();
     _shownBlur.dispose();
@@ -1020,6 +1141,7 @@ class _SoftFloatingNavigationBarState extends State<SoftFloatingNavigationBar>
           SoftFloatingAccessory? view,
           double? rest,
           _Expansion expansion,
+          _Swap swap,
           SoftTouchMotionState motion, {
           required bool atStart,
         }) {
@@ -1067,6 +1189,7 @@ class _SoftFloatingNavigationBarState extends State<SoftFloatingNavigationBar>
             _Side(
               accessory: view,
               expansion: expansion,
+              swap: swap,
               motion: motion,
               rest: Offset(restX, restY),
               centre: Offset(centreX, restY),
@@ -1076,12 +1199,20 @@ class _SoftFloatingNavigationBarState extends State<SoftFloatingNavigationBar>
           );
         }
 
-        side(start, startRest, _startExpansion, _startMotion, atStart: !_rtl);
-        side(end, endRest, _endExpansion, _endMotion, atStart: _rtl);
+        side(
+          start,
+          startRest,
+          _startExpansion,
+          _startSwap,
+          _startMotion,
+          atStart: !_rtl,
+        );
+        side(end, endRest, _endExpansion, _endSwap, _endMotion, atStart: _rtl);
         side(
           expansion,
           expansionOut ? endRest : _expansionRest,
           _expansionExpansion,
+          _expansionSwap,
           _expansionMotion,
           atStart: _rtl,
         );
@@ -1281,7 +1412,7 @@ class _SoftFloatingNavigationBarState extends State<SoftFloatingNavigationBar>
                           color: foreground,
                         ),
                         child: live
-                            ? side.accessory.icon
+                            ? _icon(side.swap, side.accessory.icon)
                             : const SizedBox.shrink(),
                       ),
                     ),
@@ -1294,6 +1425,49 @@ class _SoftFloatingNavigationBarState extends State<SoftFloatingNavigationBar>
       ),
     );
   }
+}
+
+/// The view's icon, and while it changes the old one leaving under it.
+///
+/// At rest this is the icon alone, keyed so it keeps its state whether or
+/// not a change runs; the opacity and scale add no layer there.
+Widget _icon(_Swap swap, Widget fallback) {
+  final Widget icon = swap.icon ?? fallback;
+  final Widget? outgoing = swap.outgoing;
+  final bool swapping = swap.swapping;
+  if (!swapping) swap.outgoing = null;
+  final double a = swap.alpha.value.clamp(0.0, 1.0);
+  final Widget incoming = KeyedSubtree(
+    key: const ValueKey<String>('incoming'),
+    child: Opacity(
+      opacity: swapping ? a : 1,
+      child: Transform.scale(
+        scale: swapping ? math.max(0.0, swap.scale.value) : 1,
+        child: icon,
+      ),
+    ),
+  );
+  return Stack(
+    alignment: Alignment.center,
+    children: <Widget>[
+      if (swapping && outgoing != null)
+        KeyedSubtree(
+          key: ValueKey<Object?>(('outgoing', swap.outgoingId)),
+          child: Opacity(
+            opacity: 1 - a,
+            child: Transform.scale(
+              scale: ui.lerpDouble(
+                1,
+                SoftFloatingNavigationBarDefaults.minScale,
+                a,
+              ),
+              child: outgoing,
+            ),
+          ),
+        ),
+      incoming,
+    ],
+  );
 }
 
 /// [rect] with [motion]'s transform applied about its centre.

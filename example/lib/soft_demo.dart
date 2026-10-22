@@ -485,10 +485,15 @@ class _ExpansionBarDemoState extends State<_ExpansionBarDemo> {
             includeBottomInset: false,
             selectedIndex: _selected,
             onSelected: (int i) => setState(() => _selected = i),
+            // Tabs 1 and 2 each carry their own action: between them the
+            // view stays out and only its icon changes.
             expansion: SoftFloatingAccessory(
-              icon: const Icon(Icons.nfc_rounded),
-              semanticLabel: '贴卡',
-              visible: _selected == 1,
+              id: _selected == 2 ? 'add' : 'share',
+              icon: Icon(
+                _selected == 2 ? Icons.add_rounded : Icons.ios_share_rounded,
+              ),
+              semanticLabel: _selected == 2 ? '添加' : '分享',
+              visible: _selected == 1 || _selected == 2,
               onTap: () => setState(() => _taps++),
             ),
             items: <SoftFloatingNavigationItem>[
@@ -503,7 +508,7 @@ class _ExpansionBarDemoState extends State<_ExpansionBarDemo> {
         ),
         Padding(
           padding: const EdgeInsets.all(8),
-          child: Text('切到「消息」时按钮从胶囊里融出 · 已点 $_taps 次'),
+          child: Text('第 2、3 格各有一个按钮：从别的格切过来时融出，两格之间只换图标 · 已点 $_taps 次'),
         ),
       ],
     );

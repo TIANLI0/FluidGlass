@@ -1,5 +1,18 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- `SoftFloatingAccessory.id`. When it changes while the round view is out,
+  or still drawn on its way back in, the view stays where it is and only
+  its icon changes: the old icon shrinks to half and fades as the new one
+  grows from half, on the springs the view itself comes out on (alpha
+  0.35 / no bounce, scale 0.55 / 0.35 bounce). `onTap` and `semanticLabel`
+  switch at once. A change back mid-way turns round from where it is; a
+  view going in keeps the icon it leaves with. Reduced motion replaces the
+  icon outright, and a view without an `id` behaves as before.
+
 ## 0.5.0
 
 ### Added
