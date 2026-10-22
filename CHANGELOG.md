@@ -7,12 +7,14 @@
 - `SoftFloatingNavigationBar.accessoryPlacement`
   (`SoftFloatingAccessoryPlacement`): where an expansion view rests on a
   compact screen. `edge` (the default, unchanged) pins it to the bar's end
-  edge. `adjacent` splits it off right beside the capsule, `sideSpacing`
-  (12) away; the capsule narrows a little (items capped at
+  edge. `adjacentCentered` splits it off right beside the capsule,
+  `sideSpacing` (12) away; the capsule narrows a little (items capped at
   `itemMaxWidthAdjacent`, 62) and the capsule with the round view is centred
-  as one group. `adjacentCapsuleCentered` keeps the capsule centred and
-  hangs the round view off its end, pushed in only as far as it takes to
-  stay inside the bar's padding. Going out and back in, the capsule's
+  as one group. `adjacentCapsuleCentered` keeps the capsule's centre where it
+  is and hangs the round view off its end, 12 away: the capsule keeps its
+  width where the view fits beside it and otherwise narrows just enough,
+  about its centre. Both also apply to `start` / `end` round views, which
+  then sit beside the capsule symmetrically instead of at the bar's edges. Going out and back in, the capsule's
   position and width follow the same springs as before — no jumps.
 
 ## 0.5.1

@@ -380,11 +380,13 @@ enum SoftFloatingAccessoryPlacement {
 
   /// Splits off right beside the capsule ([SoftFloatingNavigationBarDefaults
   /// .sideSpacing] away). The capsule narrows a little and the capsule with
-  /// the round view is centred as one group.
-  adjacent,
+  /// the round view(s) is centred as one group.
+  adjacentCentered,
 
-  /// As [adjacent], but the capsule stays centred and the round view hangs
-  /// off its end.
+  /// The capsule keeps its centre and the round view hangs off its end,
+  /// [SoftFloatingNavigationBarDefaults.sideSpacing] away. The capsule keeps
+  /// its width where the round view fits beside it; otherwise it narrows just
+  /// enough, about its centre. Round views at both sides sit symmetrically.
   adjacentCapsuleCentered,
 }
 
@@ -1065,12 +1067,23 @@ class _SoftFloatingNavigationBarState extends State<SoftFloatingNavigationBar>
     final SoftFloatingAccessoryPlacement placement = widget.accessoryPlacement;
     final bool adjacent =
         !large && placement != SoftFloatingAccessoryPlacement.edge;
-    // Adjacent: the capsule narrows a little while the round view is out.
-    final double? itemCap = adjacent && expansionOut
+    final bool capsuleCentred =
+        !large &&
+        placement == SoftFloatingAccessoryPlacement.adjacentCapsuleCentered;
+    // Group-centred: the capsule narrows a little while the round view is
+    // out. Capsule-centred: it narrows only when a round view would not fit
+    // beside it, symmetrically about its centre.
+    final double? itemCap = adjacent && !capsuleCentred && expansionOut
         ? SoftFloatingNavigationBarDefaults.itemMaxWidthAdjacent
         : null;
+    final double sideReserve = math.max(startReserve, endReserve);
     final (double capsuleWidth, double itemWidth) = _measure(
-      math.max(0, width - startReserve - endReserve),
+      math.max(
+        0,
+        capsuleCentred
+            ? width - 2 * sideReserve
+            : width - startReserve - endReserve,
+      ),
       large: large,
       itemCap: itemCap,
     );
@@ -1080,16 +1093,10 @@ class _SoftFloatingNavigationBarState extends State<SoftFloatingNavigationBar>
     if (expansion != null) {
       if (!expansionOut) {
         capsuleStart = (width - capsuleWidth) / 2;
-      } else if (large ||
-          placement == SoftFloatingAccessoryPlacement.adjacent) {
+      } else if (capsuleCentred) {
+        capsuleStart = (width - capsuleWidth) / 2;
+      } else if (large || adjacent) {
         capsuleStart = (width - capsuleWidth - reserve) / 2;
-      } else if (placement ==
-          SoftFloatingAccessoryPlacement.adjacentCapsuleCentered) {
-        // Centred unless the round view would run off the end.
-        capsuleStart = math.min(
-          (width - capsuleWidth) / 2,
-          width - capsuleWidth - reserve,
-        );
       } else {
         capsuleStart = 0;
       }
@@ -1099,7 +1106,13 @@ class _SoftFloatingNavigationBarState extends State<SoftFloatingNavigationBar>
                 : width - accessory / 2)
           : null;
       if (endRest != null) _expansionRest = endRest;
-    } else if (large) {
+    } else if (capsuleCentred) {
+      capsuleStart = (width - capsuleWidth) / 2;
+      if (start != null) startRest = capsuleStart - reserve + accessory / 2;
+      if (end != null) {
+        endRest = capsuleStart + capsuleWidth + reserve - accessory / 2;
+      }
+    } else if (large || adjacent) {
       final double row = startReserve + capsuleWidth + endReserve;
       final double left = (width - row) / 2;
       capsuleStart = left + startReserve;
