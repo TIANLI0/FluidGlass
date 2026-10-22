@@ -28,6 +28,12 @@ abstract final class SoftFloatingNavigationBarDefaults {
   /// The outside padding on a compact screen; none from [largeScreenWidth].
   static const double paddingHorizontal = 16;
 
+  /// The outside padding with an adjacent [SoftFloatingAccessoryPlacement]:
+  /// round views hang off the capsule rather than sit at the bar's edges, so
+  /// they may come this close to the screen's edge before the capsule has to
+  /// narrow.
+  static const double adjacentPaddingHorizontal = 8;
+
   /// The window width from which the bar is laid out for a large screen: no
   /// outside padding, and items as wide as the bar allows.
   static const double largeScreenWidth = 600;
@@ -443,8 +449,10 @@ class SoftFloatingNavigationBar extends StatefulWidget {
   /// room for it.
   final SoftFloatingAccessory? expansion;
 
-  /// Where [expansion] rests while it is out on a compact screen. A large
-  /// screen always centres the capsule and the round view as one group.
+  /// Where [expansion] (and, for the adjacent placements, [start] / [end])
+  /// rest. With [SoftFloatingAccessoryPlacement.edge] a large screen fills
+  /// the bar with the capsule; the adjacent placements keep the capsule at
+  /// its content width on every screen.
   final SoftFloatingAccessoryPlacement accessoryPlacement;
 
   /// The captured page the frosted body blurs.
@@ -928,9 +936,15 @@ class _SoftFloatingNavigationBarState extends State<SoftFloatingNavigationBar>
         (SoftFloatingNavigationBarDefaults.minHeight -
             SoftFloatingNavigationBarDefaults.barHeight) /
         2;
+    final bool adjacent =
+        widget.accessoryPlacement != SoftFloatingAccessoryPlacement.edge;
+    // The large-screen layout (no padding, a capsule filling the bar) is the
+    // edge placement's. Adjacent placements keep the capsule at its content
+    // width on any screen and hang the round views beside it.
     final bool large =
+        !adjacent &&
         MediaQuery.sizeOf(context).width >=
-        SoftFloatingNavigationBarDefaults.largeScreenWidth;
+            SoftFloatingNavigationBarDefaults.largeScreenWidth;
     final Color? scrim = widget.scrimColor;
     return ListenableBuilder(
       listenable: Listenable.merge(<Listenable>[
@@ -943,7 +957,9 @@ class _SoftFloatingNavigationBarState extends State<SoftFloatingNavigationBar>
         return LayoutBuilder(
           builder: (BuildContext context, BoxConstraints constraints) {
             final double width = constraints.maxWidth;
-            final double padding = large
+            final double padding = adjacent
+                ? SoftFloatingNavigationBarDefaults.adjacentPaddingHorizontal
+                : large
                 ? 0
                 : SoftFloatingNavigationBarDefaults.paddingHorizontal;
             final Widget bar = Padding(

@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.5.2
 
 ### Added
 
@@ -18,7 +18,12 @@
   Capsule-centred `start` / `end` views melt out of and back into the
   capsule's ends like an expansion does, both at once if need be; the
   capsule reserves room for a side only while its view is out, narrowing and
-  widening about its centre. Going out and back in, the capsule's
+  widening about its centre.
+  The adjacent placements keep the capsule at its content width on every
+  screen (no large-screen fill) and let the round views come within
+  `adjacentPaddingHorizontal` (8) of the screen's edge, so on a 411 wide
+  phone three items with a view at each side fit without the capsule
+  narrowing at all. `edge` keeps the old large-screen layout. Going out and back in, the capsule's
   position and width follow the same springs as before — no jumps.
 
 ## 0.5.1

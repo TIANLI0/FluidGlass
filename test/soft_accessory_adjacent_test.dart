@@ -116,7 +116,8 @@ void main() {
       expect(capsule.center.dx, closeTo(width / 2, 0.5));
       expect(ballLeft - capsule.right, closeTo(gap, 0.5));
       // Narrowed just enough (or not at all) to keep the round view inside.
-      const double pad = SoftFloatingNavigationBarDefaults.paddingHorizontal;
+      const double pad =
+          SoftFloatingNavigationBarDefaults.adjacentPaddingHorizontal;
       final double inner = width - 2 * pad;
       final double fits = inner - 2 * (gap + ball);
       expect(
@@ -213,16 +214,37 @@ void main() {
     );
   });
 
-  testWidgets('600 wide (large): group centred whatever the placement', (
-    WidgetTester tester,
-  ) async {
-    const double width = 600;
-    await _pump(tester, _host(out: true, width: width), width);
-    await _settle(tester);
-    final Rect capsule = tester.getRect(_capsule());
-    final double ballLeft = _ball(tester).center.dx - ball / 2;
-    expect(ballLeft - capsule.right, closeTo(gap, 0.5));
-  });
+  for (final double width in <double>[600, 800, 1024]) {
+    for (final SoftFloatingAccessoryPlacement p
+        in <SoftFloatingAccessoryPlacement>[
+          SoftFloatingAccessoryPlacement.adjacentCentered,
+          SoftFloatingAccessoryPlacement.adjacentCapsuleCentered,
+        ]) {
+      testWidgets('${p.name} @ $width: content-wide capsule, view inside', (
+        WidgetTester tester,
+      ) async {
+        await _pump(
+          tester,
+          _host(out: true, width: width, placement: p),
+          width,
+        );
+        await _settle(tester);
+        final Rect capsule = tester.getRect(_capsule());
+        final Rect icon = _ball(tester);
+        final double ballLeft = icon.center.dx - ball / 2;
+        // No large-screen fill: three items at their 70 cap (or the
+        // adjacent cap while the view is out).
+        expect(capsule.width, lessThanOrEqualTo(3 * 70 + 2 * 8 + 2 * 12 + 0.5));
+        expect(ballLeft - capsule.right, closeTo(gap, 0.5));
+        expect(ballLeft + ball, lessThanOrEqualTo(width));
+        if (p == SoftFloatingAccessoryPlacement.adjacentCapsuleCentered) {
+          expect(capsule.center.dx, closeTo(width / 2, 0.5));
+        } else {
+          expect((capsule.left + ballLeft + ball) / 2, closeTo(width / 2, 0.5));
+        }
+      });
+    }
+  }
 
   for (final SoftFloatingAccessoryPlacement p
       in <SoftFloatingAccessoryPlacement>[
@@ -302,7 +324,8 @@ void main() {
       final double r = tester.getRect(find.bySemanticsLabel('R')).center.dx;
       expect(capsule.left - (l + ball / 2), closeTo(gap, 0.5));
       expect((r - ball / 2) - capsule.right, closeTo(gap, 0.5));
-      const double pad = SoftFloatingNavigationBarDefaults.paddingHorizontal;
+      const double pad =
+          SoftFloatingNavigationBarDefaults.adjacentPaddingHorizontal;
       expect(l - ball / 2, greaterThanOrEqualTo(pad - 0.5));
       // Back in: the capsule widens back to where it was.
       await _pump(tester, sides(out: false, width: width), width);
@@ -330,4 +353,41 @@ void main() {
       }
     });
   }
+
+  testWidgets('both sides out @ 411: the capsule does not move or narrow', (
+    WidgetTester tester,
+  ) async {
+    const double width = 411;
+    await _pump(tester, sides(out: false, width: width), width);
+    await _settle(tester);
+    final Rect alone = tester.getRect(_capsule());
+    await _pump(tester, sides(out: true, width: width), width);
+    for (int i = 0; i < 60; i++) {
+      await tester.pump(const Duration(milliseconds: 16));
+      final Rect now = tester.getRect(_capsule());
+      expect(now.left, closeTo(alone.left, 0.5), reason: '$i');
+      expect(now.width, closeTo(alone.width, 0.5), reason: '$i');
+    }
+  });
+
+  testWidgets(
+    'both sides out where they cannot fit: narrows about the centre',
+    (WidgetTester tester) async {
+      const double width = 320;
+      await _pump(tester, sides(out: false, width: width), width);
+      await _settle(tester);
+      final Rect alone = tester.getRect(_capsule());
+      await _pump(tester, sides(out: true, width: width), width);
+      await _settle(tester);
+      final Rect capsule = tester.getRect(_capsule());
+      expect(capsule.width, lessThan(alone.width - 1));
+      expect(capsule.center.dx, closeTo(width / 2, 0.5));
+      const double pad =
+          SoftFloatingNavigationBarDefaults.adjacentPaddingHorizontal;
+      final double l = tester.getRect(find.bySemanticsLabel('L')).center.dx;
+      final double r = tester.getRect(find.bySemanticsLabel('R')).center.dx;
+      expect(l - ball / 2, closeTo(pad, 0.5));
+      expect(r + ball / 2, closeTo(width - pad, 0.5));
+    },
+  );
 }
