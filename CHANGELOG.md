@@ -14,7 +14,11 @@
   is and hangs the round view off its end, 12 away: the capsule keeps its
   width where the view fits beside it and otherwise narrows just enough,
   about its centre. Both also apply to `start` / `end` round views, which
-  then sit beside the capsule symmetrically instead of at the bar's edges. Going out and back in, the capsule's
+  then sit beside the capsule symmetrically instead of at the bar's edges.
+  Capsule-centred `start` / `end` views melt out of and back into the
+  capsule's ends like an expansion does, both at once if need be; the
+  capsule reserves room for a side only while its view is out, narrowing and
+  widening about its centre. Going out and back in, the capsule's
   position and width follow the same springs as before — no jumps.
 
 ## 0.5.1

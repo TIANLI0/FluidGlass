@@ -1029,7 +1029,9 @@ class _SoftFloatingNavigationBarState extends State<SoftFloatingNavigationBar>
     final bool animate =
         _capsuleTarget != null &&
         _capsuleScreen == screen &&
-        widget.expansion != null &&
+        (widget.expansion != null ||
+            widget.start != null ||
+            widget.end != null) &&
         !softReduceMotion(context);
     if (target != _capsuleTarget) {
       if (animate) {
@@ -1062,14 +1064,20 @@ class _SoftFloatingNavigationBarState extends State<SoftFloatingNavigationBar>
 
     // Where the capsule and the round views rest, measured from the start
     // edge.
-    final double startReserve = start != null ? reserve : 0;
-    final double endReserve = end != null || expansionOut ? reserve : 0;
     final SoftFloatingAccessoryPlacement placement = widget.accessoryPlacement;
     final bool adjacent =
         !large && placement != SoftFloatingAccessoryPlacement.edge;
     final bool capsuleCentred =
         !large &&
         placement == SoftFloatingAccessoryPlacement.adjacentCapsuleCentered;
+    // Capsule-centred: a side reserves room only while its view is out, so
+    // the capsule widens back (about its centre) when the views melt in.
+    final double startReserve =
+        start != null && (!capsuleCentred || start.visible) ? reserve : 0;
+    final double endReserve =
+        (end != null && (!capsuleCentred || end.visible)) || expansionOut
+        ? reserve
+        : 0;
     // Group-centred: the capsule narrows a little while the round view is
     // out. Capsule-centred: it narrows only when a round view would not fit
     // beside it, symmetrically about its centre.
@@ -1107,6 +1115,8 @@ class _SoftFloatingNavigationBarState extends State<SoftFloatingNavigationBar>
           : null;
       if (endRest != null) _expansionRest = endRest;
     } else if (capsuleCentred) {
+      // Each view rests beside the capsule whether out or not: a view going
+      // in springs from there into the capsule's end, never from the edge.
       capsuleStart = (width - capsuleWidth) / 2;
       if (start != null) startRest = capsuleStart - reserve + accessory / 2;
       if (end != null) {

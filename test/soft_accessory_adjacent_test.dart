@@ -253,4 +253,81 @@ void main() {
       });
     }
   }
+
+  Widget sides({required bool out, required double width}) => MediaQuery(
+    data: MediaQueryData(size: Size(width, 800)),
+    child: Directionality(
+      textDirection: TextDirection.ltr,
+      child: SoftTheme(
+        data: SoftThemeData.light(),
+        child: Align(
+          alignment: Alignment.bottomCenter,
+          child: SoftFloatingNavigationBar(
+            items: _items,
+            selectedIndex: 0,
+            onSelected: (_) {},
+            accessoryPlacement:
+                SoftFloatingAccessoryPlacement.adjacentCapsuleCentered,
+            start: SoftFloatingAccessory(
+              icon: const SizedBox.square(dimension: 24),
+              semanticLabel: 'L',
+              visible: out,
+              onTap: () {},
+            ),
+            end: SoftFloatingAccessory(
+              icon: const SizedBox.square(dimension: 24),
+              semanticLabel: 'R',
+              visible: out,
+              onTap: () {},
+            ),
+          ),
+        ),
+      ),
+    ),
+  );
+
+  for (final double width in <double>[360, 411]) {
+    testWidgets('both sides out @ $width: symmetric, centre fixed', (
+      WidgetTester tester,
+    ) async {
+      await _pump(tester, sides(out: false, width: width), width);
+      await _settle(tester);
+      final Rect alone = tester.getRect(_capsule());
+      expect(alone.center.dx, closeTo(width / 2, 0.5));
+      await _pump(tester, sides(out: true, width: width), width);
+      await _settle(tester);
+      final Rect capsule = tester.getRect(_capsule());
+      expect(capsule.center.dx, closeTo(width / 2, 0.5));
+      final double l = tester.getRect(find.bySemanticsLabel('L')).center.dx;
+      final double r = tester.getRect(find.bySemanticsLabel('R')).center.dx;
+      expect(capsule.left - (l + ball / 2), closeTo(gap, 0.5));
+      expect((r - ball / 2) - capsule.right, closeTo(gap, 0.5));
+      const double pad = SoftFloatingNavigationBarDefaults.paddingHorizontal;
+      expect(l - ball / 2, greaterThanOrEqualTo(pad - 0.5));
+      // Back in: the capsule widens back to where it was.
+      await _pump(tester, sides(out: false, width: width), width);
+      await _settle(tester);
+      expect(tester.getRect(_capsule()).width, closeTo(alone.width, 0.5));
+    });
+  }
+
+  for (final bool out in <bool>[true, false]) {
+    testWidgets('both sides ${out ? 'out' : 'in'}: no frame jumps', (
+      WidgetTester tester,
+    ) async {
+      const double width = 360;
+      await _pump(tester, sides(out: !out, width: width), width);
+      await _settle(tester);
+      await _pump(tester, sides(out: out, width: width), width);
+      Rect previous = tester.getRect(_capsule());
+      for (int i = 0; i < 60; i++) {
+        await tester.pump(const Duration(milliseconds: 16));
+        final Rect now = tester.getRect(_capsule());
+        expect((now.left - previous.left).abs(), lessThan(8), reason: '$i');
+        expect((now.width - previous.width).abs(), lessThan(8), reason: '$i');
+        expect(now.center.dx, closeTo(width / 2, 0.5), reason: '$i');
+        previous = now;
+      }
+    });
+  }
 }
