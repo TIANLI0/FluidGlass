@@ -16,10 +16,12 @@ Widget _host({
   VoidCallback? onAction,
   bool reduceMotion = false,
   bool blur = true,
+  List<SoftFloatingNavigationItem> items = _items,
+  double width = 400,
 }) {
   return MediaQuery(
     data: MediaQueryData(
-      size: const Size(400, 800),
+      size: Size(width, 800),
       disableAnimations: reduceMotion,
     ),
     child: Directionality(
@@ -29,7 +31,7 @@ Widget _host({
         child: Align(
           alignment: Alignment.bottomCenter,
           child: SoftFloatingNavigationBar(
-            items: _items,
+            items: items,
             selectedIndex: 0,
             blur: blur,
             onSelected: onSelected ?? (_) {},
@@ -46,8 +48,12 @@ Widget _host({
   );
 }
 
-Future<void> _pump(WidgetTester tester, Widget widget) async {
-  tester.view.physicalSize = const Size(400, 800);
+Future<void> _pump(
+  WidgetTester tester,
+  Widget widget, {
+  double width = 400,
+}) async {
+  tester.view.physicalSize = Size(width, 800);
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.reset);
   await tester.pumpWidget(widget);
@@ -130,7 +136,11 @@ void main() {
       tester,
     ) async {
       await _pump(tester, _host(out: false));
-      expect(_surface(), findsNothing);
+      // Nothing out: the capsule alone, drawn through the same merged body.
+      expect(
+        tester.widget<SoftMetaBallSurface>(_surface()).particles,
+        hasLength(1),
+      );
       final double centred = tester.getRect(_capsule()).center.dx;
       expect(centred, 200);
 
@@ -156,8 +166,139 @@ void main() {
 
       await _pump(tester, _host(out: false));
       await _settle(tester);
-      expect(_surface(), findsNothing, reason: 'tucked away: no merged body');
+      expect(
+        tester.widget<SoftMetaBallSurface>(_surface()).particles,
+        hasLength(1),
+        reason: 'tucked away: the capsule alone',
+      );
       expect(tester.getRect(_capsule()).center.dx, 200);
+    });
+
+    // The capsule's frost used to be its own panel at rest and the merged
+    // body while a view melted; swapping them built a fresh BackdropFilter
+    // on the first frame out and the last frame in, and on device the
+    // capsule flashed without its tint for a frame or two.
+    testWidgets('melting in and out keeps the same frost, tint and edge', (
+      tester,
+    ) async {
+      List<RenderObject> frosts() =>
+          tester.renderObjectList(find.byType(BackdropFilter)).toList();
+      List<RenderObject> edges() => tester
+          .renderObjectList(
+            find.descendant(of: _surface(), matching: find.byType(CustomPaint)),
+          )
+          .toList();
+      await _pump(tester, _host(out: false));
+      final List<RenderObject> frostAtRest = frosts();
+      final List<RenderObject> edgeAtRest = edges();
+      expect(frostAtRest, isNotEmpty);
+
+      await _pump(tester, _host(out: true));
+      for (int i = 0; i < 6; i++) {
+        await tester.pump(const Duration(milliseconds: 16));
+        expect(frosts(), frostAtRest, reason: 'frame $i out');
+        expect(edges(), edgeAtRest, reason: 'frame $i out');
+      }
+      await _settle(tester);
+      await _pump(tester, _host(out: false));
+      await _settle(tester);
+      expect(frosts(), frostAtRest);
+      expect(edges(), edgeAtRest);
+    });
+
+    // The capsule's width and place follow springs from where they are
+    // drawn: no frame jumps to the new layout, out, in, or switched to and
+    // fro faster than either finishes.
+    testWidgets('the capsule edges never jump a frame', (tester) async {
+      Rect drawn() =>
+          tester.widget<SoftMetaBallSurface>(_surface()).particles.first.rect;
+      final List<String> jumps = <String>[];
+      Rect last = Rect.zero;
+      Future<void> frames(int n, String phase) async {
+        for (int i = 0; i < n; i++) {
+          await tester.pump(const Duration(milliseconds: 16));
+          final Rect now = drawn();
+          final double dl = (now.left - last.left).abs();
+          final double dr = (now.right - last.right).abs();
+          if (dl > 10 || dr > 10) {
+            jumps.add('$phase#$i: $last -> $now');
+          }
+          last = now;
+        }
+      }
+
+      await _pump(tester, _host(out: false));
+      await _settle(tester);
+      last = drawn();
+      await _pump(tester, _host(out: true));
+      await frames(60, 'out');
+      await _pump(tester, _host(out: false));
+      await frames(60, 'in');
+      for (int k = 0; k < 6; k++) {
+        await _pump(tester, _host(out: k.isEven));
+        await frames(4, 'toggle$k');
+      }
+      await frames(60, 'settle');
+      expect(jumps, isEmpty);
+    });
+
+    // Four items on a 360-wide screen: the capsule is squeezed while the
+    // view is out. The items follow its animated width; they used to take
+    // the squeezed width on the first frame and jump inwards while the
+    // outline had not moved yet.
+    testWidgets('the items follow the capsule, no frame jumps', (tester) async {
+      const List<SoftFloatingNavigationItem> four =
+          <SoftFloatingNavigationItem>[
+            SoftFloatingNavigationItem(
+              icon: SizedBox.square(dimension: 24),
+              label: 'A',
+            ),
+            SoftFloatingNavigationItem(
+              icon: SizedBox.square(dimension: 24),
+              label: 'B',
+            ),
+            SoftFloatingNavigationItem(
+              icon: SizedBox.square(dimension: 24),
+              label: 'C',
+            ),
+            SoftFloatingNavigationItem(
+              icon: SizedBox.square(dimension: 24),
+              label: 'D',
+            ),
+          ];
+      Widget host(bool out) => _host(out: out, items: four, width: 360);
+      List<double> xs() => <double>[
+        for (final String l in <String>['A', 'B', 'C', 'D'])
+          tester.getCenter(find.text(l)).dx,
+      ];
+      final List<String> jumps = <String>[];
+      List<double> last = <double>[];
+      Future<void> frames(int n, String phase) async {
+        for (int i = 0; i < n; i++) {
+          await tester.pump(const Duration(milliseconds: 16));
+          final List<double> now = xs();
+          for (int k = 0; k < now.length; k++) {
+            if ((now[k] - last[k]).abs() > 8) {
+              jumps.add('$phase#$i item $k: ${last[k]} -> ${now[k]}');
+            }
+          }
+          last = now;
+        }
+      }
+
+      await _pump(tester, host(false), width: 360);
+      await _settle(tester);
+      last = xs();
+      await _pump(tester, host(true), width: 360);
+      await frames(60, 'out');
+      await _pump(tester, host(false), width: 360);
+      await frames(60, 'in');
+      for (int k = 0; k < 6; k++) {
+        await _pump(tester, host(k.isEven), width: 360);
+        await frames(4, 'toggle$k');
+      }
+      await frames(60, 'settle');
+      expect(jumps, isEmpty);
     });
 
     testWidgets('reversing mid-flight carries on from where it is', (

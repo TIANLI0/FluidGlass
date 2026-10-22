@@ -387,10 +387,10 @@ class SoftMetaBallSurface extends StatelessWidget {
       layers: layers,
       rim: const SoftGlassRim(alpha: 0),
     );
-    Widget bodyLayer = frost(body);
-    if (bodyAlpha < 1) {
-      bodyLayer = Opacity(opacity: bodyAlpha, child: bodyLayer);
-    }
+    // The tree keeps one shape however many silhouettes are out or fading:
+    // only the clip paths and opacities change, so the compositor's filter
+    // is never rebuilt on the frame a view starts or stops melting.
+    final Widget bodyLayer = Opacity(opacity: bodyAlpha, child: frost(body));
     return IgnorePointer(
       child: Stack(
         fit: StackFit.passthrough,
@@ -414,10 +414,12 @@ class SoftMetaBallSurface extends StatelessWidget {
             ),
           ),
           Positioned.fill(child: bodyLayer),
-          if (fading != null)
-            Positioned.fill(
-              child: Opacity(opacity: fadeAlpha, child: frost(fading)),
+          Positioned.fill(
+            child: Opacity(
+              opacity: fading == null ? 0 : fadeAlpha,
+              child: frost(fading ?? Path()),
             ),
+          ),
           Positioned.fill(
             child: CustomPaint(
               painter: _MergedEdgePainter(

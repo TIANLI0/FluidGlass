@@ -13,6 +13,18 @@
   view going in keeps the icon it leaves with. Reduced motion replaces the
   icon outright, and a view without an `id` behaves as before.
 
+### Fixed
+
+- `SoftFloatingNavigationBar`: when the capsule narrows for a round view,
+  its items follow the animated width instead of taking the narrowed width
+  on the first frame — they no longer jump inwards while the outline has
+  not moved yet.
+- A bar without a captured backdrop that has round views draws its capsule
+  through the merged body even when none is out, so a view coming out or
+  the last one going in only changes the traced outline. Swapping the
+  capsule's own panel for the merged body built a fresh `BackdropFilter`
+  on that frame, and the capsule flashed without its tint.
+
 ## 0.5.0
 
 ### Added

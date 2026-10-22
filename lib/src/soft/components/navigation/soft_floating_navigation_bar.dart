@@ -1130,9 +1130,13 @@ class _SoftFloatingNavigationBarState extends State<SoftFloatingNavigationBar>
           barHeight,
         );
         _rowWidth = capsule.width;
-        // The items follow the animated width; they are only re-measured
-        // when it no longer holds them.
-        _itemWidth = capsule.width >= capsuleWidth - 0.01
+        // The items follow the animated width, both ways. Taking the
+        // target's width while the capsule was still wider squeezed the
+        // items together on the first frame of a narrowing — they jumped
+        // inwards while the outline had not yet moved.
+        _itemWidth =
+            capsule.width >= capsuleWidth - 0.01 &&
+                capsule.width <= capsuleWidth + 0.01
             ? itemWidth
             : _measure(capsule.width, large: large).$2;
         final Widget row = buildRow();
@@ -1219,7 +1223,21 @@ class _SoftFloatingNavigationBarState extends State<SoftFloatingNavigationBar>
 
         final double shownAlpha = _shownAlpha.value.clamp(0.0, 1.0);
         final double shownScale = _shownScale.value;
-        final bool melting = sides.isNotEmpty;
+        // A bar that can grow round views and frosts with the compositor
+        // draws its capsule through the merged body even when nothing is
+        // out, so a view coming out (or the last one going in) changes
+        // only the traced outline: the same BackdropFilter, tint and edge
+        // stay in the tree. Swapping the capsule's own panel for the merged
+        // body built a fresh filter on that frame, and for a frame or two
+        // the capsule showed without its tint and its lift.
+        final bool iso =
+            _melts &&
+            !_captured &&
+            widget.blur &&
+            (widget.start != null ||
+                widget.end != null ||
+                widget.expansion != null);
+        final bool melting = sides.isNotEmpty || iso;
         final Rect menuBounds = _transformed(capsule, _menu);
 
         // The round views and the capsule melted into one body.
