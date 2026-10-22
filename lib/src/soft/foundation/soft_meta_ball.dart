@@ -260,6 +260,7 @@ class SoftMetaBallSurface extends StatelessWidget {
     this.repaint,
     this.layers,
     this.blur = true,
+    this.compositor = false,
     this.extension = SoftMetaBallDefaults.extension,
     this.extensionFactorX = SoftMetaBallDefaults.extensionFactorX,
     this.extensionFactorY = SoftMetaBallDefaults.extensionFactorY,
@@ -268,6 +269,14 @@ class SoftMetaBallSurface extends StatelessWidget {
   /// Whether the body is frosted. False draws each shape opaque in [color]
   /// and merges nothing.
   final bool blur;
+
+  /// Whether, without a [backdrop], the body is frosted by the compositor —
+  /// a `BackdropFilter` clipped to the merged outline, as [SoftGlass] frosts
+  /// a single surface — rather than painted opaque. The outline is traced
+  /// on the CPU ([softMetaBallPath]) and its lit edge drawn over it, so the
+  /// silhouettes still melt together with no page capture at all. With
+  /// [blur] off the merged outline is filled opaque in [color].
+  final bool compositor;
   final double extension, extensionFactorX, extensionFactorY;
 
   /// Tint layers that replace [color] at [containerAlpha] over the blur, as
@@ -322,6 +331,112 @@ class SoftMetaBallSurface extends StatelessWidget {
     );
   }
 
+  /// The compositor route: the merged outline traced into a path, the
+  /// compositor's blur clipped to it, the lit edge laid over it.
+  ///
+  /// A clip is all or nothing, so a silhouette that is fading cannot share
+  /// the opaque outline: the opaque ones are merged into one body, and what
+  /// the fading ones add to the merged outline is a second body drawn at
+  /// their opacity.
+  Widget _buildCompositor(
+    BuildContext context,
+    List<SoftMetaBallParticle> shown,
+    List<SoftCausticProfile> profiles,
+    Color tint,
+    double rim,
+  ) {
+    final double dpr = MediaQuery.devicePixelRatioOf(context);
+    Path trace(List<SoftMetaBallParticle> ps) => softMetaBallPath(
+      ps,
+      devicePixelRatio: dpr,
+      extension: extension,
+      extensionFactorX: extensionFactorX,
+      extensionFactorY: extensionFactorY,
+    );
+    final List<SoftMetaBallParticle> live = <SoftMetaBallParticle>[
+      for (final SoftMetaBallParticle p in shown)
+        if (p.alpha > 0.001) p,
+    ];
+    List<SoftMetaBallParticle> solid = <SoftMetaBallParticle>[
+      for (final SoftMetaBallParticle p in live)
+        if (p.alpha >= 0.999) p,
+    ];
+    double fadeAlpha = 0;
+    for (final SoftMetaBallParticle p in live) {
+      if (p.alpha < 0.999) fadeAlpha = math.max(fadeAlpha, p.alpha);
+    }
+    double bodyAlpha = 1;
+    if (solid.isEmpty) {
+      // Everything is fading: one body at the strongest opacity.
+      solid = live;
+      bodyAlpha = fadeAlpha;
+      fadeAlpha = 0;
+    }
+    final Path outline = trace(live);
+    final Path body = solid.length == live.length ? outline : trace(solid);
+    final Path? fading = fadeAlpha > 0
+        ? Path.combine(PathOperation.difference, outline, body)
+        : null;
+    Widget frost(Path path) => SoftGlass(
+      shape: _PathBorder(path),
+      borderRadius: BorderRadius.zero,
+      blur: blur,
+      color: tint,
+      containerAlpha: containerAlpha,
+      blurRadius: blurRadius,
+      layers: layers,
+      rim: const SoftGlassRim(alpha: 0),
+    );
+    Widget bodyLayer = frost(body);
+    if (bodyAlpha < 1) {
+      bodyLayer = Opacity(opacity: bodyAlpha, child: bodyLayer);
+    }
+    return IgnorePointer(
+      child: Stack(
+        fit: StackFit.passthrough,
+        clipBehavior: Clip.none,
+        children: <Widget>[
+          Positioned.fill(
+            child: CustomPaint(
+              painter: _BehindPainter(
+                particles: shown,
+                profiles: profiles,
+                shadow: shadow,
+                caustic: causticColor,
+                background: SoftTheme.of(context).colors.background,
+                dpr: dpr,
+                outline: outline,
+                repaint: Listenable.merge(<Listenable?>[
+                  repaint,
+                  SoftPrograms.instance,
+                ]),
+              ),
+            ),
+          ),
+          Positioned.fill(child: bodyLayer),
+          if (fading != null)
+            Positioned.fill(
+              child: Opacity(opacity: fadeAlpha, child: frost(fading)),
+            ),
+          Positioned.fill(
+            child: CustomPaint(
+              painter: _MergedEdgePainter(
+                particles: shown,
+                dpr: dpr,
+                rim: rim,
+                rimBottomScale: rimBottomScale,
+                style: edgeStyle,
+                extension: extension,
+                factorX: extensionFactorX,
+                factorY: extensionFactorY,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _build(BuildContext context, Widget? _) {
     final SoftThemeData theme = SoftTheme.of(context);
     final Color tint = color ?? theme.colors.bar;
@@ -363,6 +478,9 @@ class SoftMetaBallSurface extends StatelessWidget {
         ),
       ),
     );
+    if (compositor && source == null && shown.isNotEmpty) {
+      return _buildCompositor(context, shown, profiles, tint, rim);
+    }
     if (blur && source == null && program != null && shown.isNotEmpty) {
       return Stack(
         fit: StackFit.passthrough,
@@ -668,9 +786,12 @@ class _BehindPainter extends CustomPainter {
     required this.caustic,
     required this.background,
     required this.dpr,
+    this.outline,
     super.repaint,
   });
 
+  /// The merged outline, when it is known; otherwise the particles' own.
+  final Path? outline;
   final List<SoftMetaBallParticle> particles;
   final List<SoftCausticProfile> profiles;
   final SoftParticleShadow? shadow;
@@ -681,9 +802,11 @@ class _BehindPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     if (particles.isEmpty) return;
-    final Path union = Path();
-    for (final SoftMetaBallParticle p in particles) {
-      if (p.alpha > 0) union.addPath(p.path, Offset.zero);
+    final Path union = outline ?? Path();
+    if (outline == null) {
+      for (final SoftMetaBallParticle p in particles) {
+        if (p.alpha > 0) union.addPath(p.path, Offset.zero);
+      }
     }
     canvas.save();
     final Rect everything = Rect.fromLTWH(-4000, -4000, 8000, 8000);
@@ -737,7 +860,8 @@ class _BehindPainter extends CustomPainter {
       old.shadow != shadow ||
       old.caustic != caustic ||
       old.background != background ||
-      old.dpr != dpr;
+      old.dpr != dpr ||
+      old.outline != outline;
 }
 
 bool _listEquals<T>(List<T> a, List<T> b) {
@@ -840,4 +964,383 @@ class _UnmergedOpaquePainter extends CustomPainter {
   @override
   bool shouldRepaint(_UnmergedOpaquePainter old) =>
       old.particles != particles || old.color != color;
+}
+
+// ---------------------------------------------------------------------------
+// The merged silhouette as a path, for a body the compositor frosts.
+//
+// The captured route above evaluates the union per fragment and samples a
+// [LayerBackdrop]. A bar that blurs with the compositor instead (a
+// `BackdropFilter`, no page capture) cannot hand the filter a per-pixel
+// mask, so the same field is traced on the CPU into a [Path] and the
+// compositor's blur is clipped to it; the lit edge is drawn over it by
+// soft_meta_ball_edge.frag, which evaluates that same field per fragment.
+// ---------------------------------------------------------------------------
+
+/// The signed distance of the merged silhouette at a point, in logical
+/// pixels: the union soft_meta_ball.frag evaluates, in the same order, with
+/// the same direction-dependent reach.
+class _MergedField {
+  _MergedField(
+    this.particles, {
+    required double extension,
+    required this.factorX,
+    required this.factorY,
+    required double devicePixelRatio,
+  }) : reach =
+           math.max(1.0, (extension * devicePixelRatio).roundToDouble()) /
+           devicePixelRatio;
+
+  final List<SoftMetaBallParticle> particles;
+
+  /// The smoothing reach before the direction factor, in logical pixels.
+  final double reach;
+  final double factorX;
+  final double factorY;
+
+  /// The widest reach any pair can have.
+  double get maxReach => reach * math.max(factorX, factorY);
+
+  static double _box(double px, double py, double bx, double by, double r) {
+    final double qx = px.abs() - bx + r;
+    final double qy = py.abs() - by + r;
+    final double ox = math.max(qx, 0.0);
+    final double oy = math.max(qy, 0.0);
+    return math.min(math.max(qx, qy), 0.0) + math.sqrt(ox * ox + oy * oy) - r;
+  }
+
+  double at(double x, double y) {
+    double d = 1e6;
+    double nx = 0;
+    double ny = 0;
+    bool has = false;
+    for (final SoftMetaBallParticle p in particles) {
+      final double sx = math.max(p.scaleX, 0.001);
+      final double sy = math.max(p.scaleY, 0.001);
+      final double hx = p.size.width / 2;
+      final double hy = p.size.height / 2;
+      final double di = _box(
+        (x - p.center.dx) / sx,
+        (y - p.center.dy) / sy,
+        hx,
+        hy,
+        math.min(p.cornerRadius, math.min(hx, hy)),
+      );
+      if (!has) {
+        d = di;
+        nx = p.center.dx;
+        ny = p.center.dy;
+        has = true;
+        continue;
+      }
+      final double dx = p.center.dx - nx;
+      final double dy = p.center.dy - ny;
+      final double len = math.sqrt(dx * dx + dy * dy);
+      final double ux = len > 0.001 ? dx / len : 0.7071;
+      final double uy = len > 0.001 ? dy / len : 0.7071;
+      final double fx = factorX * ux;
+      final double fy = factorY * uy;
+      final double k = math.max(reach * math.sqrt(fx * fx + fy * fy), 1e-4);
+      final double prev = d;
+      final double h = (0.5 + 0.5 * (di - d) / k).clamp(0.0, 1.0);
+      d = di + (d - di) * h - k * h * (1 - h);
+      if (di < prev) {
+        nx = p.center.dx;
+        ny = p.center.dy;
+      }
+    }
+    return d;
+  }
+}
+
+/// Whether any two of [particles] come close enough for the union to bend
+/// their outlines: overlapping, or nearer than the smoothing reach.
+bool _interact(List<SoftMetaBallParticle> particles, double reach) {
+  for (int i = 0; i < particles.length; i++) {
+    for (int j = i + 1; j < particles.length; j++) {
+      final Rect a = particles[i].rect;
+      final Rect b = particles[j].rect;
+      final double gx = math.max(
+        0.0,
+        math.max(a.left - b.right, b.left - a.right),
+      );
+      final double gy = math.max(
+        0.0,
+        math.max(a.top - b.bottom, b.top - a.bottom),
+      );
+      if (math.sqrt(gx * gx + gy * gy) < reach + 0.5) return true;
+    }
+  }
+  return false;
+}
+
+/// The outline of [particles] merged as [SoftMetaBallSurface] merges them:
+/// two rounded boxes that come within the smoothing reach of each other
+/// grow a neck, and one that overlaps another bulges out of it smoothly.
+///
+/// Where no two of them are that close, this is just their outlines. Where
+/// they are, the field is traced column by column: the silhouette of boxes
+/// side by side is an interval in each column, so its top and bottom edges
+/// are found by bisection — columns crowd towards the rounded ends, where
+/// the outline turns vertical, so the caps stay round. It costs some tens of
+/// thousands of distance evaluations per call; the bars only call it while a
+/// round view is on its way in or out.
+Path softMetaBallPath(
+  List<SoftMetaBallParticle> particles, {
+  required double devicePixelRatio,
+  double extension = SoftMetaBallDefaults.extension,
+  double extensionFactorX = SoftMetaBallDefaults.extensionFactorX,
+  double extensionFactorY = SoftMetaBallDefaults.extensionFactorY,
+  double step = 0.75,
+}) {
+  final Path path = Path();
+  if (particles.isEmpty) return path;
+  final _MergedField field = _MergedField(
+    particles,
+    extension: extension,
+    factorX: extensionFactorX,
+    factorY: extensionFactorY,
+    devicePixelRatio: math.max(devicePixelRatio, 1),
+  );
+  if (particles.length == 1 || !_interact(particles, field.maxReach)) {
+    for (final SoftMetaBallParticle p in particles) {
+      final Rect r = p.rect;
+      path.addRRect(
+        RRect.fromRectAndRadius(
+          r,
+          Radius.circular(
+            math.min(
+              p.cornerRadius * math.min(p.scaleX, p.scaleY),
+              r.shortestSide / 2,
+            ),
+          ),
+        ),
+      );
+    }
+    return path;
+  }
+
+  Rect bounds = particles.first.rect;
+  for (final SoftMetaBallParticle p in particles.skip(1)) {
+    bounds = bounds.expandToInclude(p.rect);
+  }
+  bounds = bounds.inflate(field.maxReach + 1);
+  final List<double> rows = <double>[
+    for (final SoftMetaBallParticle p in particles) p.center.dy,
+  ];
+
+  // The deepest of the particles' centre rows in a column, and its depth.
+  (double, double) inner(double x) {
+    double bestY = rows.first;
+    double best = double.infinity;
+    for (final double y in rows) {
+      final double d = field.at(x, y);
+      if (d < best) {
+        best = d;
+        bestY = y;
+      }
+    }
+    return (bestY, best);
+  }
+
+  double edgeX(double outside, double inside) {
+    double o = outside;
+    double i = inside;
+    for (int n = 0; n < 16; n++) {
+      final double m = (o + i) / 2;
+      if (inner(m).$2 < 0) {
+        i = m;
+      } else {
+        o = m;
+      }
+    }
+    return (o + i) / 2;
+  }
+
+  double edgeY(double x, double inside, double outside) {
+    double i = inside;
+    double o = outside;
+    for (int n = 0; n < 16; n++) {
+      final double m = (o + i) / 2;
+      if (field.at(x, m) < 0) {
+        i = m;
+      } else {
+        o = m;
+      }
+    }
+    return (o + i) / 2;
+  }
+
+  // The runs of columns the silhouette covers.
+  final List<(double, double)> runs = <(double, double)>[];
+  double? runStart;
+  double prevX = bounds.left;
+  bool prevIn = false;
+  for (double x = bounds.left; x <= bounds.right + step / 2; x += step) {
+    final bool isIn = inner(x).$2 < 0;
+    if (isIn && !prevIn) runStart = edgeX(prevX, x);
+    if (!isIn && prevIn && runStart != null) {
+      runs.add((runStart, edgeX(x, prevX)));
+      runStart = null;
+    }
+    prevIn = isIn;
+    prevX = x;
+  }
+  if (runStart != null) runs.add((runStart, prevX));
+
+  final double reachY = bounds.height;
+  for (final (double a, double b) in runs) {
+    // Uniform columns, crowded towards either end along a quarter circle
+    // so a round cap is sampled evenly by angle.
+    final double cap = math.min(32.0, (b - a) / 2);
+    const int capSteps = 20;
+    final List<double> xs = <double>[
+      for (int s = 1; s <= capSteps; s++)
+        a + cap * (1 - math.cos(s / capSteps * math.pi / 2)),
+      for (int s = 1; s <= capSteps; s++)
+        b - cap * (1 - math.cos(s / capSteps * math.pi / 2)),
+      for (double x = a + cap + step; x < b - cap; x += step) x,
+    ]..sort();
+    final List<Offset> top = <Offset>[];
+    final List<Offset> bottom = <Offset>[];
+    for (final double x in xs) {
+      if (x <= a || x >= b) continue;
+      final (double y, double d) = inner(x);
+      if (d >= 0) continue;
+      top.add(Offset(x, edgeY(x, y, y - reachY)));
+      bottom.add(Offset(x, edgeY(x, y, y + reachY)));
+    }
+    path.moveTo(a, inner(a).$1);
+    for (final Offset o in top) {
+      path.lineTo(o.dx, o.dy);
+    }
+    path.lineTo(b, inner(b).$1);
+    for (final Offset o in bottom.reversed) {
+      path.lineTo(o.dx, o.dy);
+    }
+    path.close();
+  }
+  return path;
+}
+
+/// A [ShapeBorder] that is a fixed [path], in the box's own coordinates.
+class _PathBorder extends ShapeBorder {
+  const _PathBorder(this.path);
+
+  final Path path;
+
+  @override
+  EdgeInsetsGeometry get dimensions => EdgeInsets.zero;
+
+  @override
+  Path getInnerPath(Rect rect, {TextDirection? textDirection}) =>
+      path.shift(rect.topLeft);
+
+  @override
+  Path getOuterPath(Rect rect, {TextDirection? textDirection}) =>
+      path.shift(rect.topLeft);
+
+  @override
+  void paint(Canvas canvas, Rect rect, {TextDirection? textDirection}) {}
+
+  @override
+  ShapeBorder scale(double t) => this;
+
+  @override
+  bool operator ==(Object other) =>
+      other is _PathBorder && identical(other.path, path);
+
+  @override
+  int get hashCode => identityHashCode(path);
+}
+
+final Expando<ui.FragmentShader> _mergedEdgeShaders =
+    Expando<ui.FragmentShader>();
+
+/// The merged silhouette's lit edge: a white line over a body frosted by
+/// the compositor.
+class _MergedEdgePainter extends CustomPainter {
+  _MergedEdgePainter({
+    required this.particles,
+    required this.dpr,
+    required this.rim,
+    required this.rimBottomScale,
+    required this.style,
+    required this.extension,
+    required this.factorX,
+    required this.factorY,
+  }) : super(repaint: SoftPrograms.instance);
+
+  final List<SoftMetaBallParticle> particles;
+  final double dpr, rim, rimBottomScale, extension, factorX, factorY;
+  final SoftEdgeStyle style;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (rim <= 0 || particles.isEmpty) return;
+    final ui.FragmentProgram? program = SoftPrograms.instance.metaBallEdge;
+    if (program == null) return;
+    final ui.FragmentShader shader = _mergedEdgeShaders[program] ??= program
+        .fragmentShader();
+    int i = 0;
+    void put(double v) => shader.setFloat(i++, v);
+    put(dpr);
+    Rect bounds = particles.first.rect;
+    for (int slot = 0; slot < SoftMetaBallDefaults.maxParticles; slot++) {
+      final SoftMetaBallParticle? p = slot < particles.length
+          ? particles[slot]
+          : null;
+      if (p == null) {
+        for (int k = 0; k < 16; k++) {
+          put(0);
+        }
+        continue;
+      }
+      bounds = bounds.expandToInclude(p.rect);
+      final double w = p.size.width * dpr;
+      final double h = p.size.height * dpr;
+      put(p.center.dx * dpr);
+      put(p.center.dy * dpr);
+      put(w / 2);
+      put(h / 2);
+      put(p.cornerRadius * dpr);
+      put(p.scaleX);
+      put(p.scaleY);
+      put(p.alpha.clamp(0.0, 1.0));
+      final (List<double> line, List<double> fade) = style.resolve(
+        w,
+        h,
+        lineWidthPx: 2.5 * dpr,
+        density: dpr,
+      );
+      line.forEach(put);
+      fade.forEach(put);
+    }
+    put(particles.length.toDouble());
+    put(math.max(1.0, (extension * dpr).roundToDouble()));
+    put(factorX);
+    put(factorY);
+    put(style.lineAlpha[0] * rim);
+    put(style.lineAlpha[1] * rim);
+    put(style.para1);
+    put(style.para2);
+    put(style.angle);
+    put(rimBottomScale);
+    put(1);
+    put(1);
+    put(1);
+    put(1);
+    canvas.drawRect(bounds.inflate(2), Paint()..shader = shader);
+  }
+
+  @override
+  bool shouldRepaint(_MergedEdgePainter old) =>
+      !_listEquals(old.particles, particles) ||
+      old.dpr != dpr ||
+      old.rim != rim ||
+      old.rimBottomScale != rimBottomScale ||
+      old.style != style ||
+      old.extension != extension ||
+      old.factorX != factorX ||
+      old.factorY != factorY;
 }

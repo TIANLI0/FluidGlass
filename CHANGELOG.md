@@ -1,5 +1,28 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- The floating bar's round views melt into the capsule without a captured
+  backdrop. `SoftMetaBallSurface(compositor: true)` traces the merged
+  silhouette into a path (`softMetaBallPath`, the same smooth union the
+  shader evaluates), clips the compositor's blur and tint to it and lights
+  its edge with the new `soft_meta_ball_edge.frag` — no page capture, no
+  `toImageSync`. `SoftFloatingNavigationBar` uses it whenever no
+  `backdrop` is given, so an `expansion` shown on one tab now grows out of
+  the capsule's end and melts back, with the capsule springing aside.
+- `SoftGlass.shape` overrides the rounded-box outline.
+
+### Fixed
+
+- An `expansion` going back in no longer jumps into the capsule on the first
+  frame: it springs from where it rested.
+- With reduced motion the round views and the capsule go straight to where
+  they end.
+- The capsule's move spring settles within 0.02 logical px rather than
+  0.001.
+
 ## 0.4.0
 
 ### Behaviour changes to check when upgrading

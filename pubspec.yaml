@@ -49,3 +49,4 @@ flutter:
     - shaders/soft_caustic.frag
     - shaders/soft_blend_tint.frag
     - shaders/soft_capsule_edge.frag
+    - shaders/soft_meta_ball_edge.frag

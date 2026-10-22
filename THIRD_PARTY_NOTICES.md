@@ -71,7 +71,7 @@ modules, keeping their metrics, colours, springs, curves and shader maths:
 | `lib/src/soft/foundation/soft_pressable.dart` | `utils/PressFeedback.kt`, `utils/` state-layer indication |
 | `lib/src/soft/foundation/soft_spot_light.dart`, `shaders/soft_spot_light.frag` | `basic/SpotLightEffect.kt` |
 | `lib/src/soft/foundation/soft_glass.dart`, `shaders/soft_bloom_stroke.frag` | `basic/GlassSurface.kt`; `blur/highlight/HighlightStyle.kt`, `blur/internal/Shaders.kt` |
-| `lib/src/soft/foundation/soft_meta_ball.dart`, `shaders/soft_meta_ball.frag`, `shaders/soft_caustic.frag` | `basic/MetaBallSurface.kt`, `basic/NativeMaterialEdge.kt`, `basic/MaterialShadowEdge.kt`, `basic/MaterialCausticShadow.kt` |
+| `lib/src/soft/foundation/soft_meta_ball.dart`, `shaders/soft_meta_ball.frag`, `shaders/soft_meta_ball_edge.frag`, `shaders/soft_caustic.frag` | `basic/MetaBallSurface.kt`, `basic/NativeMaterialEdge.kt`, `basic/MaterialShadowEdge.kt`, `basic/MaterialCausticShadow.kt` |
 | `lib/src/soft/components/basic/*` | `basic/Card.kt`, `basic/Component.kt`, `basic/SmallTitle.kt`, `basic/Divider.kt` |
 | `lib/src/soft/components/badge/*` | `basic/Badge.kt` |
 | `lib/src/soft/components/navigation/*` | `basic/BottomFloatingNavigationBar.kt`, `basic/BottomFloatingAccessoryNavigationBar.kt` |

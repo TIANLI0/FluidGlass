@@ -26,6 +26,8 @@ class SoftPrograms extends ChangeNotifier {
       'packages/fluid_glass/shaders/soft_blend_tint.frag';
   static const String _capsuleEdgeAsset =
       'packages/fluid_glass/shaders/soft_capsule_edge.frag';
+  static const String _metaBallEdgeAsset =
+      'packages/fluid_glass/shaders/soft_meta_ball_edge.frag';
 
   ui.FragmentProgram? _spotLight;
   ui.FragmentProgram? _bloomStroke;
@@ -33,6 +35,7 @@ class SoftPrograms extends ChangeNotifier {
   ui.FragmentProgram? _caustic;
   ui.FragmentProgram? _blendTint;
   ui.FragmentProgram? _capsuleEdge;
+  ui.FragmentProgram? _metaBallEdge;
   Future<void>? _loading;
 
   bool get isReady =>
@@ -41,7 +44,8 @@ class SoftPrograms extends ChangeNotifier {
       _metaBall != null &&
       _caustic != null &&
       _blendTint != null &&
-      _capsuleEdge != null;
+      _capsuleEdge != null &&
+      _metaBallEdge != null;
 
   ui.FragmentProgram? get spotLight {
     _kick();
@@ -75,6 +79,13 @@ class SoftPrograms extends ChangeNotifier {
   ui.FragmentProgram? get capsuleEdge {
     _kick();
     return _capsuleEdge;
+  }
+
+  /// The lit edge of the merged silhouette, over a body frosted by the
+  /// compositor.
+  ui.FragmentProgram? get metaBallEdge {
+    _kick();
+    return _metaBallEdge;
   }
 
   void _kick() {
@@ -119,6 +130,7 @@ class SoftPrograms extends ChangeNotifier {
           _loadOne(_causticAsset),
           _loadOne(_blendTintAsset),
           _loadOne(_capsuleEdgeAsset),
+          _loadOne(_metaBallEdgeAsset),
         ]);
     _spotLight = programs[0];
     _bloomStroke = programs[1];
@@ -126,6 +138,7 @@ class SoftPrograms extends ChangeNotifier {
     _caustic = programs[3];
     _blendTint = programs[4];
     _capsuleEdge = programs[5];
+    _metaBallEdge = programs[6];
     notifyListeners();
   }
 }

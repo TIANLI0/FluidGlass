@@ -249,8 +249,15 @@ class SoftGlass extends StatelessWidget {
     this.blur = true,
     this.shadows,
     this.layers,
+    this.shape,
     this.child,
   });
+
+  /// The outline, when it is not a rounded box of [borderRadius] — the
+  /// merged silhouette of [SoftMetaBallSurface], say. The rim follows
+  /// [borderRadius] regardless; pass a rim with `alpha: 0` with a custom
+  /// outline.
+  final ShapeBorder? shape;
 
   /// Tint layers that replace the single [color] tint over the blur — a
   /// colour-dodge then a luminosity layer keep the backdrop's hue and only
@@ -316,10 +323,8 @@ class SoftGlass extends StatelessWidget {
     final Color base = color ?? theme.colors.bar;
     final SoftGlassRim effectiveRim =
         rim ?? SoftGlassRim.of(size, dark: theme.isDark);
-    final ShapeBorder shape = SoftSquircleBorder(
-      radius: borderRadius,
-      smooth: smooth,
-    );
+    final ShapeBorder shape =
+        this.shape ?? SoftSquircleBorder(radius: borderRadius, smooth: smooth);
     final List<SoftBlendLayer>? tints = layers;
     final bool advanced =
         tints != null &&

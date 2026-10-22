@@ -249,6 +249,10 @@ class _HomeTab extends StatelessWidget {
         const SliverToBoxAdapter(child: _PlainBarDemo()),
         const SliverToBoxAdapter(child: SoftSmallTitle('两侧带圆形按钮')),
         const SliverToBoxAdapter(child: _AccessoryBarDemo()),
+        const SliverToBoxAdapter(
+          child: SoftSmallTitle('选中某一格时融出的按钮（合成器模糊，不抓页面）'),
+        ),
+        const SliverToBoxAdapter(child: _ExpansionBarDemo()),
         const SliverToBoxAdapter(child: SoftSmallTitle('角标 · 大图标 · 禁用项')),
         const SliverToBoxAdapter(child: _BadgeBarDemo()),
         const SliverToBoxAdapter(child: SoftSmallTitle('动效与光效实验室')),
@@ -453,6 +457,53 @@ class _AccessoryBarDemoState extends State<_AccessoryBarDemo> {
               ],
             ),
           ),
+        ),
+      ],
+    );
+  }
+}
+
+/// The expansion melting out of the capsule on one tab, frosted by the
+/// compositor: no [LayerBackdrop], no page capture.
+class _ExpansionBarDemo extends StatefulWidget {
+  const _ExpansionBarDemo();
+
+  @override
+  State<_ExpansionBarDemo> createState() => _ExpansionBarDemoState();
+}
+
+class _ExpansionBarDemoState extends State<_ExpansionBarDemo> {
+  int _selected = 0;
+  int _taps = 0;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: <Widget>[
+        _Wallpaper(
+          child: SoftFloatingNavigationBar(
+            includeBottomInset: false,
+            selectedIndex: _selected,
+            onSelected: (int i) => setState(() => _selected = i),
+            expansion: SoftFloatingAccessory(
+              icon: const Icon(Icons.nfc_rounded),
+              semanticLabel: '贴卡',
+              visible: _selected == 1,
+              onTap: () => setState(() => _taps++),
+            ),
+            items: <SoftFloatingNavigationItem>[
+              ..._threeItems,
+              const SoftFloatingNavigationItem(
+                icon: Icon(Icons.person_outline_rounded),
+                selectedIcon: Icon(Icons.person_rounded),
+                label: '我的',
+              ),
+            ],
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.all(8),
+          child: Text('切到「消息」时按钮从胶囊里融出 · 已点 $_taps 次'),
         ),
       ],
     );

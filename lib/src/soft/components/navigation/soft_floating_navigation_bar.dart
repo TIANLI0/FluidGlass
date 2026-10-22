@@ -497,6 +497,12 @@ class _SoftFloatingNavigationBarState extends State<SoftFloatingNavigationBar>
   Rect? _capsuleTarget;
   Size? _capsuleScreen;
 
+  /// Where the expansion rested when it was last out, from the start edge.
+  /// Going back in it springs from there into the capsule's end; without it
+  /// a hidden expansion has no place beside the capsule and would jump into
+  /// the capsule on the first frame.
+  double? _expansionRest;
+
   late final Listenable _motion = Listenable.merge(<Listenable>[
     _menu.transformChanges,
     _startMotion.transformChanges,
@@ -514,6 +520,10 @@ class _SoftFloatingNavigationBarState extends State<SoftFloatingNavigationBar>
 
   /// Whether the round views melt into the capsule; decided each build.
   bool _melts = false;
+
+  /// Whether the merged body samples [SoftFloatingNavigationBar.backdrop];
+  /// decided each build.
+  bool _captured = false;
 
   // Touch on the capsule, resolved the way the reference's own bar does it.
   // Pressing an item and lifting on it clicks it, however far the finger
@@ -673,6 +683,7 @@ class _SoftFloatingNavigationBarState extends State<SoftFloatingNavigationBar>
       _clearTouch();
     }
     final bool lowEnd = !_melts;
+    final bool reduce = softReduceMotion(context);
     void sync(
       SoftFloatingAccessory? now,
       SoftFloatingAccessory? before,
@@ -680,7 +691,7 @@ class _SoftFloatingNavigationBarState extends State<SoftFloatingNavigationBar>
     ) {
       final bool visible = now?.visible ?? false;
       if (visible == (before?.visible ?? false)) return;
-      if (before == null || now == null) {
+      if (before == null || now == null || reduce) {
         expansion.snap(visible);
       } else {
         expansion.show(visible, lowEnd: lowEnd);
@@ -740,9 +751,15 @@ class _SoftFloatingNavigationBarState extends State<SoftFloatingNavigationBar>
     super.dispose();
   }
 
-  bool _meltsHere(BuildContext context) {
+  /// Whether the round views melt into the capsule. They do wherever
+  /// motion is not reduced: with a captured [SoftFloatingNavigationBar.
+  /// backdrop] the merged body samples it, and without one it is frosted by
+  /// the compositor along a traced outline.
+  bool _meltsHere(BuildContext context) => !softReduceMotion(context);
+
+  /// Whether the merged body samples the captured backdrop.
+  bool _capturedHere(BuildContext context) {
     if (!widget.blur || widget.backdrop == null) return false;
-    if (softReduceMotion(context)) return false;
     final GlassDeviceTier tier = GlassDeviceTier.instance;
     final GlassQuality? pinned = widget.quality;
     final GlassQuality resolved = pinned == null
@@ -773,6 +790,7 @@ class _SoftFloatingNavigationBarState extends State<SoftFloatingNavigationBar>
       ]),
       builder: (BuildContext context, _) {
         _melts = _meltsHere(context);
+        _captured = _capturedHere(context);
         return LayoutBuilder(
           builder: (BuildContext context, BoxConstraints constraints) {
             final double width = constraints.maxWidth;
@@ -856,14 +874,16 @@ class _SoftFloatingNavigationBarState extends State<SoftFloatingNavigationBar>
     final bool animate =
         _capsuleTarget != null &&
         _capsuleScreen == screen &&
-        widget.expansion != null;
+        widget.expansion != null &&
+        !softReduceMotion(context);
     if (target != _capsuleTarget) {
       if (animate) {
         final SpringDescription spring = _melts
             ? SoftFloatingNavigationBarDefaults.moveSpring
             : SoftFloatingNavigationBarDefaults.lowEndMoveSpring;
-        _capsuleLeft.animateTo(target.left, spring);
-        _capsuleWidth.animateTo(target.width, spring);
+        // Logical pixels: settled once within a fiftieth of one.
+        _capsuleLeft.animateTo(target.left, spring, threshold: 0.02);
+        _capsuleWidth.animateTo(target.width, spring, threshold: 0.02);
       } else {
         _capsuleLeft.snapTo(target.left);
         _capsuleWidth.snapTo(target.width);
@@ -909,6 +929,7 @@ class _SoftFloatingNavigationBarState extends State<SoftFloatingNavigationBar>
                 ? capsuleStart + capsuleWidth + reserve - accessory / 2
                 : width - accessory / 2)
           : null;
+      if (endRest != null) _expansionRest = endRest;
     } else if (large) {
       final double row = startReserve + capsuleWidth + endReserve;
       final double left = (width - row) / 2;
@@ -1059,7 +1080,7 @@ class _SoftFloatingNavigationBarState extends State<SoftFloatingNavigationBar>
         side(end, endRest, _endExpansion, _endMotion, atStart: _rtl);
         side(
           expansion,
-          endRest,
+          expansionOut ? endRest : _expansionRest,
           _expansionExpansion,
           _expansionMotion,
           atStart: _rtl,
@@ -1092,7 +1113,8 @@ class _SoftFloatingNavigationBarState extends State<SoftFloatingNavigationBar>
                   alpha: s.alpha,
                 ),
             ],
-            backdrop: _melts ? widget.backdrop : null,
+            backdrop: _captured ? widget.backdrop : null,
+            compositor: !_captured,
             blur: widget.blur,
             color: barColor,
             layers: layers,
