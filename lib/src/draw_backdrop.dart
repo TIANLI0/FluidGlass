@@ -810,6 +810,17 @@ class RenderDrawBackdrop extends RenderProxyBox {
   /// frame. Dropping the subscription is what makes the fallback actually free.
   bool _subscribedToBackdrop = false;
 
+  /// Counts the repaints this element asked for itself — a property, its own
+  /// animation, its backdrop — as opposed to an ancestor repainting around
+  /// it. The sampling layer keeps its drawing across the latter.
+  int _paintGeneration = 0;
+
+  @override
+  void markNeedsPaint() {
+    _paintGeneration += 1;
+    super.markNeedsPaint();
+  }
+
   void _onBackdropChanged() {
     if (_samplingLayer.layer != null &&
         _usesSamplingLayer &&
@@ -1103,6 +1114,14 @@ class RenderDrawBackdrop extends RenderProxyBox {
             return Object.hash(source, _paintedTransform);
           },
           draw: drawSurface,
+          // The layer's coordinates are this element's, shifted by the paint
+          // offset; `getTransformTo(null)` already ends in device pixels (the
+          // root view's transform carries the pixel ratio). Read after the
+          // signature, which refreshes the painted transform.
+          contentKey: Object.hash(_paintGeneration, size, offset),
+          layerToDevice: () =>
+              (_paintedTransform ?? getTransformTo(null)).clone()
+                ..translateByDouble(-offset.dx, -offset.dy, 0, 1),
         );
         context.addLayer(sampling);
       } else {
