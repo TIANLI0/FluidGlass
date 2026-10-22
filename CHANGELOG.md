@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.5.0
 
 ### Added
 
@@ -13,6 +13,14 @@
   `backdrop` is given, so an `expansion` shown on one tab now grows out of
   the capsule's end and melts back, with the capsule springing aside.
 - `SoftGlass.shape` overrides the rounded-box outline.
+
+### Performance
+
+- A sampling layer whose content has not changed is rasterised once from its
+  second unchanged frame and drawn as an image, instead of replaying its
+  whole effect chain whenever anything else on the page repaints. Content
+  that changes on alternate frames backs off; a repaint an element did not
+  ask for no longer counts as a change.
 
 ### Fixed
 
