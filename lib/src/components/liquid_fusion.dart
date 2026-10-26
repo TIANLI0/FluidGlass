@@ -254,8 +254,112 @@ class LiquidFusion extends StatelessWidget {
         children: children,
       );
     }
+    if (backdrop.isCompositorOnly) return _buildCompositor(context, style);
 
     return _MeasuredFusion(owner: this, style: style);
+  }
+
+  /// The body over a compositor-only backdrop ([nativeBackdrop]): the
+  /// compositor's own blur, clipped to the fused outline, with the tint, rim
+  /// and press drawn over it by the same program the sampled body runs.
+  ///
+  /// Nothing is captured, so nothing has to be placed: no screen limit to
+  /// keep current, no capture that can lag the page it was taken from. A page
+  /// that slides in inside a snapshot is painted live once, when it lands,
+  /// and on the sampled route that one paint used the limit measured while it
+  /// was still sliding; for the [_RenderLimitWatcher._settle] that followed,
+  /// the body was cut short — a control missing a strip for a tenth of a
+  /// second on every navigation.
+  ///
+  /// What it gives up is the refraction: there is no texture to bend. The
+  /// program is handed a transparent one, so it draws the tint over nothing
+  /// and the compositor's blur shows through it — the same blur-then-tint the
+  /// sampled body composes, minus the lens. The fused outline is traced on the
+  /// CPU ([liquidFusionOutline]) from the same field the program evaluates,
+  /// so the blur stops where the program's silhouette does.
+  Widget _buildCompositor(BuildContext context, _FusionStyle style) {
+    final double dpr = MediaQuery.devicePixelRatioOf(context);
+    // No samples are dragged in from outside the body: no refraction room.
+    final Rect bounds = _fusionBounds(blobs, smoothing, 0);
+    final Path outline = liquidFusionOutline(
+      blobs,
+      smoothing: smoothing,
+      devicePixelRatio: dpr,
+    ).shift(-bounds.topLeft);
+    ui.ImageFilter? filter;
+    if (blurRadius > 0) {
+      final double sigma = blurRadiusToSigma(blurRadius, devicePixelRatio: dpr);
+      filter = ui.ImageFilter.blur(sigmaX: sigma, sigmaY: sigma);
+      // The sampled body saturates what it samples before tinting it. A
+      // colour matrix composes with a blur in a backdrop filter; it is a
+      // shader that does not (flutter/flutter#170820).
+      if (saturation != 1) {
+        filter = ui.ImageFilter.compose(
+          outer: colorControlsColorFilter(saturation: saturation),
+          inner: filter,
+        );
+      }
+    }
+    return Stack(
+      clipBehavior: Clip.none,
+      children: <Widget>[
+        Positioned.fromRect(
+          rect: bounds,
+          child: IgnorePointer(
+            child: CustomPaint(
+              painter: _FusionShadow(
+                blobs: blobs,
+                origin: bounds.topLeft,
+                color: shadowColor ?? const Color(0x1A000000),
+                offset: shadowOffset,
+                blur: shadowBlur,
+                repaint: repaint,
+              ),
+            ),
+          ),
+        ),
+        if (filter != null)
+          Positioned.fromRect(
+            rect: bounds,
+            child: IgnorePointer(
+              child: ClipPath(
+                clipper: _OutlineClipper(outline),
+                child: BackdropFilter(
+                  filter: filter,
+                  child: const SizedBox.expand(),
+                ),
+              ),
+            ),
+          ),
+        Positioned.fromRect(
+          rect: bounds,
+          child: IgnorePointer(
+            child: CustomPaint(
+              painter: _FusionFace(
+                program: style.program!,
+                configure: (ui.FragmentShader shader, Size size) =>
+                    _configureFusion(
+                      shader,
+                      BackdropEffectGeometry(size: size, padding: 0),
+                      bounds.topLeft,
+                      blobs,
+                      press: pressSource?.value ?? press,
+                      style: style,
+                      smoothing: smoothing,
+                      saturation: 1,
+                      refractionHeight: 0,
+                      refractionAmount: 0,
+                      rimWidth: rimWidth,
+                      lightAngle: lightAngle,
+                    ),
+                repaint: Listenable.merge(<Listenable?>[repaint, pressSource]),
+              ),
+            ),
+          ),
+        ),
+        ...children,
+      ],
+    );
   }
 
   Widget _build(
@@ -829,4 +933,196 @@ class _PlainFusion extends StatelessWidget {
       ],
     );
   }
+}
+
+/// Clips to a path given in the clipped box's own coordinates.
+class _OutlineClipper extends CustomClipper<Path> {
+  _OutlineClipper(this.outline);
+
+  final Path outline;
+
+  @override
+  Path getClip(Size size) => outline;
+
+  @override
+  bool shouldReclip(_OutlineClipper oldClipper) =>
+      !identical(oldClipper.outline, outline);
+}
+
+/// The fusion program drawn as a paint rather than as a filter: over a
+/// transparent texture, so what it lays down is the tint, the rim and the
+/// press — the body without anything it sampled.
+class _FusionFace extends CustomPainter {
+  _FusionFace({required this.program, required this.configure, super.repaint});
+
+  final ui.FragmentProgram program;
+  final void Function(ui.FragmentShader shader, Size size) configure;
+
+  ui.FragmentShader? _shader;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (size.isEmpty) return;
+    final ui.FragmentShader shader = _shader ??= program.fragmentShader();
+    configure(shader, size);
+    // As a filter the engine writes uTextureSize; as a paint nobody does, and
+    // the fragment coordinate is already the local, logical one.
+    shader
+      ..setFloat(0, size.width)
+      ..setFloat(1, size.height)
+      ..setImageSampler(0, _transparentPixel());
+    canvas.drawRect(Offset.zero & size, Paint()..shader = shader);
+  }
+
+  // A rebuild hands over new shapes or a new press inside [configure], which
+  // nothing here can compare; the program is one small pass.
+  @override
+  bool shouldRepaint(_FusionFace oldDelegate) => true;
+}
+
+ui.Image? _transparent;
+
+/// A one-pixel transparent texture, made once.
+ui.Image _transparentPixel() {
+  final ui.Image? cached = _transparent;
+  if (cached != null) return cached;
+  final ui.PictureRecorder recorder = ui.PictureRecorder();
+  Canvas(recorder);
+  final ui.Picture picture = recorder.endRecording();
+  final ui.Image image = picture.toImageSync(1, 1);
+  picture.dispose();
+  return _transparent = image;
+}
+
+/// The signed distance of [p] to a rounded rectangle centred at the origin —
+/// `sdRoundedRect` in `shaders/_sdf.glsl`, term for term, so the outline
+/// traced here is the silhouette the fusion program draws.
+double _sdRoundedRect(Offset p, Size half, double radius) {
+  final double cx = p.dx.abs() - (half.width - radius);
+  final double cy = p.dy.abs() - (half.height - radius);
+  final double ox = math.max(cx, 0);
+  final double oy = math.max(cy, 0);
+  final double outside = math.sqrt(ox * ox + oy * oy) - radius;
+  final double inside = math.min(math.max(cx, cy), 0);
+  return outside + inside;
+}
+
+/// The fused field at [p]: the polynomial smooth minimum of every blob's
+/// distance, as `fusion.frag` takes it.
+double _fusionField(List<LiquidBlob> blobs, double smoothing, Offset p) {
+  final double k = math.max(smoothing, 0.0001);
+  double sd = 0;
+  for (int i = 0; i < blobs.length; i++) {
+    final LiquidBlob blob = blobs[i];
+    final Rect r = blob.rect;
+    final double d = _sdRoundedRect(
+      p - r.center,
+      Size(r.width / 2, r.height / 2),
+      blob._radius,
+    );
+    if (i == 0) {
+      sd = d;
+    } else {
+      final double w = (0.5 + 0.5 * (sd - d) / k).clamp(0.0, 1.0);
+      sd = sd + (d - sd) * w - k * w * (1 - w);
+    }
+  }
+  return sd;
+}
+
+/// The outline of a fused body — where the field `fusion.frag` evaluates
+/// crosses zero — in the blobs' own coordinates.
+///
+/// Shapes further apart than [smoothing] do not pull on each other and are
+/// their own rounded rectangles, exactly. Closer ones are traced: one band per
+/// device-pixel row, its ends found along the row to a hundredth of a logical
+/// pixel, finer than the program's own anti-aliased edge.
+///
+/// This is what a [LiquidFusion] over a compositor-only backdrop clips its
+/// blur to, so the blur ends where the program's silhouette does.
+Path liquidFusionOutline(
+  List<LiquidBlob> blobs, {
+  double smoothing = 10,
+  double devicePixelRatio = 1,
+}) {
+  final Path path = Path();
+  if (blobs.isEmpty) return path;
+
+  bool near(Rect a, Rect b) {
+    final double dx = math.max(0, math.max(a.left - b.right, b.left - a.right));
+    final double dy = math.max(0, math.max(a.top - b.bottom, b.top - a.bottom));
+    return math.sqrt(dx * dx + dy * dy) < smoothing;
+  }
+
+  bool interacting = false;
+  for (int i = 0; i < blobs.length && !interacting; i++) {
+    for (int j = i + 1; j < blobs.length; j++) {
+      if (near(blobs[i].rect, blobs[j].rect)) {
+        interacting = true;
+        break;
+      }
+    }
+  }
+  if (!interacting) {
+    for (final LiquidBlob blob in blobs) {
+      path.addRRect(
+        RRect.fromRectAndRadius(blob.rect, Radius.circular(blob._radius)),
+      );
+    }
+    return path;
+  }
+
+  Rect bounds = blobs.first.rect;
+  for (final LiquidBlob blob in blobs.skip(1)) {
+    bounds = bounds.expandToInclude(blob.rect);
+  }
+  bounds = bounds.inflate(smoothing / 2 + 1);
+  final double row = 1 / math.max(devicePixelRatio, 1);
+  const double column = 1;
+
+  double field(double x, double y) =>
+      _fusionField(blobs, smoothing, Offset(x, y));
+
+  // The crossing between an outside and an inside sample, to within 0.01.
+  double edge(double outside, double inside, double y) {
+    double o = outside;
+    double i = inside;
+    while ((o - i).abs() > 0.01) {
+      final double m = (o + i) / 2;
+      if (field(m, y) < 0) {
+        i = m;
+      } else {
+        o = m;
+      }
+    }
+    return (o + i) / 2;
+  }
+
+  for (double top = bounds.top; top < bounds.bottom; top += row) {
+    final double y = top + row / 2;
+    double previous = bounds.left;
+    bool wasInside = field(previous, y) < 0;
+    double? start = wasInside ? previous : null;
+    for (double x = bounds.left + column; ; x += column) {
+      final double at = math.min(x, bounds.right);
+      final bool inside = field(at, y) < 0;
+      if (inside != wasInside) {
+        if (inside) {
+          start = edge(previous, at, y);
+        } else {
+          path.addRect(
+            Rect.fromLTRB(start!, top, edge(at, previous, y), top + row),
+          );
+          start = null;
+        }
+        wasInside = inside;
+      }
+      previous = at;
+      if (at >= bounds.right) break;
+    }
+    if (start != null) {
+      path.addRect(Rect.fromLTRB(start, top, bounds.right, top + row));
+    }
+  }
+  return path;
 }

@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.5.4
+
+### Added
+
+- `LiquidFusion` over a compositor-only backdrop (`nativeBackdrop`): the
+  compositor blurs the fused outline, and the fusion program draws the tint,
+  rim and press over it. The shapes still fuse and the light still spreads
+  across them; there is no refraction, and nothing is captured. Plain tier
+  falls back to separate panels, as before.
+- `liquidFusionOutline`: the fused outline as a path, traced from the same
+  field the program draws.
+
 ## 0.5.3
 
 ### Fixed
