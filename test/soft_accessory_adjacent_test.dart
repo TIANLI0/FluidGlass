@@ -354,10 +354,7 @@ void main() {
     });
   }
 
-  // The views rest beside the capsule's *moving* ends. Resting them beside
-  // the target capsule threw them outwards on the first frame of melting in
-  // wherever the capsule had narrowed: the target widened at once, the
-  // capsule only by spring, so each view leapt by half the difference.
+  // 320 and 360 are widths where the capsule narrows for the views.
   for (final double width in <double>[320, 360]) {
     for (final bool out in <bool>[true, false]) {
       testWidgets(
@@ -370,8 +367,7 @@ void main() {
 
           await _pump(tester, sides(out: !out, width: width), width);
           await _settle(tester);
-          // Measured before the change: the leap was on the very frame the
-          // views turned in.
+          // Taken before the change: the jump was on its first frame.
           double? l = centre('L');
           double? r = centre('R');
           await _pump(tester, sides(out: out, width: width), width);
@@ -380,7 +376,7 @@ void main() {
             final double? nr = centre('R');
             if (l != null && nl != null) {
               expect((nl - l).abs(), lessThan(8), reason: 'L $i');
-              // Melting in only ever moves a view inwards.
+              // Going in, a view only moves inwards.
               if (!out) expect(nl, greaterThanOrEqualTo(l - 0.01));
             }
             if (r != null && nr != null) {

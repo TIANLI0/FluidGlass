@@ -4,13 +4,10 @@
 
 ### Fixed
 
-- `SoftFloatingNavigationBar` with `adjacentCapsuleCentered`: a `start` /
-  `end` round view rests beside the capsule's animated end instead of the
-  target capsule's. Where the capsule had narrowed for the views (a 360
-  wide phone with three items and both sides out), turning them in widened
-  the target at once and the capsule only by spring, so on the first frame
-  each view leapt outwards by half the difference (21 at 360, 41 at 320)
-  before it melted back in.
+- `SoftFloatingNavigationBar` with `adjacentCapsuleCentered`: where the
+  capsule had narrowed for the `start` / `end` views, turning them in moved
+  each view outwards on the first frame before it went in. The views are
+  now placed against the animated capsule instead of its target.
 
 ## 0.5.2
 
