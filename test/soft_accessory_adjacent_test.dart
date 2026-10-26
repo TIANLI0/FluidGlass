@@ -354,6 +354,48 @@ void main() {
     });
   }
 
+  // The views rest beside the capsule's *moving* ends. Resting them beside
+  // the target capsule threw them outwards on the first frame of melting in
+  // wherever the capsule had narrowed: the target widened at once, the
+  // capsule only by spring, so each view leapt by half the difference.
+  for (final double width in <double>[320, 360]) {
+    for (final bool out in <bool>[true, false]) {
+      testWidgets(
+        'both sides ${out ? 'out' : 'in'} @ $width: the views do not jump',
+        (WidgetTester tester) async {
+          double? centre(String label) {
+            final Finder f = find.bySemanticsLabel(label);
+            return f.evaluate().isEmpty ? null : tester.getRect(f).center.dx;
+          }
+
+          await _pump(tester, sides(out: !out, width: width), width);
+          await _settle(tester);
+          // Measured before the change: the leap was on the very frame the
+          // views turned in.
+          double? l = centre('L');
+          double? r = centre('R');
+          await _pump(tester, sides(out: out, width: width), width);
+          for (int i = 0; i < 60; i++) {
+            final double? nl = centre('L');
+            final double? nr = centre('R');
+            if (l != null && nl != null) {
+              expect((nl - l).abs(), lessThan(8), reason: 'L $i');
+              // Melting in only ever moves a view inwards.
+              if (!out) expect(nl, greaterThanOrEqualTo(l - 0.01));
+            }
+            if (r != null && nr != null) {
+              expect((nr - r).abs(), lessThan(8), reason: 'R $i');
+              if (!out) expect(nr, lessThanOrEqualTo(r + 0.01));
+            }
+            l = nl;
+            r = nr;
+            await tester.pump(const Duration(milliseconds: 16));
+          }
+        },
+      );
+    }
+  }
+
   testWidgets('both sides out @ 411: the capsule does not move or narrow', (
     WidgetTester tester,
   ) async {

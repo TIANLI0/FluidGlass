@@ -1241,8 +1241,17 @@ class _SoftFloatingNavigationBarState extends State<SoftFloatingNavigationBar>
           final double tucked = atStart
               ? capsule.left + accessory / 2
               : capsule.right - accessory / 2;
+          // Capsule-centred views rest beside the capsule's moving end, not
+          // the target's. When a view goes in the target widens at once and
+          // the capsule only by spring: resting beside the target threw the
+          // view outwards by half the difference on the first frame, before
+          // it sprang back in.
           final double restX = rest == null
               ? tucked
+              : capsuleCentred
+              ? (atStart
+                    ? capsule.left - reserve + accessory / 2
+                    : capsule.right + reserve - accessory / 2)
               : _fromStart(rest - accessory / 2, accessory, width) +
                     accessory / 2;
           final double restY = capsule.center.dy;
