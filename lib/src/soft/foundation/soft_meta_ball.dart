@@ -374,9 +374,13 @@ class SoftMetaBallSurface extends StatelessWidget {
     }
     final Path outline = trace(live);
     final Path body = solid.length == live.length ? outline : trace(solid);
-    final Path? fading = fadeAlpha > 0
-        ? Path.combine(PathOperation.difference, outline, body)
-        : null;
+    // What the fading ones add is the outline less the body, drawn as the
+    // outline clipped to everything outside the body rather than taken with
+    // Path.combine: the two run along each other for most of their length
+    // (the outline traced through the field, the body often a box of its
+    // own), and Skia's path ops give up on outlines that nearly coincide —
+    // "Path.combine() failed" with every coordinate finite.
+    final bool fades = fadeAlpha > 0;
     Widget frost(Path path) => SoftGlass(
       shape: _PathBorder(path),
       borderRadius: BorderRadius.zero,
@@ -416,8 +420,13 @@ class SoftMetaBallSurface extends StatelessWidget {
           Positioned.fill(child: bodyLayer),
           Positioned.fill(
             child: Opacity(
-              opacity: fading == null ? 0 : fadeAlpha,
-              child: frost(fading ?? Path()),
+              opacity: fadeAlpha,
+              child: ClipPath(
+                clipper: ShapeBorderClipper(
+                  shape: _PathBorder(fades ? _outside(body) : Path()),
+                ),
+                child: frost(fades ? outline : Path()),
+              ),
             ),
           ),
           Positioned.fill(
@@ -804,21 +813,17 @@ class _BehindPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     if (particles.isEmpty) return;
-    final Path union = outline ?? Path();
-    if (outline == null) {
+    canvas.save();
+    // Outside the outline, or outside each particle in turn where their own
+    // outlines overlap.
+    final Path? merged = outline;
+    if (merged != null) {
+      canvas.clipPath(_outside(merged));
+    } else {
       for (final SoftMetaBallParticle p in particles) {
-        if (p.alpha > 0) union.addPath(p.path, Offset.zero);
+        if (p.alpha > 0) canvas.clipPath(_outside(p.path));
       }
     }
-    canvas.save();
-    final Rect everything = Rect.fromLTWH(-4000, -4000, 8000, 8000);
-    canvas.clipPath(
-      Path.combine(
-        PathOperation.difference,
-        Path()..addRect(everything),
-        union,
-      ),
-    );
     final SoftParticleShadow? s = shadow;
     if (s != null) {
       for (final SoftMetaBallParticle p in particles) {
@@ -865,6 +870,15 @@ class _BehindPainter extends CustomPainter {
       old.dpr != dpr ||
       old.outline != outline;
 }
+
+/// Everything around [path] but [path] itself, as an even-odd path instead
+/// of a boolean op, which can fail on a traced outline. Exact while no two
+/// of its pieces overlap: one particle's outline, or a merged one (its
+/// traced runs, or its untraced boxes, lie apart).
+Path _outside(Path path) => Path()
+  ..fillType = PathFillType.evenOdd
+  ..addRect(const Rect.fromLTWH(-4000, -4000, 8000, 8000))
+  ..addPath(path, Offset.zero);
 
 bool _listEquals<T>(List<T> a, List<T> b) {
   if (a.length != b.length) return false;

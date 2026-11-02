@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.5.5
+
+### Fixed
+
+- `SoftMetaBallSurface` with `compositor`: a frame where a round view was
+  fading in or out of the merged body could throw "Path.combine() failed"
+  (on `SoftFloatingNavigationBar`, switching tabs while its `start` / `end`
+  views melted in and out). No coordinate was NaN: the fading part was the
+  merged outline less the opaque body, and the two outlines run along each
+  other closely enough for Skia's path ops to give up. That part is now the
+  outline clipped to everything outside the body, with no boolean op, and
+  the shadows and caustics are clipped the same way.
+
 ## 0.5.4
 
 ### Added
