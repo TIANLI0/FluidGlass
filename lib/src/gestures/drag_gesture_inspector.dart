@@ -3,6 +3,8 @@ import 'dart:math' as math;
 import 'package:flutter/gestures.dart';
 import 'package:flutter/widgets.dart';
 
+import 'route_gesture_watch.dart';
+
 /// Reports the pointer down, every movement and the pointer up of a drag, with
 /// no touch slop.
 ///
@@ -20,7 +22,9 @@ import 'package:flutter/widgets.dart';
 /// `PointerInputChange.isConsumed`. Here the takeover is noticed where it
 /// shows — every [Scrollable] above this one is watched while the finger is
 /// down, and if any of them moves the gesture was a scroll: it ends through
-/// [onDragCancel], and [onTap] does not fire.
+/// [onDragCancel], and [onTap] does not fire. A route gesture is noticed the
+/// same way, through the navigators above (see [RouteGestureWatch]): the iOS
+/// edge swipe is a recogniser too, and slides the page along under the finger.
 ///
 /// Registering a non-competing arena member to learn about takeovers was tried
 /// and reverted: when nobody claims a pointer the arena resolves by default,
@@ -153,6 +157,9 @@ class _DragInspectorState extends State<DragInspector> {
   /// down, while a gesture is in progress.
   final List<(ScrollPosition, double)> _scrolls = <(ScrollPosition, double)>[];
 
+  /// The navigators above this one, for a route gesture taking the finger.
+  late final RouteGestureWatch _routes = RouteGestureWatch(_takenOver);
+
   /// Compose's `extendedTouchPadding`: a control smaller than a touch target
   /// counts as that large for whether the pointer is still on it.
   static const double _minimumTouchTarget = 48;
@@ -243,6 +250,7 @@ class _DragInspectorState extends State<DragInspector> {
   }
 
   void _unwatchScrolls() {
+    _routes.unwatch();
     for (final (ScrollPosition position, double _) in _scrolls) {
       position.removeListener(_onScrolled);
     }
@@ -324,6 +332,7 @@ class _DragInspectorState extends State<DragInspector> {
         _tapCancelled = false;
         if (widget.onTap != null || widget.onDragCancel != null) {
           _watchScrolls();
+          _routes.watch(context, event.position);
         }
         // Entered while the pointer-down is still being dispatched: the
         // arena closes once every node on the hit path has seen it.
@@ -338,6 +347,8 @@ class _DragInspectorState extends State<DragInspector> {
       },
       onPointerMove: (PointerMoveEvent event) {
         if (_pointer != event.pointer) return;
+        _routes.moved(event.position);
+        if (_pointer == null) return;
         // Only the tap is lost: a drag goes on following the finger wherever
         // it goes, as a slider's thumb must.
         if (!_tapCancelled && !_isOnElement(event.localPosition)) {

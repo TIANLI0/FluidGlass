@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.5.6
+
+### Fixed
+
+- Swiping back from the screen edge on iOS no longer presses the control the
+  finger went down on. `LiquidInteraction`, `LiquidInteractionGroup`,
+  `LiquidNavigationBar` and everything built on `DragInspector`
+  (`LiquidButton`, …) commit from raw pointer events and never hear the
+  gesture arena; the edge swipe is a recogniser in that arena, sends no
+  pointer cancel, and slides the page along under the finger, so the lift
+  landed on the same control — a sticker sent, a back button fired on a swipe
+  that sprang back. They now watch the navigators above them while a finger
+  is down and let go of the press once a route gesture has moved it. A tap
+  inside the edge strip still fires.
+
 ## 0.5.5
 
 ### Fixed

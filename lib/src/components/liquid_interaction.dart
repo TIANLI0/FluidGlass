@@ -5,6 +5,7 @@ import 'package:flutter/gestures.dart' show kLongPressTimeout, kTouchSlop;
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 
+import '../gestures/route_gesture_watch.dart';
 import '../theme/liquid_glass_theme.dart';
 import 'interactive_highlight.dart';
 
@@ -110,6 +111,14 @@ class _LiquidInteractionState extends State<LiquidInteraction>
 
   /// The own press already fired its long press; its lift fires nothing.
   bool _longPressSpent = false;
+
+  /// A route gesture took the own pointer: the press lets go, and its lift
+  /// fires nothing.
+  late final RouteGestureWatch _routes = RouteGestureWatch(() {
+    if (_pointer == null) return;
+    _longPressSpent = false;
+    _endOwnPress();
+  });
 
   /// Whether the press is reported as held, so
   /// [LiquidInteraction.onPressedChanged] hears each change once.
@@ -230,6 +239,7 @@ class _LiquidInteractionState extends State<LiquidInteraction>
   // ── Own pointer ──
 
   void _endOwnPress({bool duringBuild = false}) {
+    _routes.unwatch();
     _longPressTimer?.cancel();
     _longPressTimer = null;
     _pointer = null;
@@ -259,6 +269,7 @@ class _LiquidInteractionState extends State<LiquidInteraction>
 
   @override
   void dispose() {
+    _routes.unwatch();
     _longPressTimer?.cancel();
     _group?._unregister(this);
     widget.activePosition?.removeListener(_handleActivePosition);
@@ -278,6 +289,7 @@ class _LiquidInteractionState extends State<LiquidInteraction>
         _pointer = e.pointer;
         _downAt = e.localPosition;
         _longPressSpent = false;
+        _routes.watch(context, e.position);
         _highlight.handleDown(e.localPosition);
         _setPressed(true);
         if (widget.onLongPress != null) {
@@ -285,7 +297,9 @@ class _LiquidInteractionState extends State<LiquidInteraction>
         }
       },
       onPointerMove: (e) {
-        if (_pointer != e.pointer || _longPressSpent) return;
+        if (_pointer != e.pointer) return;
+        _routes.moved(e.position);
+        if (_pointer == null || _longPressSpent) return;
         _highlight.handleMove(e.localPosition);
         if ((e.localPosition - _downAt).distance > kTouchSlop) {
           _longPressTimer?.cancel();
@@ -365,6 +379,10 @@ class _LiquidInteractionState extends State<LiquidInteraction>
 /// grid's scroll gesture. The member under the down position names its
 /// enclosing [Scrollable]; if that scrollable's offset moves while the finger
 /// is down, the finger was scrolling, and lifting fires nothing.
+///
+/// **So does a route gesture.** The iOS edge swipe carries the page — and the
+/// member the finger went down on — along under the finger, so the lift lands
+/// on that member again; once the swipe has moved, the press is the route's.
 class LiquidInteractionGroup extends StatefulWidget {
   const LiquidInteractionGroup({
     super.key,
@@ -399,6 +417,9 @@ class _LiquidInteractionGroupState extends State<LiquidInteractionGroup> {
 
   /// The group's finger already fired a long press; its lift fires nothing.
   bool _longPressSpent = false;
+
+  /// A route gesture took the group's finger (see [RouteGestureWatch]).
+  late final RouteGestureWatch _routes = RouteGestureWatch(_cancel);
 
   void _register(_LiquidInteractionState member) => _members.add(member);
 
@@ -477,6 +498,7 @@ class _LiquidInteractionGroupState extends State<LiquidInteractionGroup> {
   }
 
   void _cancel() {
+    _routes.unwatch();
     _pointer = null;
     _longPressSpent = false;
     _longPressTimer?.cancel();
@@ -488,6 +510,7 @@ class _LiquidInteractionGroupState extends State<LiquidInteractionGroup> {
 
   @override
   void dispose() {
+    _routes.unwatch();
     _longPressTimer?.cancel();
     _unwatchScroll();
     super.dispose();
@@ -508,10 +531,13 @@ class _LiquidInteractionGroupState extends State<LiquidInteractionGroup> {
           _longPressSpent = false;
           _activate(member, e.position);
           _watchScroll(member);
+          _routes.watch(context, e.position);
           _armLongPress(member);
         },
         onPointerMove: (PointerMoveEvent e) {
-          if (e.pointer != _pointer || _longPressSpent) return;
+          if (e.pointer != _pointer) return;
+          _routes.moved(e.position);
+          if (_pointer == null || _longPressSpent) return;
           // A long press is a finger at rest on the member it went down on.
           if ((e.position - _downAt).distance > kTouchSlop) {
             _longPressTimer?.cancel();

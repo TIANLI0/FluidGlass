@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 
 import '../../fluid_glass.dart';
+import '../gestures/route_gesture_watch.dart';
 
 /// Top chrome as three islands of glass over a scrim of the page colour — a
 /// leading action, a title that hugs its content, a trailing action — drawn as
@@ -266,11 +267,21 @@ class _LiquidNavigationBarState extends State<LiquidNavigationBar> {
   /// The pointer being tracked, so a second finger is ignored.
   int? _pointer;
 
+  /// A route gesture took the finger — the iOS edge swipe starts four pixels
+  /// inside the leading island, and carries the bar along under the finger.
+  /// The islands let go and none of them fires (see [RouteGestureWatch]).
+  late final RouteGestureWatch _routes = RouteGestureWatch(() {
+    if (_pointer == null) return;
+    _pointer = null;
+    _touch.release(slot: null, position: _touch.position);
+  });
+
   bool _hasLeading = false;
   bool _hasTrailing = false;
 
   @override
   void dispose() {
+    _routes.unwatch();
     _touch.dispose();
     super.dispose();
   }
@@ -317,11 +328,14 @@ class _LiquidNavigationBarState extends State<LiquidNavigationBar> {
     final _Slot? slot = _slotAt(event.localPosition);
     if (slot == null) return;
     _pointer = event.pointer;
+    _routes.watch(context, event.position);
     _touch.update(slot: slot, position: event.localPosition);
   }
 
   void _onPointerMove(PointerMoveEvent event) {
     if (event.pointer != _pointer) return;
+    _routes.moved(event.position);
+    if (_pointer == null) return;
     // Over a gap the finger keeps the island it came from: the light has
     // nowhere else to be, and a release there still fires nothing.
     _touch.update(
@@ -333,6 +347,7 @@ class _LiquidNavigationBarState extends State<LiquidNavigationBar> {
   void _onPointerUp(PointerUpEvent event) {
     if (event.pointer != _pointer) return;
     _pointer = null;
+    _routes.unwatch();
     _touch.release(
       slot: _slotAt(event.localPosition),
       position: event.localPosition,
@@ -342,6 +357,7 @@ class _LiquidNavigationBarState extends State<LiquidNavigationBar> {
   void _onPointerCancel(PointerCancelEvent event) {
     if (event.pointer != _pointer) return;
     _pointer = null;
+    _routes.unwatch();
     _touch.release(slot: null, position: event.localPosition);
   }
 
