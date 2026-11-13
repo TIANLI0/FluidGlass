@@ -1,5 +1,26 @@
 # Changelog
 
+## 0.5.7
+
+### Added
+
+- `LiquidSheet` / `showLiquidSheet`: `titleStyle`, `itemStyle` and
+  `detailStyle`, merged over the built-in type the way `LiquidDialog`'s are —
+  so an app whose design system owns its typeface can give the sheet's title
+  the same face and size as its other sheets. Fields left null keep the
+  default; a row's weight still follows `isSelected` unless `itemStyle` sets
+  one.
+
+### Fixed
+
+- `LiquidSheet`'s title and selected row were not drawn at their real weight
+  in an app with a variable font. Their text inherits the ambient style, and
+  such an app pins the `wght` axis there (in a Material app, on `bodyMedium`);
+  the sheet set `fontWeight` alone, the inherited axis kept winning, and the
+  engine laid the text out at the regular weight's advances and smeared it
+  into a synthetic bold. The sheet now sets the axis along with the weight. A
+  static font ignores the axis, so nothing changes there.
+
 ## 0.5.6
 
 ### Fixed

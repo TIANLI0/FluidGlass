@@ -284,6 +284,92 @@ void main() {
     expect(picked, <String>['light']);
     expect(find.text('Appearance'), findsNothing);
   });
+
+  // The sheet's text inherits the ambient style. An app with a variable
+  // typeface pins `wght` there; a bare `fontWeight` on top of that is drawn at
+  // the inherited axis and smeared into a synthetic bold. The weight the sheet
+  // sets has to reach the axis too.
+  testWidgets('the weights the sheet sets reach a variable font', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(
+      _bare(
+        DefaultTextStyle(
+          // What an app that owns a variable font puts in its text theme.
+          style: const TextStyle(
+            fontSize: 14,
+            fontVariations: <ui.FontVariation>[ui.FontVariation('wght', 400)],
+          ),
+          child: Align(
+            alignment: Alignment.bottomCenter,
+            child: LiquidSheet(
+              backdrop: emptyBackdrop,
+              title: 'Appearance',
+              items: _threeOptions(<String>[]),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    TextStyle effective(String text) {
+      final Element element = tester.element(find.text(text));
+      return DefaultTextStyle.of(
+        element,
+      ).style.merge((element.widget as Text).style);
+    }
+
+    for (final (String text, FontWeight weight) in <(String, FontWeight)>[
+      ('Appearance', FontWeight.w600),
+      ('Follow system', FontWeight.w600), // the selected row
+      ('Light', FontWeight.w400),
+    ]) {
+      final TextStyle style = effective(text);
+      expect(style.fontWeight, weight, reason: text);
+      expect(style.fontVariations, <ui.FontVariation>[
+        ui.FontVariation('wght', weight.value.toDouble()),
+      ], reason: '$text: the axis says the same weight as fontWeight');
+    }
+  });
+
+  testWidgets('titleStyle, itemStyle and detailStyle merge over the type', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(
+      _bare(
+        Align(
+          alignment: Alignment.bottomCenter,
+          child: LiquidSheet(
+            backdrop: emptyBackdrop,
+            title: 'Appearance',
+            items: _threeOptions(<String>[]),
+            titleStyle: const TextStyle(fontFamily: 'Display', fontSize: 20),
+            itemStyle: const TextStyle(fontFamily: 'Body'),
+            detailStyle: const TextStyle(fontSize: 12),
+          ),
+        ),
+      ),
+    );
+
+    TextStyle own(String text) => tester.widget<Text>(find.text(text)).style!;
+
+    final TextStyle title = own('Appearance');
+    expect(title.fontFamily, 'Display');
+    expect(title.fontSize, 20);
+    expect(title.fontWeight, FontWeight.w600, reason: 'left null: kept');
+
+    final TextStyle selected = own('Follow system');
+    expect(selected.fontFamily, 'Body');
+    expect(selected.fontSize, 16, reason: 'left null: kept');
+    expect(
+      selected.fontWeight,
+      FontWeight.w600,
+      reason: 'a family alone does not flatten the selected row',
+    );
+    expect(own('Light').fontWeight, FontWeight.w400);
+
+    expect(own('English').fontSize, 12);
+  });
 }
 
 class _Stripes extends CustomPainter {

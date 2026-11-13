@@ -69,6 +69,9 @@ class LiquidSheet extends StatelessWidget {
     this.rowHeight = 56,
     this.plain = false,
     this.blurSigma = 24,
+    this.titleStyle,
+    this.itemStyle,
+    this.detailStyle,
   });
 
   /// What the glass refracts.
@@ -135,6 +138,21 @@ class LiquidSheet extends StatelessWidget {
   /// and a light one just reads as a smudge.
   final double blurSigma;
 
+  /// Merged over the title's built-in type, for an app whose design system
+  /// owns its typeface. Fields left null keep the default — as on
+  /// [LiquidDialog.titleStyle].
+  final TextStyle? titleStyle;
+
+  /// Merged over the row labels' type. The colour still follows
+  /// [LiquidSheetItem.isDestructive] and the weight
+  /// [LiquidSheetItem.isSelected] unless this overrides them — so pass a
+  /// family or a size here, and leave the weight alone unless a selected row
+  /// is meant to look like the others.
+  final TextStyle? itemStyle;
+
+  /// Merged over the type of a row's [LiquidSheetItem.detail] line.
+  final TextStyle? detailStyle;
+
   @override
   Widget build(BuildContext context) {
     final LiquidGlassColors colors = LiquidGlassTheme.of(context);
@@ -193,11 +211,10 @@ class LiquidSheet extends StatelessWidget {
                 width: double.infinity,
                 child: Text(
                   heading,
-                  style: TextStyle(
-                    color: colors.content,
-                    fontSize: 17,
-                    fontWeight: FontWeight.w600,
-                  ),
+                  style: _weighted(
+                    TextStyle(color: colors.content, fontSize: 17),
+                    FontWeight.w600,
+                  ).merge(titleStyle),
                 ),
               ),
             ),
@@ -217,6 +234,8 @@ class LiquidSheet extends StatelessWidget {
                               : colors.content,
                           accentColor: colors.accent,
                           washColor: colors.content.withValues(alpha: 0.08),
+                          labelStyle: itemStyle,
+                          detailStyle: detailStyle,
                           onSelected: (LiquidSheetItem chosen) {
                             chosen.onSelected?.call();
                             onSelected?.call(chosen);
@@ -232,6 +251,23 @@ class LiquidSheet extends StatelessWidget {
     );
   }
 }
+
+/// [weight], said the way a variable font hears it as well as a static one.
+///
+/// `fontWeight` alone picks a face out of a family of static files. A variable
+/// font is a single file whose weight is its `wght` axis, and the sheet's text
+/// inherits the ambient text style — in a Material app, a `bodyMedium` that an
+/// app with a variable typeface has usually pinned to `wght` 400. That axis
+/// keeps winning whatever `fontWeight` says: the title and the selected row
+/// were laid out at the regular weight's advances and then smeared into a
+/// synthetic bold by the engine, instead of drawn from the real semibold.
+/// Setting both keeps them in step; a static font ignores the axis.
+TextStyle _weighted(TextStyle style, FontWeight weight) => style.copyWith(
+  fontWeight: weight,
+  fontVariations: <ui.FontVariation>[
+    ui.FontVariation('wght', weight.value.toDouble()),
+  ],
+);
 
 class _Handle extends StatelessWidget {
   const _Handle({required this.color});
@@ -261,6 +297,8 @@ class _SheetRow extends StatefulWidget {
     required this.accentColor,
     required this.washColor,
     required this.onSelected,
+    this.labelStyle,
+    this.detailStyle,
   });
 
   final LiquidSheetItem item;
@@ -269,6 +307,8 @@ class _SheetRow extends StatefulWidget {
   final Color accentColor;
   final Color washColor;
   final ValueChanged<LiquidSheetItem> onSelected;
+  final TextStyle? labelStyle;
+  final TextStyle? detailStyle;
 
   @override
   State<_SheetRow> createState() => _SheetRowState();
@@ -327,13 +367,15 @@ class _SheetRowState extends State<_SheetRow> {
                         children: <Widget>[
                           Text(
                             item.label,
-                            style: TextStyle(
-                              color: widget.contentColor,
-                              fontSize: 16,
-                              fontWeight: item.isSelected
+                            style: _weighted(
+                              TextStyle(
+                                color: widget.contentColor,
+                                fontSize: 16,
+                              ),
+                              item.isSelected
                                   ? FontWeight.w600
                                   : FontWeight.w400,
-                            ),
+                            ).merge(widget.labelStyle),
                           ),
                           if (item.detail case final String detail)
                             Text(
@@ -343,7 +385,7 @@ class _SheetRowState extends State<_SheetRow> {
                                   alpha: 0.6,
                                 ),
                                 fontSize: 13,
-                              ),
+                              ).merge(widget.detailStyle),
                             ),
                         ],
                       ),
@@ -386,6 +428,9 @@ Future<T?> showLiquidSheet<T>({
   bool useRootNavigator = true,
   bool plain = false,
   double blurSigma = 24,
+  TextStyle? titleStyle,
+  TextStyle? itemStyle,
+  TextStyle? detailStyle,
 }) {
   return showModalBottomSheet<T>(
     context: context,
@@ -415,6 +460,9 @@ Future<T?> showLiquidSheet<T>({
       rowHeight: rowHeight,
       plain: plain,
       blurSigma: blurSigma,
+      titleStyle: titleStyle,
+      itemStyle: itemStyle,
+      detailStyle: detailStyle,
       onSelected: (LiquidSheetItem _) => Navigator.of(sheetContext).pop(),
       child: child,
     ),
