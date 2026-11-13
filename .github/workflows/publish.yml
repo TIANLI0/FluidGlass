@@ -31,9 +31,18 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # Pinned, not floating. `channel: stable` alone takes whatever stable is
+      # on the day of the tag, and the gate below is `--fatal-infos`: the first
+      # v0.5.7 run landed on a stable that deprecates
+      # `package:flutter/material.dart` (in favour of `material_ui`), which is
+      # 91 infos across lib and test and none of them from the change being
+      # published. The analyzer's verdict has to depend on the commit, not on
+      # the calendar. Moving to `material_ui` is its own piece of work — raise
+      # this pin as part of it, not before.
       - uses: subosito/flutter-action@v2
         with:
           channel: stable
+          flutter-version: 3.47.9
 
       # This is what actually authenticates the publish. pub does not exchange
       # the OIDC token itself — `dart-lang/setup-dart` mints it and writes the
@@ -41,8 +50,11 @@ jobs:
       # it needs a human, and prints a Google sign-in URL that no runner can
       # answer; that is how both the v0.1.1 and the first v0.1.2 runs hung.
       # It must come after flutter-action, so it configures the Dart SDK that
-      # ships inside the Flutter one.
+      # ships inside the Flutter one. It also installs a Dart of its own and
+      # puts it first on PATH, so it is pinned to the one Flutter 3.47.9 ships.
       - uses: dart-lang/setup-dart@v1
+        with:
+          sdk: 3.13.7
 
       - name: Check the tag matches pubspec.yaml
         run: |
