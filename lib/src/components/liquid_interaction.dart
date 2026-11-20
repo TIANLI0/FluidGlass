@@ -475,9 +475,8 @@ class _LiquidInteractionGroupState extends State<LiquidInteractionGroup> {
   }
 
   void _watchScroll(_LiquidInteractionState member) {
-    final ScrollPosition? position = Scrollable.maybeOf(
-      member.context,
-    )?.position;
+    final ScrollPosition? position = Scrollable.maybeOf(member.context)
+        ?.position;
     if (position == null || !position.hasPixels) return;
     _scroll = position;
     _scrollPixels = position.pixels;

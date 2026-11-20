@@ -405,13 +405,12 @@ class _SoftInputViewState extends State<SoftInputView>
                   child: Text(
                     widget.title,
                     style:
-                        SoftInputViewDefaults.titleTextStyle(
-                          theme.textStyles,
-                        ).copyWith(
-                          color: widget.enabled
-                              ? c.titleColor
-                              : c.disabledTitleColor,
-                        ),
+                        SoftInputViewDefaults.titleTextStyle(theme.textStyles)
+                            .copyWith(
+                              color: widget.enabled
+                                  ? c.titleColor
+                                  : c.disabledTitleColor,
+                            ),
                   ),
                 ),
               ),

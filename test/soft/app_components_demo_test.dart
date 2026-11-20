@@ -11,9 +11,8 @@ Widget _app({bool dark = false, double scale = 1}) => MaterialApp(
   builder: (BuildContext context, Widget? child) => SoftTheme(
     data: dark ? const SoftThemeData.dark() : const SoftThemeData.light(),
     child: MediaQuery(
-      data: MediaQuery.of(
-        context,
-      ).copyWith(textScaler: TextScaler.linear(scale)),
+      data: MediaQuery.of(context)
+          .copyWith(textScaler: TextScaler.linear(scale)),
       child: DefaultTextStyle(
         style: const TextStyle(fontSize: 14, color: Colors.black),
         child: child!,

@@ -229,9 +229,8 @@ class SoftDialogButtonBar extends StatelessWidget {
     final int count = _actions.length;
     if (count == 0) return const SizedBox.shrink();
     final SoftThemeData theme = SoftTheme.of(context);
-    final TextStyle style = DefaultTextStyle.of(
-      context,
-    ).style.merge(textStyle ?? theme.textStyles.button);
+    final TextStyle style = DefaultTextStyle.of(context).style
+        .merge(textStyle ?? theme.textStyles.button);
     if (!dynamicLayout) return _row(theme, style);
     return LayoutBuilder(
       builder: (BuildContext context, BoxConstraints constraints) {

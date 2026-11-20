@@ -46,8 +46,10 @@ class BackdropEffectGeometry {
 }
 
 /// Configures a shader's uniforms once the layer geometry is known.
-typedef ShaderEffectConfigurator =
-    void Function(ui.FragmentShader shader, BackdropEffectGeometry geometry);
+typedef ShaderEffectConfigurator = void Function(
+  ui.FragmentShader shader,
+  BackdropEffectGeometry geometry,
+);
 
 /// One filter inside a stage.
 class _Item {

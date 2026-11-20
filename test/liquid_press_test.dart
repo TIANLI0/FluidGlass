@@ -89,23 +89,20 @@ void main() {
     expect(pulled.scaleX, closeTo(held.scaleX, 1e-9));
   });
 
-  test(
-    'the matrix is the four numbers, scaled about the centre by Transform',
-    () {
-      final LiquidPressDeformation press = _press(
-        offset: const Offset(24, 8),
-        progress: 1.0,
-      );
-      final Matrix4 matrix = press.transform;
+  test('the matrix is the four numbers, scaled about the centre by Transform', () {
+    final LiquidPressDeformation press = _press(
+      offset: const Offset(24, 8),
+      progress: 1.0,
+    );
+    final Matrix4 matrix = press.transform;
 
-      expect(matrix.getTranslation().x, closeTo(press.translationX, 1e-9));
-      expect(matrix.getTranslation().y, closeTo(press.translationY, 1e-9));
-      // No pivot baked in: `Transform(alignment: Alignment.center)` supplies it,
-      // which is what lets the same numbers drive a widget and a glass layer.
-      expect(matrix.entry(0, 0), closeTo(press.scaleX, 1e-9));
-      expect(matrix.entry(1, 1), closeTo(press.scaleY, 1e-9));
-    },
-  );
+    expect(matrix.getTranslation().x, closeTo(press.translationX, 1e-9));
+    expect(matrix.getTranslation().y, closeTo(press.translationY, 1e-9));
+    // No pivot baked in: `Transform(alignment: Alignment.center)` supplies it,
+    // which is what lets the same numbers drive a widget and a glass layer.
+    expect(matrix.entry(0, 0), closeTo(press.scaleX, 1e-9));
+    expect(matrix.entry(1, 1), closeTo(press.scaleY, 1e-9));
+  });
 
   test('value equality, so a repaint can be skipped', () {
     expect(_press(progress: 0.4), _press(progress: 0.4));

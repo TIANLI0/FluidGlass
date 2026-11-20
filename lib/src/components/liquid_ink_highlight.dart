@@ -26,15 +26,12 @@ class LiquidInkHighlight extends InteractiveInkFeature {
     required super.referenceBox,
     required super.color,
     required Offset position,
-    required TextDirection textDirection,
-    BorderRadius borderRadius = BorderRadius.zero,
-    ShapeBorder? customBorder,
-    RectCallback? rectCallback,
+    required this._textDirection,
+    this._borderRadius = BorderRadius.zero,
+    this._customBorder,
+    this._rectCallback,
     super.onRemoved,
-  }) : _textDirection = textDirection,
-       _borderRadius = borderRadius,
-       _customBorder = customBorder,
-       _rectCallback = rectCallback {
+  }) {
     _highlight = InteractiveHighlight(vsync: controller.vsync)
       ..addListener(_onHighlightChanged);
     _origin = referenceBox.localToGlobal(Offset.zero);

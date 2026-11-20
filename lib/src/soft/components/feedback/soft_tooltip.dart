@@ -399,14 +399,11 @@ class _TooltipLayout extends SingleChildRenderObjectWidget {
 
 class _RenderTooltipLayout extends RenderShiftedBox {
   _RenderTooltipLayout({
-    required Rect anchor,
-    required SoftTooltipPosition position,
-    required double spacing,
+    required this._anchor,
+    required this._position,
+    required this._spacing,
     required this.caretX,
-  }) : _anchor = anchor,
-       _position = position,
-       _spacing = spacing,
-       super(null);
+  }) : super(null);
 
   ValueNotifier<double> caretX;
 

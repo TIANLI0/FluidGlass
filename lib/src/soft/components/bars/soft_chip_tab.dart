@@ -533,9 +533,7 @@ class _EdgeFade extends SingleChildRenderObjectWidget {
 }
 
 class _RenderEdgeFade extends RenderProxyBox {
-  _RenderEdgeFade({required bool left, required bool right})
-    : _left = left,
-      _right = right;
+  _RenderEdgeFade({required this._left, required this._right});
 
   bool _left;
   set left(bool v) {

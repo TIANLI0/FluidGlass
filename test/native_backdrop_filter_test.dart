@@ -30,9 +30,9 @@ bool _hasBackdropFilterLayer(Layer? layer) {
 /// `RenderDrawBackdrop` is not a repaint boundary, so its own `layer` is null:
 /// the clip and the backdrop filter are appended to the enclosing container
 /// layer, which is the test's own boundary.
-Layer? _sceneLayer(WidgetTester tester) =>
-    (tester.renderObject(find.byKey(_boundary)) as RenderRepaintBoundary)
-        .debugLayer;
+Layer? _sceneLayer(WidgetTester tester) => (tester.renderObject(
+  find.byKey(_boundary),
+) as RenderRepaintBoundary).debugLayer;
 
 Future<Uint8List> _pixels(WidgetTester tester) async {
   final RenderRepaintBoundary box =
@@ -138,9 +138,9 @@ void main() {
       await tester.pump();
       await tester.pump();
 
-      final RenderBackdropLayer source =
-          tester.renderObject(find.byType(BackdropLayer))
-              as RenderBackdropLayer;
+      final RenderBackdropLayer source = tester.renderObject(
+        find.byType(BackdropLayer),
+      ) as RenderBackdropLayer;
       expect(
         source.debugCaptureCount,
         0,

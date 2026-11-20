@@ -314,9 +314,8 @@ void main() {
 
     TextStyle effective(String text) {
       final Element element = tester.element(find.text(text));
-      return DefaultTextStyle.of(
-        element,
-      ).style.merge((element.widget as Text).style);
+      return DefaultTextStyle.of(element).style
+          .merge((element.widget as Text).style);
     }
 
     for (final (String text, FontWeight weight) in <(String, FontWeight)>[

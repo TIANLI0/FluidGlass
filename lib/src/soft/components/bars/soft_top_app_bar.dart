@@ -940,24 +940,16 @@ class _RenderBar extends RenderBox
         ContainerRenderObjectMixin<RenderBox, _BarParentData>,
         RenderBoxContainerDefaultsMixin<RenderBox, _BarParentData> {
   _RenderBar({
-    required bool large,
-    required bool centerTitle,
-    required double titlePadding,
-    required double collapsedTitleScale,
-    required bool hideSubtitleOnCollapse,
-    required bool divider,
-    required Color dividerColor,
-    required ScrollController? scrollController,
-    required TextDirection textDirection,
-  }) : _large = large,
-       _centerTitle = centerTitle,
-       _titlePadding = titlePadding,
-       _collapsedTitleScale = collapsedTitleScale,
-       _hideSubtitleOnCollapse = hideSubtitleOnCollapse,
-       _divider = divider,
-       _dividerColor = dividerColor,
-       _scrollController = scrollController,
-       _textDirection = textDirection;
+    required this._large,
+    required this._centerTitle,
+    required this._titlePadding,
+    required this._collapsedTitleScale,
+    required this._hideSubtitleOnCollapse,
+    required this._divider,
+    required this._dividerColor,
+    required this._scrollController,
+    required this._textDirection,
+  });
 
   bool _large;
   set large(bool v) {

@@ -1,5 +1,6 @@
 // Derived from coui17 basic/NotificationSnackBar.kt, Apache-2.0.
 import 'package:flutter/widgets.dart';
+
 import '../../../internal/control_focus.dart';
 import '../../foundation/soft_pressable.dart';
 import '../../foundation/soft_theme.dart';

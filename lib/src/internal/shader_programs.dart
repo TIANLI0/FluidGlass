@@ -160,16 +160,17 @@ class FluidGlassPrograms extends ChangeNotifier {
   }
 
   Future<void> _load() async {
-    final List<ui.FragmentProgram?> programs =
-        await Future.wait(<Future<ui.FragmentProgram?>>[
-          _loadOne(_refractionAsset),
-          _loadOne(_dispersionAsset),
-          _loadOne(_highlightDefaultAsset),
-          _loadOne(_highlightAmbientAsset),
-          _loadOne(_interactiveHighlightAsset),
-          _loadOne(_fusionAsset),
-          _loadOne(_progressiveBlurAsset),
-        ]);
+    final List<ui.FragmentProgram?> programs = await Future.wait(
+      <Future<ui.FragmentProgram?>>[
+        _loadOne(_refractionAsset),
+        _loadOne(_dispersionAsset),
+        _loadOne(_highlightDefaultAsset),
+        _loadOne(_highlightAmbientAsset),
+        _loadOne(_interactiveHighlightAsset),
+        _loadOne(_fusionAsset),
+        _loadOne(_progressiveBlurAsset),
+      ],
+    );
     _refraction = programs[0];
     _dispersion = programs[1];
     _highlightDefault = programs[2];

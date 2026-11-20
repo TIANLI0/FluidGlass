@@ -40,8 +40,10 @@ typedef GlassInnerShadowGetter = GlassInnerShadow? Function();
 typedef GlassDrawCallback = void Function(Canvas canvas, Size size);
 
 /// Wraps the drawing of the backdrop, so it can be transformed first.
-typedef OnDrawBackdropCallback =
-    void Function(BackdropDrawContext context, void Function() drawBackdrop);
+typedef OnDrawBackdropCallback = void Function(
+  BackdropDrawContext context,
+  void Function() drawBackdrop,
+);
 
 Highlight? _defaultHighlight() => Highlight.standard;
 GlassShadow? _defaultShadow() => GlassShadow.standard;
@@ -246,11 +248,7 @@ class _GlassTransform extends SingleChildRenderObjectWidget {
 
 /// Applies a [GlassLayerBlock]'s transform and opacity to its child.
 class RenderGlassTransform extends RenderProxyBox {
-  RenderGlassTransform({
-    required GlassLayerBlock layerBlock,
-    Listenable? repaint,
-  }) : _layerBlock = layerBlock,
-       _repaint = repaint;
+  RenderGlassTransform({required this._layerBlock, this._repaint});
 
   GlassLayerBlock get layerBlock => _layerBlock;
   GlassLayerBlock _layerBlock;
@@ -527,42 +525,25 @@ class RenderDrawBackdrop extends RenderProxyBox {
   static bool useCompositorLens = false;
 
   RenderDrawBackdrop({
-    required Backdrop backdrop,
-    required GlassShapeGetter shape,
-    required BackdropEffectsBuilder effects,
-    required HighlightGetter? highlight,
-    required GlassShadowGetter? shadow,
-    required GlassInnerShadowGetter? innerShadow,
-    required GlassLayerBlock? layerBlock,
-    required LayerBackdrop? exportedBackdrop,
-    required GlassDrawCallback? onDrawBehind,
-    required OnDrawBackdropCallback? onDrawBackdrop,
-    required GlassDrawCallback? onDrawSurface,
-    required GlassDrawCallback? onDrawFront,
-    required bool isolateSurface,
-    required GlassQuality? quality,
-    required Listenable? repaint,
-    required TextDirection textDirection,
-    required BackdropKey? backdropGroupKey,
-    required double devicePixelRatio,
-  }) : _backdrop = backdrop,
-       _shape = shape,
-       _effects = effects,
-       _highlight = highlight,
-       _shadow = shadow,
-       _innerShadow = innerShadow,
-       _layerBlock = layerBlock,
-       _exportedBackdrop = exportedBackdrop,
-       _onDrawBehind = onDrawBehind,
-       _onDrawBackdrop = onDrawBackdrop,
-       _onDrawSurface = onDrawSurface,
-       _onDrawFront = onDrawFront,
-       _isolateSurface = isolateSurface,
-       _quality = quality,
-       _repaint = repaint,
-       _textDirection = textDirection,
-       _backdropGroupKey = backdropGroupKey,
-       _devicePixelRatio = devicePixelRatio;
+    required this._backdrop,
+    required this._shape,
+    required this._effects,
+    required this._highlight,
+    required this._shadow,
+    required this._innerShadow,
+    required this._layerBlock,
+    required this._exportedBackdrop,
+    required this._onDrawBehind,
+    required this._onDrawBackdrop,
+    required this._onDrawSurface,
+    required this._onDrawFront,
+    required this._isolateSurface,
+    required this._quality,
+    required this._repaint,
+    required this._textDirection,
+    required this._backdropGroupKey,
+    required this._devicePixelRatio,
+  });
 
   Backdrop get backdrop => _backdrop;
   Backdrop _backdrop;

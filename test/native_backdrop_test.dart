@@ -30,9 +30,9 @@ bool _hasBackdropFilterLayer(Layer? layer) {
   return false;
 }
 
-Layer? _sceneLayer(WidgetTester tester) =>
-    (tester.renderObject(find.byKey(_boundary)) as RenderRepaintBoundary)
-        .debugLayer;
+Layer? _sceneLayer(WidgetTester tester) => (tester.renderObject(
+  find.byKey(_boundary),
+) as RenderRepaintBoundary).debugLayer;
 
 Future<Uint8List> _pixels(WidgetTester tester) async {
   final RenderRepaintBoundary box =

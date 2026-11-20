@@ -165,8 +165,10 @@ class SoftSnackbarHostState extends ChangeNotifier {
 }
 
 /// Builds the snackbar of a [SoftSnackbarData]; [SoftSnackbar] by default.
-typedef SoftSnackbarBuilder =
-    Widget Function(BuildContext context, SoftSnackbarData data);
+typedef SoftSnackbarBuilder = Widget Function(
+  BuildContext context,
+  SoftSnackbarData data,
+);
 
 /// The snackbar defaults.
 abstract final class SoftSnackbarDefaults {
@@ -774,11 +776,10 @@ class _LineProbe extends SingleChildRenderObjectWidget {
 
 class _RenderLineProbe extends RenderProxyBox {
   _RenderLineProbe({
-    required TextStyle style,
-    required TextScaler scaler,
+    required this._style,
+    required this._scaler,
     required this.onSingleLine,
-  }) : _style = style,
-       _scaler = scaler;
+  });
 
   TextStyle _style;
   set style(TextStyle value) {

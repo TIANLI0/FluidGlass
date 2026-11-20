@@ -330,9 +330,8 @@ class _LiquidToggleState extends State<LiquidToggle>
                 canvas.drawRect(
                   Offset.zero & size,
                   Paint()
-                    ..color = const Color(
-                      0xFFFFFFFF,
-                    ).withValues(alpha: 1 - progress),
+                    ..color = const Color(0xFFFFFFFF)
+                        .withValues(alpha: 1 - progress),
                 );
               },
               // Src-over only, so the isolating save-layer is pure cost.

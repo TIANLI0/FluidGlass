@@ -42,9 +42,8 @@ void main() {
 
     test('continuous outline stays inside its bounds and spans them', () {
       const Size size = Size(200, 120);
-      final GlassOutline outline = const RoundedRectangle(
-        32,
-      ).createOutline(size, TextDirection.ltr);
+      final GlassOutline outline = const RoundedRectangle(32)
+          .createOutline(size, TextDirection.ltr);
       final Rect bounds = outline.toPath().getBounds();
       expect(bounds.left, closeTo(0, 0.5));
       expect(bounds.top, closeTo(0, 0.5));
@@ -59,9 +58,9 @@ void main() {
         // the diagonal as a circular corner of the same radius, but starts
         // curving further along the straight edges.
         const Size size = Size(200, 120);
-        final Path continuous = const RoundedRectangle(
-          40,
-        ).createOutline(size, TextDirection.ltr).toPath();
+        final Path continuous = const RoundedRectangle(40)
+            .createOutline(size, TextDirection.ltr)
+            .toPath();
         final Path circular = const RoundedRectangle(
           40,
           style: RoundedCornerStyle.circular,

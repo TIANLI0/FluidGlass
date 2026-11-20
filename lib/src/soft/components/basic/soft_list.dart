@@ -134,14 +134,9 @@ class SoftBasicComponent extends StatelessWidget {
       );
     }
     Widget body = Padding(
-      padding:
-          insideMargin.add(
-                EdgeInsets.only(
-                  top: position.extraTop,
-                  bottom: position.extraBottom,
-                ),
-              )
-              as EdgeInsets,
+      padding: insideMargin.add(
+        EdgeInsets.only(top: position.extraTop, bottom: position.extraBottom),
+      ) as EdgeInsets,
       child: Column(
         mainAxisSize: MainAxisSize.min,
         mainAxisAlignment: MainAxisAlignment.center,
@@ -213,12 +208,10 @@ class _RenderBasicRow extends RenderBox
         ContainerRenderObjectMixin<RenderBox, _BasicRowParentData>,
         RenderBoxContainerDefaultsMixin<RenderBox, _BasicRowParentData> {
   _RenderBasicRow({
-    required bool hasStart,
-    required bool hasEnd,
-    required TextDirection textDirection,
-  }) : _hasStart = hasStart,
-       _hasEnd = hasEnd,
-       _textDirection = textDirection;
+    required this._hasStart,
+    required this._hasEnd,
+    required this._textDirection,
+  });
 
   static const double _spacer = 8;
 

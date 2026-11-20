@@ -79,9 +79,8 @@ Future<_Affine> _localTransform(
     ),
   );
 
-  return _Affine.of(
-    probe.transform!,
-  ).relativeTo(_Affine.of(baseline.transform!));
+  return _Affine.of(probe.transform!)
+      .relativeTo(_Affine.of(baseline.transform!));
 }
 
 void main() {

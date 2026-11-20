@@ -190,9 +190,9 @@ class SoftDialogRoute<T> extends PopupRoute<T> {
     this.insideMargin = SoftDialogDefaults.insideMargin,
     this.defaultWindowInsetsPadding = true,
     this.fillWidth = true,
-    String? barrierLabel,
+    this._barrierLabel,
     super.settings,
-  }) : _barrierLabel = barrierLabel;
+  });
 
   /// Builds the content below the title and the summary.
   final WidgetBuilder? builder;

@@ -23,11 +23,11 @@ class SoftMetaBallParticle {
   const SoftMetaBallParticle({
     required this.center,
     required this.size,
-    double? cornerRadius,
+    this._cornerRadius,
     this.scaleX = 1,
     this.scaleY = 1,
     this.alpha = 1,
-  }) : _cornerRadius = cornerRadius;
+  });
 
   final Offset center;
   final Size size;

@@ -96,20 +96,14 @@ class LiquidMorph extends SingleChildRenderObjectWidget {
 
 class RenderLiquidMorph extends RenderProxyBox {
   RenderLiquidMorph({
-    required Animation<double> progress,
-    Rect? origin,
-    Rect Function(Rect bounds)? originFor,
-    required double originRadius,
-    required double radius,
-    double outset = 0,
-    required bool still,
-  }) : _progress = progress,
-       _origin = origin,
-       _originFor = originFor,
-       _originRadius = originRadius,
-       _radius = radius,
-       _outset = outset,
-       _still = still;
+    required this._progress,
+    this._origin,
+    this._originFor,
+    required this._originRadius,
+    required this._radius,
+    this._outset = 0,
+    required this._still,
+  });
 
   Animation<double> _progress;
   set progress(Animation<double> value) {
@@ -267,9 +261,10 @@ class RenderLiquidMorph extends RenderProxyBox {
       )!,
       clip.shortestSide / 2,
     );
-    final Path path = RoundedRectangle(
-      r,
-    ).createOutline(clip.size, TextDirection.ltr).toPath().shift(clip.topLeft);
+    final Path path = RoundedRectangle(r)
+        .createOutline(clip.size, TextDirection.ltr)
+        .toPath()
+        .shift(clip.topLeft);
     _clip.layer = context.pushClipPath(
       needsCompositing,
       offset,

@@ -11,12 +11,11 @@ Widget _harness(Widget child, {bool dark = false}) {
     pageRouteBuilder: <T>(RouteSettings settings, WidgetBuilder builder) =>
         PageRouteBuilder<T>(
           settings: settings,
-          pageBuilder:
-              (
-                BuildContext context,
-                Animation<double> animation,
-                Animation<double> secondary,
-              ) => builder(context),
+          pageBuilder: (
+            BuildContext context,
+            Animation<double> animation,
+            Animation<double> secondary,
+          ) => builder(context),
         ),
     home: SoftTheme(
       data: dark ? const SoftThemeData.dark() : const SoftThemeData.light(),

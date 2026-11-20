@@ -14,12 +14,11 @@ Widget _app(Widget child, {bool dark = false, bool reduceMotion = false}) {
     pageRouteBuilder: <T>(RouteSettings settings, WidgetBuilder builder) =>
         PageRouteBuilder<T>(
           settings: settings,
-          pageBuilder:
-              (
-                BuildContext context,
-                Animation<double> animation,
-                Animation<double> secondary,
-              ) => builder(context),
+          pageBuilder: (
+            BuildContext context,
+            Animation<double> animation,
+            Animation<double> secondary,
+          ) => builder(context),
         ),
     builder: (BuildContext context, Widget? navigator) {
       return MediaQuery(

@@ -490,16 +490,12 @@ class _BackdropLayerHost extends SingleChildRenderObjectWidget {
 class RenderBackdropLayer extends RenderProxyBox
     implements LayerBackdropSource {
   RenderBackdropLayer({
-    required LayerBackdrop backdrop,
-    double? pixelRatio,
-    double? motionPixelRatio,
-    double changeMargin = defaultChangeMargin,
-    Listenable? liveness,
-  }) : _backdrop = backdrop,
-       _pixelRatio = pixelRatio,
-       _motionPixelRatio = motionPixelRatio,
-       _changeMargin = changeMargin,
-       _liveness = liveness;
+    required this._backdrop,
+    this._pixelRatio,
+    this._motionPixelRatio,
+    this._changeMargin = defaultChangeMargin,
+    this._liveness,
+  });
 
   /// See [BackdropLayer.changeMargin].
   static const double defaultChangeMargin = 64.0;

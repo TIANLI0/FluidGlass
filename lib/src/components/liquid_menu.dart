@@ -635,9 +635,8 @@ class _MenuPanel extends StatelessWidget {
                                   color: contentColor.withValues(alpha: 0.09),
                                   borderRadius: BorderRadius.circular(12),
                                   border: Border.all(
-                                    color: const Color(
-                                      0xFFFFFFFF,
-                                    ).withValues(alpha: 0.18),
+                                    color: const Color(0xFFFFFFFF)
+                                        .withValues(alpha: 0.18),
                                     width: 0.5,
                                   ),
                                 ),

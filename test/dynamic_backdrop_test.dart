@@ -228,9 +228,9 @@ void main() {
 
     // Wrap the attached source so retakes can be counted, then animate only
     // the glass.
-    final RenderBackdropLayer source =
-        tester.renderObject(find.byType(BackdropLayer).first)
-            as RenderBackdropLayer;
+    final RenderBackdropLayer source = tester.renderObject(
+      find.byType(BackdropLayer).first,
+    ) as RenderBackdropLayer;
     final _CountingSource counting = _CountingSource(source);
     backdrop.attachSource(counting);
     await tester.pump();

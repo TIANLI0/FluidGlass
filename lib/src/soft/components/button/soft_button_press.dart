@@ -151,11 +151,7 @@ class SoftAreaPressScale extends SingleChildRenderObjectWidget {
 }
 
 class _RenderAreaPressScale extends RenderProxyBox {
-  _RenderAreaPressScale({
-    required ValueListenable<double> progress,
-    required double Function(Size size) endScale,
-  }) : _progress = progress,
-       _endScale = endScale;
+  _RenderAreaPressScale({required this._progress, required this._endScale});
 
   ValueListenable<double> _progress;
   set progress(ValueListenable<double> value) {

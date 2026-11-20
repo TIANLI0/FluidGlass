@@ -575,10 +575,9 @@ class _SoftBottomSheetRoute<T> extends PopupRoute<T> {
   _SoftBottomSheetRoute({
     required _SheetConfig config,
     required this.selfDismiss,
-    double initialSheetHeight = 0,
+    this._initialSheetHeight = 0,
     super.settings,
-  }) : config = ValueNotifier<_SheetConfig>(config),
-       _initialSheetHeight = initialSheetHeight;
+  }) : config = ValueNotifier<_SheetConfig>(config);
 
   final ValueNotifier<_SheetConfig> config;
 
@@ -957,13 +956,11 @@ class _SheetSlide extends SingleChildRenderObjectWidget {
 class _RenderSheetSlide extends RenderProxyBox {
   _RenderSheetSlide({
     required this.sheet,
-    required Animation<double> progress,
-    required Color fill,
-    required double inset,
+    required this._progress,
+    required this._fill,
+    required this._inset,
     required this.recordHeight,
-  }) : _progress = progress,
-       _fill = fill,
-       _inset = inset;
+  });
 
   final _SheetController sheet;
   bool recordHeight;

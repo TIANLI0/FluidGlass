@@ -103,9 +103,8 @@ class LiquidTextField extends StatelessWidget {
       maxLength: maxLength,
       cursorColor: LiquidGlassTheme.of(context).accent,
       style: TextStyle(
-        color: LiquidGlassTheme.of(
-          context,
-        ).content.withValues(alpha: enabled ? 1 : 0.4),
+        color: LiquidGlassTheme.of(context).content
+            .withValues(alpha: enabled ? 1 : 0.4),
         fontSize: 15,
       ).merge(style),
       decoration: liquidInputDecoration(

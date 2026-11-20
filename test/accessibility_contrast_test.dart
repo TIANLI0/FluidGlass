@@ -197,9 +197,8 @@ void main() {
           valueListenable: inset,
           builder: (BuildContext context, double bottom, Widget? child) =>
               MediaQuery(
-                data: MediaQuery.of(
-                  context,
-                ).copyWith(viewInsets: EdgeInsets.only(bottom: bottom)),
+                data: MediaQuery.of(context)
+                    .copyWith(viewInsets: EdgeInsets.only(bottom: bottom)),
                 child: child!,
               ),
           child: Scaffold(

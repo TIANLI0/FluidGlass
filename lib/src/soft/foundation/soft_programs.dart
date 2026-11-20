@@ -122,16 +122,17 @@ class SoftPrograms extends ChangeNotifier {
   }
 
   Future<void> _load() async {
-    final List<ui.FragmentProgram?> programs =
-        await Future.wait(<Future<ui.FragmentProgram?>>[
-          _loadOne(_spotLightAsset),
-          _loadOne(_bloomStrokeAsset),
-          _loadOne(_metaBallAsset),
-          _loadOne(_causticAsset),
-          _loadOne(_blendTintAsset),
-          _loadOne(_capsuleEdgeAsset),
-          _loadOne(_metaBallEdgeAsset),
-        ]);
+    final List<ui.FragmentProgram?> programs = await Future.wait(
+      <Future<ui.FragmentProgram?>>[
+        _loadOne(_spotLightAsset),
+        _loadOne(_bloomStrokeAsset),
+        _loadOne(_metaBallAsset),
+        _loadOne(_causticAsset),
+        _loadOne(_blendTintAsset),
+        _loadOne(_capsuleEdgeAsset),
+        _loadOne(_metaBallEdgeAsset),
+      ],
+    );
     _spotLight = programs[0];
     _bloomStroke = programs[1];
     _metaBall = programs[2];

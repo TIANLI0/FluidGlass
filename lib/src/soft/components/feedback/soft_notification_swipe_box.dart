@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 import 'dart:ui' as ui;
+
 // Derived from coui17 basic/NotificationSwipeBox.kt, Apache-2.0.
 import 'package:flutter/semantics.dart';
 import 'package:flutter/widgets.dart';
@@ -308,20 +309,20 @@ class _SoftNotificationSwipeBoxState extends State<SoftNotificationSwipeBox>
                                                                   sigmaX:
                                                                       15 *
                                                                       (1 -
-                                                                          ((_progress(i) -
-                                                                                      0.6) /
-                                                                                  0.4)
-                                                                              .clamp(0, 1)) /
+                                                                          ((_progress(i) - 0.6) / 0.4).clamp(
+                                                                            0,
+                                                                            1,
+                                                                          )) /
                                                                       MediaQuery.devicePixelRatioOf(
                                                                         context,
                                                                       ),
                                                                   sigmaY:
                                                                       15 *
                                                                       (1 -
-                                                                          ((_progress(i) -
-                                                                                      0.6) /
-                                                                                  0.4)
-                                                                              .clamp(0, 1)) /
+                                                                          ((_progress(i) - 0.6) / 0.4).clamp(
+                                                                            0,
+                                                                            1,
+                                                                          )) /
                                                                       MediaQuery.devicePixelRatioOf(
                                                                         context,
                                                                       ),

@@ -114,9 +114,9 @@ List<SamplingLayer> _samplingLayers(WidgetTester tester) {
 }
 
 Future<Uint8List> _screenPixels(WidgetTester tester) async {
-  final RenderRepaintBoundary boundary =
-      tester.renderObject(find.byKey(const Key('screen')))
-          as RenderRepaintBoundary;
+  final RenderRepaintBoundary boundary = tester.renderObject(
+    find.byKey(const Key('screen')),
+  ) as RenderRepaintBoundary;
   // Real async: rasterising and reading back do not run under fake time.
   final Uint8List? pixels = await tester.runAsync(() async {
     final ui.Image image = await boundary.toImage(

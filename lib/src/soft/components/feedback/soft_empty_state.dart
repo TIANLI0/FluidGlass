@@ -166,18 +166,16 @@ class SoftEmptyState extends StatelessWidget {
                 maxHeight: SoftEmptyStateDefaults.contentMaxHeight,
               ),
               child: ScrollConfiguration(
-                behavior: ScrollConfiguration.of(
-                  context,
-                ).copyWith(scrollbars: false),
+                behavior: ScrollConfiguration.of(context)
+                    .copyWith(scrollbars: false),
                 child: SingleChildScrollView(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: <Widget>[
                       Text(
                         title,
-                        style: SoftEmptyStateDefaults.titleStyle(
-                          theme,
-                        ).copyWith(color: titleColor ?? colors.onSurface),
+                        style: SoftEmptyStateDefaults.titleStyle(theme)
+                            .copyWith(color: titleColor ?? colors.onSurface),
                         textAlign: TextAlign.center,
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
@@ -216,9 +214,8 @@ class SoftEmptyState extends StatelessWidget {
                 maxLines: null,
                 textAlign: TextAlign.center,
                 padding: SoftEmptyStateDefaults.actionPadding,
-                style: SoftEmptyStateDefaults.actionStyle(
-                  theme,
-                ).copyWith(color: actionColor ?? colors.primary),
+                style: SoftEmptyStateDefaults.actionStyle(theme)
+                    .copyWith(color: actionColor ?? colors.primary),
                 onTap: onAction ?? () {},
               ),
             ),

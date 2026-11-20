@@ -17,12 +17,11 @@ Widget _app({required bool dark, required ValueSetter<BuildContext> onHome}) {
       pageRouteBuilder: <T>(RouteSettings settings, WidgetBuilder builder) =>
           PageRouteBuilder<T>(
             settings: settings,
-            pageBuilder:
-                (
-                  BuildContext context,
-                  Animation<double> animation,
-                  Animation<double> secondaryAnimation,
-                ) => builder(context),
+            pageBuilder: (
+              BuildContext context,
+              Animation<double> animation,
+              Animation<double> secondaryAnimation,
+            ) => builder(context),
           ),
       home: Builder(
         builder: (BuildContext context) {

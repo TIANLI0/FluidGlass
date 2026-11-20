@@ -540,10 +540,9 @@ class _RenderPopupList extends RenderBox
         ContainerRenderObjectMixin<RenderBox, SoftListPopupParentData>,
         RenderBoxContainerDefaultsMixin<RenderBox, SoftListPopupParentData> {
   _RenderPopupList({
-    required Color dividerColor,
-    required double devicePixelRatio,
-  }) : _dividerColor = dividerColor,
-       _devicePixelRatio = devicePixelRatio;
+    required this._dividerColor,
+    required this._devicePixelRatio,
+  });
 
   Color _dividerColor;
   set dividerColor(Color value) {

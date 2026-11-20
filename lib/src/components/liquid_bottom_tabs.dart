@@ -603,9 +603,8 @@ class _LiquidBottomTabsState extends State<LiquidBottomTabs>
                         canvas.drawRect(
                           rect,
                           Paint()
-                            ..color = const Color(
-                              0xFF000000,
-                            ).withValues(alpha: 0.03 * progress),
+                            ..color = const Color(0xFF000000)
+                                .withValues(alpha: 0.03 * progress),
                         );
                       },
                       isolateSurface: false,
@@ -931,12 +930,10 @@ class _PaintShifted extends SingleChildRenderObjectWidget {
 class _RenderPaintShifted extends RenderBox
     with RenderObjectWithChildMixin<RenderBox> {
   _RenderPaintShifted({
-    required Listenable repaint,
-    required Offset Function() offset,
-    required Size Function() childSize,
-  }) : _repaint = repaint,
-       _offset = offset,
-       _childSize = childSize;
+    required this._repaint,
+    required this._offset,
+    required this._childSize,
+  });
 
   Listenable _repaint;
   set repaint(Listenable value) {

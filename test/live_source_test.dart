@@ -549,9 +549,11 @@ void main() {
                       child: RepaintBoundary(
                         child: ValueListenableBuilder<double>(
                           valueListenable: fade,
-                          builder:
-                              (BuildContext context, double v, Widget? child) =>
-                                  Opacity(opacity: v, child: child),
+                          builder: (
+                            BuildContext context,
+                            double v,
+                            Widget? child,
+                          ) => Opacity(opacity: v, child: child),
                           child: const RepaintBoundary(
                             child: ColoredBox(color: Color(0xFFFFFFFF)),
                           ),

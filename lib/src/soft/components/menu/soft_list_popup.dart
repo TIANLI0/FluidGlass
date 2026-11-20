@@ -565,27 +565,19 @@ class _PopupPlacement extends SingleChildRenderObjectWidget {
 class _RenderPopupPlacement extends RenderBox
     with RenderObjectWithChildMixin<RenderBox> {
   _RenderPopupPlacement({
-    required Rect anchor,
-    required SoftPopupPositioner positioner,
-    required SoftPopupAlign alignment,
-    required double? maxHeight,
-    required double minWidth,
-    required EdgeInsets padding,
-    required TextDirection textDirection,
-    required SoftPopupGravityMotion gravity,
-    required double devicePixelRatio,
+    required this._anchor,
+    required this._positioner,
+    required this._alignment,
+    required this._maxHeight,
+    required this._minWidth,
+    required this._padding,
+    required this._textDirection,
+    required this._gravity,
+    required this._devicePixelRatio,
     required this.path,
     required this.scale,
     required this.alpha,
-  }) : _anchor = anchor,
-       _positioner = positioner,
-       _alignment = alignment,
-       _maxHeight = maxHeight,
-       _minWidth = minWidth,
-       _padding = padding,
-       _textDirection = textDirection,
-       _gravity = gravity,
-       _devicePixelRatio = devicePixelRatio;
+  });
 
   final SoftSpring path;
   final SoftSpring scale;

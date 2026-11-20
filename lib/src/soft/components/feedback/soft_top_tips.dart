@@ -259,9 +259,8 @@ class _TopTipsBody extends StatelessWidget {
         : tips.ignoreText;
     final TextStyle titleStyle = SoftTopTipsDefaults.titleStyle(theme);
     final TextStyle textStyle = SoftTopTipsDefaults.textStyle(theme);
-    final TextStyle actionStyle = SoftTopTipsDefaults.actionStyle(
-      theme,
-    ).copyWith(color: tips.actionColor ?? colors.primary);
+    final TextStyle actionStyle = SoftTopTipsDefaults.actionStyle(theme)
+        .copyWith(color: tips.actionColor ?? colors.primary);
     final Color container =
         tips.containerColor ??
         SoftTopTipsDefaults.containerColor(tips.background, colors.isDark);
