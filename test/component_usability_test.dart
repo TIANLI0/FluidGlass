@@ -1,8 +1,8 @@
 import 'package:fluid_glass/fluid_glass.dart';
-import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:material_ui/material_ui.dart';
 
 Widget _host(Widget child, {TextDirection direction = TextDirection.ltr}) =>
     MaterialApp(
@@ -116,7 +116,14 @@ void main() {
         ),
       ),
     );
-    expect(find.byTooltip('Add item'), findsOneWidget);
+    // Not `find.byTooltip`: flutter_test still matches the framework's own
+    // `Tooltip`, which is a different type from material_ui's.
+    expect(
+      find.byWidgetPredicate(
+        (Widget widget) => widget is Tooltip && widget.message == 'Add item',
+      ),
+      findsOneWidget,
+    );
     expect(tester.getSemantics(find.byIcon(Icons.add)).tooltip, 'Add item');
     handle.dispose();
   });

@@ -3,8 +3,8 @@
 // the whole point of the capture cache is that they share images rather than
 // each flushing the pipeline with its own `toImageSync`.
 import 'package:fluid_glass/fluid_glass.dart';
-import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:material_ui/material_ui.dart';
 
 const Size _size = Size(400, 800);
 

@@ -12,8 +12,8 @@ import 'package:fluid_glass_example/catalog/destinations/lab_light_spill_content
 import 'package:fluid_glass_example/catalog/destinations/lab_light_state_content.dart';
 import 'package:fluid_glass_example/catalog/destinations/lab_morph_content.dart';
 import 'package:fluid_glass_example/catalog/destinations/lab_velocity_blur_content.dart';
-import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:material_ui/material_ui.dart';
 
 Future<void> _pumpLab(WidgetTester tester, Widget page) async {
   tester.view.physicalSize = const Size(1080, 2400);

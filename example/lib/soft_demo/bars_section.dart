@@ -1,6 +1,6 @@
 import 'package:fluid_glass/fluid_glass.dart';
-import 'package:flutter/material.dart' show Icons;
 import 'package:flutter/widgets.dart';
+import 'package:material_ui/material_ui.dart' show Icons;
 
 /// The top app bars and tabs of the soft family, laid out like the
 /// reference gallery: a collapsing large-title page, the small bar over a

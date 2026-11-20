@@ -1,7 +1,7 @@
 import 'package:fluid_glass/fluid_glass.dart';
 import 'package:fluid_glass/src/internal/shader_programs.dart';
-import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:material_ui/material_ui.dart';
 
 // Which body a LiquidFusion builds — the shader's, or the plain fallback — is
 // decided by things that change without the widget being rebuilt: the

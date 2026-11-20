@@ -1,7 +1,7 @@
 import 'package:fluid_glass/fluid_glass.dart';
 import 'package:fluid_glass/src/internal/shader_programs.dart';
-import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:material_ui/material_ui.dart';
 
 // A LiquidFusion over the compositor (nativeBackdrop): the blur is the
 // compositor's, clipped to the fused outline traced on the CPU, and the tint,

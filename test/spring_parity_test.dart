@@ -1,6 +1,6 @@
 import 'package:fluid_glass/fluid_glass.dart';
-import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:material_ui/material_ui.dart';
 
 /// Locks down the shape of the springs the catalog animates with.
 ///

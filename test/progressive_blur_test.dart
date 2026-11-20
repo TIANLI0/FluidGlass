@@ -1,9 +1,9 @@
 import 'dart:ui' as ui;
 
 import 'package:fluid_glass/fluid_glass.dart';
-import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:material_ui/material_ui.dart';
 
 /// The ramp is a stack of the engine's own Gaussian blurs, one per band,
 /// nested so each reads the previous band's output. `flutter_test` runs on

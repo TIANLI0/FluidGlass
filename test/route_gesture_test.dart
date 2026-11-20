@@ -1,6 +1,6 @@
 import 'package:fluid_glass/fluid_glass.dart';
-import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:material_ui/material_ui.dart';
 
 /// The iOS edge swipe is a recogniser in Flutter's own arena, not a system
 /// gesture: nothing sends a pointer cancel when it takes the finger, and the

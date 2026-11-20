@@ -1,7 +1,7 @@
 import 'package:fluid_glass/fluid_glass.dart';
-import 'package:flutter/material.dart'
-    show AdaptiveTextSelectionToolbar, Icons, SelectableText;
 import 'package:flutter/widgets.dart';
+import 'package:material_ui/material_ui.dart'
+    show AdaptiveTextSelectionToolbar, Icons, SelectableText;
 
 /// The library pieces an app needs for its profile, device, chat and notice
 /// screens.

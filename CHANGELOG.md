@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.6.0
+
+### Changed
+
+- **Migrated to `material_ui` and `cupertino_ui`.** Flutter 3.50 deprecates
+  `package:flutter/material.dart` and `package:flutter/cupertino.dart` in
+  favour of these standalone packages, and they are separate implementations,
+  not re-exports: a `ThemeData` from one is not a `ThemeData` from the other.
+  The library now reads `Theme`, `MaterialLocalizations` and the rest from
+  `material_ui`, so an app on `material_ui` gets its own theme here again.
+  An app still on `package:flutter/material.dart` should stay on 0.5.x, or
+  bridge its theme with `MaterialUiCompatibilityBridge`.
+- Requires Flutter 3.47 / Dart 3.13 (the floor `material_ui` sets).
+
 ## 0.5.7
 
 ### Added

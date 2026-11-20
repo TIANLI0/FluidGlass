@@ -10,8 +10,8 @@ import 'dart:ui' as ui;
 
 import 'package:fluid_glass/fluid_glass.dart';
 import 'package:flutter/gestures.dart';
-import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
+import 'package:material_ui/material_ui.dart';
 
 const String _definedDir = String.fromEnvironment('PROBE_DIR');
 final String _dir = _definedDir.isNotEmpty

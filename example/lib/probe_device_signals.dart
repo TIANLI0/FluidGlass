@@ -10,7 +10,7 @@ import 'dart:ui' as ui;
 
 import 'package:fluid_glass/fluid_glass.dart';
 import 'package:flutter/foundation.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();

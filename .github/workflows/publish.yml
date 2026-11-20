@@ -37,12 +37,11 @@ jobs:
       # `package:flutter/material.dart` (in favour of `material_ui`), which is
       # 91 infos across lib and test and none of them from the change being
       # published. The analyzer's verdict has to depend on the commit, not on
-      # the calendar. Moving to `material_ui` is its own piece of work — raise
-      # this pin as part of it, not before.
+      # the calendar. 0.6.0 made that move, and raised this pin with it.
       - uses: subosito/flutter-action@v2
         with:
           channel: stable
-          flutter-version: 3.47.9
+          flutter-version: 3.50.1
 
       # This is what actually authenticates the publish. pub does not exchange
       # the OIDC token itself — `dart-lang/setup-dart` mints it and writes the
@@ -51,10 +50,10 @@ jobs:
       # answer; that is how both the v0.1.1 and the first v0.1.2 runs hung.
       # It must come after flutter-action, so it configures the Dart SDK that
       # ships inside the Flutter one. It also installs a Dart of its own and
-      # puts it first on PATH, so it is pinned to the one Flutter 3.47.9 ships.
+      # puts it first on PATH, so it is pinned to the one Flutter 3.50.1 ships.
       - uses: dart-lang/setup-dart@v1
         with:
-          sdk: 3.13.7
+          sdk: 3.14.0
 
       - name: Check the tag matches pubspec.yaml
         run: |

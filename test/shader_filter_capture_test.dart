@@ -1,8 +1,8 @@
 import 'dart:ui' as ui;
 
 import 'package:fluid_glass/fluid_glass.dart';
-import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:material_ui/material_ui.dart';
 
 // A fragment-shader `ImageFilter` inside the source has to be rasterised
 // against the source's own extent.

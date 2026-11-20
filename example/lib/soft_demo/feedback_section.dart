@@ -1,6 +1,6 @@
 import 'package:fluid_glass/fluid_glass.dart';
-import 'package:flutter/material.dart' show Icons;
 import 'package:flutter/widgets.dart';
+import 'package:material_ui/material_ui.dart' show Icons;
 
 /// The snackbar, top tips, tooltip, progress indicator, page indicator and
 /// empty state sections of the reference gallery: a card of each, with every

@@ -3,9 +3,9 @@ import 'dart:ui' as ui;
 
 import 'package:fluid_glass/fluid_glass.dart';
 import 'package:fluid_glass/src/internal/sampling_layer.dart';
-import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:material_ui/material_ui.dart';
 
 // A glass element whose source has not changed still costs its whole effect
 // chain on every frame something *else* on the page repaints — the frame is

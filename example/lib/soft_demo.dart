@@ -1,7 +1,7 @@
 import 'package:fluid_glass/fluid_glass.dart';
-import 'package:flutter/material.dart' show Icons, MaterialApp;
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
+import 'package:material_ui/material_ui.dart' show Icons, MaterialApp;
 
 import 'soft_demo/motion_section.dart';
 import 'soft_demo/reference_page.dart';

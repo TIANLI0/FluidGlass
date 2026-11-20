@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 import '../backdrop.dart';
 import '../components/liquid_panel.dart';

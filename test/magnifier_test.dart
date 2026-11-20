@@ -1,8 +1,8 @@
 import 'dart:typed_data';
 
 import 'package:fluid_glass/fluid_glass.dart';
-import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:material_ui/material_ui.dart';
 
 /// Records the canvas transform the loupe hands its backdrop, which is where
 /// the magnification and [LiquidMagnifier.focalOffset] actually live.

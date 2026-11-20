@@ -4,7 +4,7 @@
 //   flutter run -t lib/probe_navigation_bar.dart -d <device>
 
 import 'package:fluid_glass/fluid_glass.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 void main() {
   GlassDeviceTier.instance.pinnedQuality = GlassQuality.liquid;

@@ -1,7 +1,7 @@
 import 'package:fluid_glass/fluid_glass.dart';
 import 'package:flutter/gestures.dart' show DeviceGestureSettings;
-import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:material_ui/material_ui.dart';
 
 /// A control in the middle of a vertical list, the way a settings page holds
 /// one: the list scrolls, the control is dragged sideways.

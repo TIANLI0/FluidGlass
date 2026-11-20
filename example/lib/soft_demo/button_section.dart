@@ -1,8 +1,8 @@
 import 'dart:async';
 
 import 'package:fluid_glass/fluid_glass.dart';
-import 'package:flutter/material.dart' show Icons;
 import 'package:flutter/widgets.dart';
+import 'package:material_ui/material_ui.dart' show Icons;
 
 /// The buttons and chips of the soft family, laid out like the reference
 /// gallery: text buttons in every colour and size, loading buttons, icon

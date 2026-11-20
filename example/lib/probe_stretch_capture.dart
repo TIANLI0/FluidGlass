@@ -26,9 +26,9 @@ import 'dart:typed_data';
 import 'dart:ui' as ui;
 
 import 'package:fluid_glass/fluid_glass.dart';
-import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/scheduler.dart';
+import 'package:material_ui/material_ui.dart';
 
 const double _w = 300;
 const double _h = 420;

@@ -1,7 +1,7 @@
 import 'package:fluid_glass/fluid_glass.dart';
 import 'package:fluid_glass_example/catalog/destinations/component_kit_content.dart';
-import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:material_ui/material_ui.dart';
 
 Future<void> _show(
   WidgetTester tester, {

@@ -4,10 +4,10 @@ import 'dart:ui' as ui;
 import 'package:fluid_glass/fluid_glass.dart';
 import 'package:fluid_glass/src/backdrops/layer_backdrop.dart'
     show PictureBackdropSource;
-import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:material_ui/material_ui.dart';
 
 const Key _scene = Key('scene');
 const Size _size = Size(400, 800);
