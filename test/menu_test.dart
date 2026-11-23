@@ -435,6 +435,65 @@ void main() {
     });
   });
 
+  /// Regression (CouCou, 2026-11): an app laid out as a centered column on a
+  /// wide screen puts the overlay's origin at (gutter, 0) and hands its subtree
+  /// a MediaQuery the size of the column. The anchor is measured globally, and
+  /// comparing a global x against the column's width pushed the panel a whole
+  /// gutter further from the edge than it needed to go.
+  testWidgets('edge avoidance works in the overlay, not the screen', (
+    WidgetTester tester,
+  ) async {
+    const double gutter = 150;
+    await tester.pumpWidget(
+      MaterialApp(
+        builder: (BuildContext context, Widget? child) {
+          final MediaQueryData data = MediaQuery.of(context);
+          return Padding(
+            padding: const EdgeInsets.symmetric(horizontal: gutter),
+            child: MediaQuery(
+              data: data.copyWith(
+                size: Size(data.size.width - gutter * 2, data.size.height),
+              ),
+              child: child!,
+            ),
+          );
+        },
+        home: Scaffold(
+          body: Align(
+            alignment: Alignment.centerRight,
+            child: LiquidMenu(
+              backdrop: emptyBackdrop,
+              items: const <LiquidMenuItem>[
+                LiquidMenuItem(label: 'One'),
+                LiquidMenuItem(label: 'Two'),
+              ],
+              anchorBuilder:
+                  (BuildContext context, bool isOpen, VoidCallback toggle) =>
+                      GestureDetector(
+                        onTap: toggle,
+                        child: const SizedBox(
+                          width: 120,
+                          height: 48,
+                          child: Center(child: Text('Anchor')),
+                        ),
+                      ),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('Anchor'));
+    await tester.pumpAndSettle();
+
+    final double columnRight =
+        tester.view.physicalSize.width / tester.view.devicePixelRatio - gutter;
+    final Rect row = tester.getRect(find.text('Two'));
+    // Pushed in just far enough to clear the column's right edge — not a
+    // whole gutter further.
+    expect(row.right, lessThanOrEqualTo(columnRight));
+    expect(row.right, greaterThan(columnRight - 160));
+  });
+
   testWidgets('rootOverlay puts the panel over a sibling of the navigator', (
     WidgetTester tester,
   ) async {

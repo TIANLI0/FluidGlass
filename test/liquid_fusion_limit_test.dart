@@ -103,6 +103,56 @@ void main() {
     expect(element.top, lessThan(box.top - 20));
   });
 
+  /// Regression (CouCou, 2026-11): an app laid out as a centered column on a
+  /// wide screen hands its subtree a MediaQuery the size of the column while
+  /// the column starts at (gutter, 0). The visible region was the MediaQuery
+  /// size laid at the origin, so the last gutter's width of the column was
+  /// taken for off-screen and a body there was cut straight down.
+  testWidgets('a body near the far edge of an offset column is not cut', (
+    WidgetTester tester,
+  ) async {
+    const double gutter = 150;
+    await tester.pumpWidget(
+      MaterialApp(
+        builder: (BuildContext context, Widget? child) {
+          final MediaQueryData data = MediaQuery.of(context);
+          return Padding(
+            padding: const EdgeInsets.symmetric(horizontal: gutter),
+            child: MediaQuery(
+              data: data.copyWith(
+                size: Size(data.size.width - gutter * 2, data.size.height),
+              ),
+              child: child!,
+            ),
+          );
+        },
+        home: GlassQualityScope(
+          quality: GlassQuality.liquid,
+          child: Align(
+            alignment: Alignment.centerRight,
+            child: SizedBox(
+              width: 200,
+              height: 48,
+              child: LiquidFusion(
+                backdrop: const CanvasBackdrop(_fill),
+                blobs: const <LiquidBlob>[
+                  LiquidBlob(Rect.fromLTWH(0, 0, 144, 48)),
+                  LiquidBlob(Rect.fromLTWH(152, 0, 48, 48)),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    final Rect element = tester.getRect(find.byType(DrawBackdrop));
+    final Rect box = tester.getRect(find.byType(LiquidFusion));
+    // The column ends a gutter short of the screen: there is room past it.
+    expect(element.right, greaterThan(box.right + 20));
+  });
+
   /// Regression (2026-09-23, on the emulator): a page that slides in is first
   /// painted — and snapshotted for the transition — while it is still off to
   /// the right, and then painted exactly once more, at rest. The first limit

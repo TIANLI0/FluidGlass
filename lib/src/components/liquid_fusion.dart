@@ -694,8 +694,15 @@ class _RenderLimitWatcher extends RenderProxyBox {
   /// — a card that ends a few pixels under the button it holds is enough.
   /// Walking the ancestors is a handful of virtual calls per paint, and only a
   /// clipping ancestor costs a transform.
+  ///
+  /// **The screen is the root view's, in global coordinates** — not
+  /// `MediaQuery`'s size laid at the origin. An app that lays itself out as a
+  /// centered column on a wide screen hands its subtree a MediaQuery the size
+  /// of the column, while the column itself starts at (gutter, 0): the last
+  /// gutter's width of the column, on the far side, was taken for off-screen
+  /// and the body's shadow cut straight there.
   Rect _visibleRegion() {
-    Rect region = Offset.zero & _screen;
+    Rect region = Rect.largest;
     RenderObject child = this;
     RenderObject? ancestor = parent;
     while (ancestor != null) {
@@ -708,7 +715,8 @@ class _RenderLimitWatcher extends RenderProxyBox {
       child = ancestor;
       ancestor = ancestor.parent;
     }
-    return region;
+    final Size screen = child is RenderView ? child.size : _screen;
+    return region.intersect(Offset.zero & screen);
   }
 
   @override

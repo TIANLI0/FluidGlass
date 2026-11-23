@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.6.1
+
+### Fixed
+
+- `LiquidMenu`'s edge avoidance compared the anchor's global position against
+  the overlay's width. An app laid out as a centered column on a wide screen
+  (the overlay starting at a gutter, not the screen's corner) had its panel
+  pushed a whole gutter further from the edge than needed — or not far enough
+  from a real one. Avoidance now works in the overlay's own coordinates.
+- `LiquidFusion`'s visible region started from `MediaQuery`'s size laid at the
+  origin. In the same centered-column layout, the far gutter's width of the
+  column counted as off-screen and a body there had its shadow cut straight
+  down. The region now starts from the root view.
+
 ## 0.6.0
 
 ### Changed

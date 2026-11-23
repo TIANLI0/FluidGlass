@@ -351,18 +351,35 @@ class _LiquidMenuState extends State<LiquidMenu> with TickerProviderStateMixin {
     Widget buildOverlayChild(BuildContext context) {
       // Edge avoidance: on a narrow screen an anchor-aligned panel can hang
       // past the edge, shearing its rim off.
-      final Size screen = MediaQuery.sizeOf(context);
+      //
+      // **In the overlay's own coordinates, not global ones.** The anchor is
+      // measured globally, and an overlay does not have to start at the
+      // screen's corner: an app laid out as a centered column on a wide screen
+      // puts the overlay's origin at (gutter, 0), and comparing a global x
+      // against the overlay's width pushes the panel off by the gutter — away
+      // from a free edge, or not far enough from a real one. On a phone the
+      // gutter is 0 and none of this shows.
+      final RenderObject? overlayBox = Overlay.maybeOf(
+        context,
+        rootOverlay: widget.rootOverlay,
+      )?.context.findRenderObject();
+      final bool measured =
+          overlayBox is RenderBox && overlayBox.attached && overlayBox.hasSize;
+      final Rect anchorRect = measured
+          ? _anchorRect.shift(-overlayBox.localToGlobal(Offset.zero))
+          : _anchorRect;
+      final Size screen = measured
+          ? overlayBox.size
+          : MediaQuery.sizeOf(context);
       final EdgeInsets margin = widget.margin;
       double dx = 0;
       if (leading) {
         final double overflow =
-            _anchorRect.left +
-            widget.panelWidth -
-            (screen.width - margin.right);
+            anchorRect.left + widget.panelWidth - (screen.width - margin.right);
         if (overflow > 0) dx = -overflow;
       } else {
         final double underflow =
-            margin.left - (_anchorRect.right - widget.panelWidth);
+            margin.left - (anchorRect.right - widget.panelWidth);
         if (underflow > 0) dx = underflow;
       }
 
@@ -372,8 +389,8 @@ class _LiquidMenuState extends State<LiquidMenu> with TickerProviderStateMixin {
       // the preference so the result is at least predictable.
       final double span = _panelHeight + widget.gap;
       final bool fitsBelow =
-          _anchorRect.bottom + span <= screen.height - margin.bottom;
-      final bool fitsAbove = _anchorRect.top - span >= margin.top;
+          anchorRect.bottom + span <= screen.height - margin.bottom;
+      final bool fitsAbove = anchorRect.top - span >= margin.top;
       final bool prefersBelow = widget.side == LiquidMenuSide.below;
       final bool below = prefersBelow
           ? (fitsBelow || !fitsAbove)
